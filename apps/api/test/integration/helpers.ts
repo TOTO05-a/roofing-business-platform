@@ -4,7 +4,7 @@ import request from 'supertest';
 import { hashPassword } from 'better-auth/crypto';
 import { expect } from 'vitest';
 import { createApp } from '../../src/app.js';
-import type { Role } from '../../src/auth/roles.js';
+import type { Role, UserStatus } from '../../src/auth/roles.js';
 import { parseEnv, type Env } from '../../src/env.js';
 import { createDb, type Db } from '../../src/lib/db.js';
 import type { MailMessage } from '../../src/lib/mailer.js';
@@ -70,11 +70,11 @@ export async function createUser(
     role?: Role;
     name?: string;
     emailVerified?: boolean;
-    active?: boolean;
+    status?: UserStatus;
   } = {},
 ): Promise<CreatedUser> {
   const id = randomUUID();
-  const role = options.role ?? 'CLIENTE';
+  const role = options.role ?? 'CUSTOMER';
   const email = options.email ?? `${role.toLowerCase()}-${id.slice(0, 8)}@example.com`;
   const password = options.password ?? DEFAULT_PASSWORD;
   await db.user.create({
@@ -84,7 +84,7 @@ export async function createUser(
       name: options.name ?? `Usuario ${role}`,
       role,
       emailVerified: options.emailVerified ?? true,
-      active: options.active ?? true,
+      status: options.status ?? 'ACTIVE',
       accounts: {
         create: { providerId: 'credential', accountId: id, password: await hashPassword(password) },
       },
@@ -104,7 +104,11 @@ export type Agent = ReturnType<typeof request.agent>;
 
 /** Cliente con cookies persistentes, Origin de la app y una IP propia. */
 export function newAgent(app: Express, ip: string = uniqueIp()): Agent {
-  return request.agent(app).set('Origin', APP_ORIGIN).set('X-Forwarded-For', ip);
+  return request
+    .agent(app)
+    .set('Origin', APP_ORIGIN)
+    .set('X-Forwarded-For', ip)
+    .set('User-Agent', 'roofing-integration-tests');
 }
 
 export function signIn(agent: Agent, email: string, password: string) {

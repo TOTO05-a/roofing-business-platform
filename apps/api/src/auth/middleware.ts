@@ -65,7 +65,7 @@ export function requireAuth(auth: Auth, options: RequireAuthOptions = {}): Reque
     if (!session) {
       throw new HttpError(401, 'UNAUTHENTICATED', 'Debes iniciar sesión');
     }
-    if (session.user.active !== true) {
+    if (session.user.status !== 'ACTIVE' || session.user.deletedAt) {
       throw new HttpError(403, 'ACCOUNT_DISABLED', 'La cuenta está desactivada');
     }
     const user = toAuthUser(session);

@@ -2,13 +2,16 @@ import type { Db } from './db.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
 export interface AuditEntry {
-  actorId?: string | null;
+  actorUserId?: string | null;
   actorEmail?: string | null;
   action: string;
   entityType: string;
   entityId?: string | null;
-  metadata?: Prisma.InputJsonValue;
+  /** Estado anterior/posterior de lo que cambió. Nunca contraseñas, tokens ni secretos. */
+  before?: Prisma.InputJsonValue;
+  after?: Prisma.InputJsonValue;
   ip?: string | null;
+  userAgent?: string | null;
 }
 
 type AuditClient = Pick<Db, 'auditLog'>;
@@ -17,13 +20,23 @@ type AuditClient = Pick<Db, 'auditLog'>;
 export async function recordAudit(db: AuditClient, entry: AuditEntry): Promise<void> {
   await db.auditLog.create({
     data: {
-      actorId: entry.actorId ?? null,
+      actorUserId: entry.actorUserId ?? null,
       actorEmail: entry.actorEmail ?? null,
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId ?? null,
-      ...(entry.metadata === undefined ? {} : { metadata: entry.metadata }),
+      ...(entry.before === undefined ? {} : { before: entry.before }),
+      ...(entry.after === undefined ? {} : { after: entry.after }),
       ip: entry.ip ?? null,
+      userAgent: entry.userAgent ?? null,
     },
   });
+}
+
+/** Datos de la petición HTTP que se guardan con cada entrada de auditoría. */
+export function requestMeta(req: {
+  ip?: string | undefined;
+  get(name: string): string | undefined;
+}) {
+  return { ip: req.ip ?? null, userAgent: req.get('user-agent')?.slice(0, 512) ?? null };
 }

@@ -7,8 +7,8 @@ import type { Role } from './roles.js';
  * Cada recurso de negocio (proyecto, presupuesto, pago…) se describe con su dueño
  * (el cliente) y las personas empleadas asignadas. Las reglas son:
  * - ADMIN y SUPERADMIN: acceden a todo.
- * - EMPLEADO: solo a lo que tiene asignado.
- * - CLIENTE: solo a lo suyo.
+ * - EMPLOYEE: solo a lo que tiene asignado.
+ * - CUSTOMER: solo a lo suyo.
  *
  * Uso en una ruta:
  *   const project = await db.project.findUnique({ where: { id }, select: {...} });
@@ -31,9 +31,9 @@ export function canAccessResource(principal: Principal, resource: ResourceAccess
     case 'SUPERADMIN':
     case 'ADMIN':
       return true;
-    case 'EMPLEADO':
+    case 'EMPLOYEE':
       return resource.assigneeIds?.includes(principal.id) ?? false;
-    case 'CLIENTE':
+    case 'CUSTOMER':
       return resource.ownerId !== null && resource.ownerId === principal.id;
   }
 }

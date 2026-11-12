@@ -2,7 +2,10 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('CLIENTE', 'EMPLEADO', 'ADMIN', 'SUPERADMIN');
+CREATE TYPE "Role" AS ENUM ('CUSTOMER', 'EMPLOYEE', 'ADMIN', 'SUPERADMIN');
+
+-- CreateEnum
+CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'DISABLED');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -11,11 +14,12 @@ CREATE TABLE "users" (
     "email" TEXT NOT NULL,
     "email_verified" BOOLEAN NOT NULL DEFAULT false,
     "image" TEXT,
-    "role" "Role" NOT NULL DEFAULT 'CLIENTE',
-    "active" BOOLEAN NOT NULL DEFAULT true,
+    "role" "Role" NOT NULL DEFAULT 'CUSTOMER',
+    "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
     "two_factor_enabled" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(3) NOT NULL,
+    "deleted_at" TIMESTAMPTZ(3),
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -85,8 +89,9 @@ CREATE TABLE "invitations" (
     "role" "Role" NOT NULL,
     "token_hash" TEXT NOT NULL,
     "expires_at" TIMESTAMPTZ(3) NOT NULL,
-    "used_at" TIMESTAMPTZ(3),
-    "created_by_id" UUID,
+    "accepted_at" TIMESTAMPTZ(3),
+    "revoked_at" TIMESTAMPTZ(3),
+    "invited_by_id" UUID,
     "accepted_user_id" UUID,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -96,13 +101,15 @@ CREATE TABLE "invitations" (
 -- CreateTable
 CREATE TABLE "audit_logs" (
     "id" UUID NOT NULL,
-    "actor_id" UUID,
+    "actor_user_id" UUID,
     "actor_email" TEXT,
     "action" TEXT NOT NULL,
     "entity_type" TEXT NOT NULL,
     "entity_id" TEXT,
-    "metadata" JSONB,
+    "before" JSONB,
+    "after" JSONB,
     "ip" TEXT,
+    "user_agent" TEXT,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
@@ -148,10 +155,10 @@ CREATE UNIQUE INDEX "invitations_token_hash_key" ON "invitations"("token_hash");
 CREATE UNIQUE INDEX "invitations_accepted_user_id_key" ON "invitations"("accepted_user_id");
 
 -- CreateIndex
-CREATE INDEX "invitations_created_by_id_idx" ON "invitations"("created_by_id");
+CREATE INDEX "invitations_invited_by_id_idx" ON "invitations"("invited_by_id");
 
 -- CreateIndex
-CREATE INDEX "audit_logs_actor_id_created_at_idx" ON "audit_logs"("actor_id", "created_at");
+CREATE INDEX "audit_logs_actor_user_id_created_at_idx" ON "audit_logs"("actor_user_id", "created_at" DESC);
 
 -- CreateIndex
 CREATE INDEX "audit_logs_entity_type_entity_id_created_at_idx" ON "audit_logs"("entity_type", "entity_id", "created_at" DESC);
@@ -169,18 +176,19 @@ ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_fkey" FOREIGN KEY ("user
 ALTER TABLE "two_factors" ADD CONSTRAINT "two_factors_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "invitations" ADD CONSTRAINT "invitations_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_invited_by_id_fkey" FOREIGN KEY ("invited_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "invitations" ADD CONSTRAINT "invitations_accepted_user_id_fkey" FOREIGN KEY ("accepted_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_actor_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_actor_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 
 -- Correos siempre en minúsculas (Prisma no expresa CHECK).
 ALTER TABLE "users" ADD CONSTRAINT "users_email_lowercase_chk" CHECK ("email" = lower("email"));
 ALTER TABLE "invitations" ADD CONSTRAINT "invitations_email_lowercase_chk" CHECK ("email" = lower("email"));
 
--- Una sola invitación pendiente (sin usar) por correo.
-CREATE UNIQUE INDEX "invitations_email_pending_key" ON "invitations" ("email") WHERE "used_at" IS NULL;
+-- Una sola invitación pendiente (sin aceptar ni revocar) por correo.
+CREATE UNIQUE INDEX "invitations_email_pending_key" ON "invitations" ("email")
+  WHERE "accepted_at" IS NULL AND "revoked_at" IS NULL;

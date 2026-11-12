@@ -42,7 +42,7 @@ describe('2FA obligatorio para ADMIN y SUPERADMIN', () => {
   );
 
   it('los roles no privilegiados no necesitan 2FA', async () => {
-    const user = await createUser(db, { role: 'EMPLEADO' });
+    const user = await createUser(db, { role: 'EMPLOYEE' });
     const agent = newAgent(ctx.app);
     await signIn(agent, user.email, user.password);
     expect((await agent.get('/api/me')).body.twoFactorRequired).toBe(false);

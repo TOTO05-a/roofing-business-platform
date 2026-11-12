@@ -41,7 +41,7 @@ describe('acceso a la administración por rol', () => {
     expect((await agent.post('/api/admin/invitations').send({})).status).toBe(401);
   });
 
-  it.each(['CLIENTE', 'EMPLEADO', 'ADMIN'] as const)(
+  it.each(['CUSTOMER', 'EMPLOYEE', 'ADMIN'] as const)(
     '%s recibe 403 en las rutas de superadmin',
     async (role) => {
       const agent = await signedInAs(role);
@@ -58,7 +58,7 @@ describe('acceso a la administración por rol', () => {
         (await agent.patch(`/api/admin/users/${target.id}`).send({ role: 'SUPERADMIN' })).status,
       ).toBe(403);
       expect(await db.invitation.count()).toBe(0);
-      expect((await db.user.findUniqueOrThrow({ where: { id: target.id } })).role).toBe('CLIENTE');
+      expect((await db.user.findUniqueOrThrow({ where: { id: target.id } })).role).toBe('CUSTOMER');
     },
   );
 });
@@ -66,9 +66,9 @@ describe('acceso a la administración por rol', () => {
 describe('gestión de usuarios (SUPERADMIN)', () => {
   it('lista usuarios paginados y filtra por rol', async () => {
     const { agent } = await signInWithTwoFactor(ctx);
-    await createUser(db, { role: 'CLIENTE' });
-    await createUser(db, { role: 'CLIENTE' });
-    await createUser(db, { role: 'EMPLEADO' });
+    await createUser(db, { role: 'CUSTOMER' });
+    await createUser(db, { role: 'CUSTOMER' });
+    await createUser(db, { role: 'EMPLOYEE' });
 
     const all = await agent.get('/api/admin/users?pageSize=2');
     expect(all.status).toBe(200);
@@ -77,7 +77,7 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
     // Nunca expone hashes ni secretos.
     expect(JSON.stringify(all.body)).not.toMatch(/password|secret|scrypt/i);
 
-    const clients = await agent.get('/api/admin/users?role=CLIENTE');
+    const clients = await agent.get('/api/admin/users?role=CUSTOMER');
     expect(clients.body.total).toBe(2);
 
     expect((await agent.get('/api/admin/users?role=OTRO')).status).toBe(400);
@@ -85,35 +85,36 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
 
   it('cambia el rol, cierra las sesiones de esa persona y lo audita', async () => {
     const { agent, user: actor } = await signInWithTwoFactor(ctx);
-    const target = await createUser(db, { role: 'CLIENTE' });
+    const target = await createUser(db, { role: 'CUSTOMER' });
     const targetAgent = newAgent(ctx.app);
     await signIn(targetAgent, target.email, target.password);
 
-    const res = await agent.patch(`/api/admin/users/${target.id}`).send({ role: 'EMPLEADO' });
+    const res = await agent.patch(`/api/admin/users/${target.id}`).send({ role: 'EMPLOYEE' });
     expect(res.status).toBe(200);
-    expect(res.body.user).toMatchObject({ id: target.id, role: 'EMPLEADO', active: true });
+    expect(res.body.user).toMatchObject({ id: target.id, role: 'EMPLOYEE', status: 'ACTIVE' });
     expect((await targetAgent.get('/api/me')).status).toBe(401);
 
     const entry = await db.auditLog.findFirstOrThrow({ where: { action: 'user.role_change' } });
     expect(entry).toMatchObject({
-      actorId: actor.id,
+      actorUserId: actor.id,
       actorEmail: actor.email,
       entityType: 'user',
       entityId: target.id,
-      metadata: { from: 'CLIENTE', to: 'EMPLEADO' },
+      before: { role: 'CUSTOMER' },
+      after: { role: 'EMPLOYEE' },
     });
     expect(entry.ip).toMatch(/^198\.51\.100\./);
   });
 
   it('desactiva a un usuario: pierde la sesión, no puede volver a entrar y queda auditado', async () => {
     const { agent } = await signInWithTwoFactor(ctx);
-    const target = await createUser(db, { role: 'EMPLEADO' });
+    const target = await createUser(db, { role: 'EMPLOYEE' });
     const targetAgent = newAgent(ctx.app);
     await signIn(targetAgent, target.email, target.password);
 
-    const res = await agent.patch(`/api/admin/users/${target.id}`).send({ active: false });
+    const res = await agent.patch(`/api/admin/users/${target.id}`).send({ status: 'DISABLED' });
     expect(res.status).toBe(200);
-    expect(res.body.user.active).toBe(false);
+    expect(res.body.user.status).toBe('DISABLED');
 
     expect((await targetAgent.get('/api/me')).status).toBe(401);
     expect((await signIn(newAgent(ctx.app), target.email, target.password)).status).toBe(403);
@@ -121,7 +122,9 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
       await db.auditLog.count({ where: { action: 'user.deactivate', entityId: target.id } }),
     ).toBe(1);
 
-    const reactivate = await agent.patch(`/api/admin/users/${target.id}`).send({ active: true });
+    const reactivate = await agent
+      .patch(`/api/admin/users/${target.id}`)
+      .send({ status: 'ACTIVE' });
     expect(reactivate.status).toBe(200);
     expect(await db.auditLog.count({ where: { action: 'user.activate' } })).toBe(1);
     expect((await signIn(newAgent(ctx.app), target.email, target.password)).status).toBe(200);
@@ -129,7 +132,7 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
 
   it('no permite cambiarse el rol ni desactivarse a sí mismo', async () => {
     const { agent, user } = await signInWithTwoFactor(ctx);
-    const res = await agent.patch(`/api/admin/users/${user.id}`).send({ active: false });
+    const res = await agent.patch(`/api/admin/users/${user.id}`).send({ status: 'DISABLED' });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('CANNOT_MODIFY_SELF');
   });
@@ -139,15 +142,15 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
     const target = await createUser(db);
     expect((await agent.patch(`/api/admin/users/${target.id}`).send({})).status).toBe(400);
     expect(
-      (await agent.patch(`/api/admin/users/${target.id}`).send({ role: 'CLIENTE', extra: 1 }))
+      (await agent.patch(`/api/admin/users/${target.id}`).send({ role: 'CUSTOMER', extra: 1 }))
         .status,
     ).toBe(400);
-    expect((await agent.patch('/api/admin/users/no-es-uuid').send({ active: false })).status).toBe(
-      400,
-    );
+    expect(
+      (await agent.patch('/api/admin/users/no-es-uuid').send({ status: 'DISABLED' })).status,
+    ).toBe(400);
     const missing = await agent
       .patch('/api/admin/users/0190f0a0-0000-7000-8000-000000000000')
-      .send({ active: false });
+      .send({ status: 'DISABLED' });
     expect(missing.status).toBe(404);
   });
 });

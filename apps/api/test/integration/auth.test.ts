@@ -31,10 +31,10 @@ function cookieHeader(res: { headers: Record<string, unknown> }): string[] {
 
 describe('inicio de sesión con correo y contraseña', () => {
   it('con credenciales correctas crea una sesión en cookie httpOnly y SameSite=Lax', async () => {
-    const user = await createUser(db, { role: 'CLIENTE', email: 'cliente@example.com' });
+    const user = await createUser(db, { role: 'CUSTOMER', email: 'cliente@example.com' });
     const agent = newAgent(ctx.app);
 
-    const res = await signIn(agent, 'CLIENTE@example.com', user.password);
+    const res = await signIn(agent, 'CLIENTE@Example.com', user.password);
     expect(res.status).toBe(200);
     const sessionCookie = cookieHeader(res).find((c) => c.includes('session_token='));
     expect(sessionCookie).toBeDefined();
@@ -49,8 +49,8 @@ describe('inicio de sesión con correo y contraseña', () => {
       user: {
         id: user.id,
         email: user.email,
-        name: 'Usuario CLIENTE',
-        role: 'CLIENTE',
+        name: 'Usuario CUSTOMER',
+        role: 'CUSTOMER',
         emailVerified: true,
         twoFactorEnabled: false,
       },
@@ -64,7 +64,12 @@ describe('inicio de sesión con correo y contraseña', () => {
     expect((await signIn(agent, user.email, user.password)).status).toBe(200);
 
     const entry = await db.auditLog.findFirst({ where: { action: 'auth.sign_in' } });
-    expect(entry).toMatchObject({ actorId: user.id, entityType: 'session', ip: '203.0.113.7' });
+    expect(entry).toMatchObject({
+      actorUserId: user.id,
+      entityType: 'session',
+      ip: '203.0.113.7',
+      userAgent: 'roofing-integration-tests',
+    });
   });
 
   it('con contraseña incorrecta responde 401 y no crea sesión', async () => {
@@ -98,7 +103,7 @@ describe('inicio de sesión con correo y contraseña', () => {
   });
 
   it('un usuario desactivado no puede iniciar sesión', async () => {
-    const user = await createUser(db, { active: false });
+    const user = await createUser(db, { status: 'DISABLED' });
     const res = await signIn(newAgent(ctx.app), user.email, user.password);
     expect(res.status).toBe(403);
     expect(await db.session.count()).toBe(0);
@@ -132,7 +137,7 @@ describe('registro abierto', () => {
     await signIn(agent, user.email, user.password);
     await agent.post('/api/auth/update-user').send({ role: 'SUPERADMIN', name: 'Nuevo nombre' });
     const stored = await db.user.findUniqueOrThrow({ where: { id: user.id } });
-    expect(stored.role).toBe('CLIENTE');
+    expect(stored.role).toBe('CUSTOMER');
   });
 });
 

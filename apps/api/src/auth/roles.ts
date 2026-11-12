@@ -1,5 +1,9 @@
-export const ROLES = ['CLIENTE', 'EMPLEADO', 'ADMIN', 'SUPERADMIN'] as const;
+// Valores en inglés, como en docs/arquitectura/modelo-datos.md; la interfaz los traduce.
+export const ROLES = ['CUSTOMER', 'EMPLOYEE', 'ADMIN', 'SUPERADMIN'] as const;
 export type Role = (typeof ROLES)[number];
+
+export const USER_STATUSES = ['ACTIVE', 'DISABLED'] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
 
 /** Roles que deben tener 2FA (TOTP) activo para usar la plataforma. */
 export const PRIVILEGED_ROLES: readonly Role[] = ['ADMIN', 'SUPERADMIN'];

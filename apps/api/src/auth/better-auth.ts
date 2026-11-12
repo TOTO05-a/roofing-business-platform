@@ -1,12 +1,12 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { APIError } from 'better-auth/api';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { twoFactor } from 'better-auth/plugins';
 import type { Env } from '../env.js';
 import { recordAudit } from '../lib/audit.js';
 import type { Db } from '../lib/db.js';
 import { actionEmail, type Mailer } from '../lib/mailer.js';
-import { ROLES } from './roles.js';
+import { ROLES, USER_STATUSES } from './roles.js';
 
 /**
  * Cabecera interna con la IP del cliente. La API la sobrescribe en cada petición con
@@ -17,6 +17,29 @@ export const CLIENT_IP_HEADER = 'x-roofing-client-ip';
 
 export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 128;
+export const NAME_MAX_LENGTH = 100;
+
+/**
+ * Endpoints de Better Auth que el producto no usa. Se desactivan para reducir superficie:
+ * oráculo de contraseñas (/verify-password), cuentas sociales, cambio de correo y borrado
+ * de cuenta (lo gestiona la administración), y OTP por correo (solo se usa TOTP).
+ */
+export const DISABLED_AUTH_PATHS = [
+  '/sign-up/email',
+  '/verify-password',
+  '/update-session',
+  '/change-email',
+  '/delete-user',
+  '/delete-user/callback',
+  '/sign-in/social',
+  '/link-social',
+  '/unlink-account',
+  '/get-access-token',
+  '/refresh-token',
+  '/account-info',
+  '/two-factor/send-otp',
+  '/two-factor/verify-otp',
+];
 
 export interface AuthDeps {
   env: Env;
@@ -38,6 +61,10 @@ function sendInBackground(mailer: Mailer, message: Parameters<Mailer['send']>[0]
   });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export function createAuth({ env, db, mailer }: AuthDeps) {
   const isProduction = env.NODE_ENV === 'production';
 
@@ -49,12 +76,14 @@ export function createAuth({ env, db, mailer }: AuthDeps) {
     trustedOrigins: trustedOriginsFor(env),
     database: prismaAdapter(db, { provider: 'postgresql' }),
     telemetry: { enabled: false },
+    disabledPaths: DISABLED_AUTH_PATHS,
 
     user: {
       additionalFields: {
         // `input: false`: ningún endpoint de Better Auth permite fijarlos desde el cliente.
-        role: { type: [...ROLES], required: false, defaultValue: 'CLIENTE', input: false },
-        active: { type: 'boolean', required: false, defaultValue: true, input: false },
+        role: { type: [...ROLES], required: false, defaultValue: 'CUSTOMER', input: false },
+        status: { type: [...USER_STATUSES], required: false, defaultValue: 'ACTIVE', input: false },
+        deletedAt: { type: 'date', required: false, input: false },
       },
     },
 
@@ -123,6 +152,7 @@ export function createAuth({ env, db, mailer }: AuthDeps) {
         '/sign-in/email': { window: 60, max: 5 },
         '/request-password-reset': { window: 60, max: 3 },
         '/send-verification-email': { window: 60, max: 3 },
+        '/change-password': { window: 60, max: 5 },
         '/two-factor/*': { window: 60, max: 5 },
       },
     },
@@ -134,28 +164,62 @@ export function createAuth({ env, db, mailer }: AuthDeps) {
       database: { generateId: 'uuid' },
     },
 
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        const body: unknown = ctx.body;
+        // "Confiar en este dispositivo" permitiría a un ADMIN entrar 30 días solo con contraseña.
+        if (ctx.path.startsWith('/two-factor/verify') && isRecord(body) && body.trustDevice) {
+          throw new APIError('BAD_REQUEST', {
+            code: 'TRUST_DEVICE_NOT_ALLOWED',
+            message: 'No se permite recordar el dispositivo',
+          });
+        }
+        if (ctx.path === '/update-user' && isRecord(body)) {
+          const { name } = body;
+          const nameTooLong = typeof name === 'string' && name.trim().length > NAME_MAX_LENGTH;
+          if ('image' in body || nameTooLong) {
+            throw new APIError('BAD_REQUEST', {
+              code: 'INVALID_PROFILE_UPDATE',
+              message: `Solo se puede cambiar el nombre (máximo ${NAME_MAX_LENGTH} caracteres)`,
+            });
+          }
+        }
+      }),
+    },
+
     databaseHooks: {
       session: {
         create: {
           before: async (session) => {
             const user = await db.user.findUnique({
               where: { id: session.userId },
-              select: { active: true },
+              select: { status: true, deletedAt: true },
             });
-            if (!user?.active) {
+            if (!user || user.status !== 'ACTIVE' || user.deletedAt) {
               throw new APIError('FORBIDDEN', {
                 code: 'ACCOUNT_DISABLED',
                 message: 'La cuenta está desactivada',
               });
             }
           },
-          after: async (session) => {
+          after: async (session, ctx) => {
+            // Con 2FA, el plugin crea una sesión temporal al validar la contraseña y la borra
+            // enseguida: eso no es todavía un inicio de sesión completo.
+            let action = 'auth.sign_in';
+            if (ctx?.path === '/sign-in/email') {
+              const user = await db.user.findUnique({
+                where: { id: session.userId },
+                select: { twoFactorEnabled: true },
+              });
+              if (user?.twoFactorEnabled) action = 'auth.password_verified';
+            }
             await recordAudit(db, {
-              actorId: session.userId,
-              action: 'auth.sign_in',
+              actorUserId: session.userId,
+              action,
               entityType: 'session',
               entityId: session.id,
               ip: session.ipAddress ?? null,
+              userAgent: session.userAgent ?? null,
             });
           },
         },

@@ -11,7 +11,8 @@ import { emailSchema } from '../src/lib/validation.js';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../src/auth/better-auth.js';
 
 const seedEnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  // Obligatorio: el seed solo corre si se declara explícitamente desarrollo o pruebas.
+  NODE_ENV: z.enum(['development', 'test', 'production']),
   DATABASE_URL: z.url(),
   SEED_SUPERADMIN_EMAIL: emailSchema,
   SEED_SUPERADMIN_PASSWORD: z.string().min(PASSWORD_MIN_LENGTH).max(PASSWORD_MAX_LENGTH),
@@ -49,7 +50,12 @@ async function main(): Promise<void> {
         },
       });
       await tx.auditLog.create({
-        data: { action: 'seed.superadmin_create', entityType: 'user', entityId: id },
+        data: {
+          action: 'seed.superadmin_create',
+          entityType: 'user',
+          entityId: id,
+          after: { email: env.SEED_SUPERADMIN_EMAIL, role: 'SUPERADMIN' },
+        },
       });
     });
     console.log(

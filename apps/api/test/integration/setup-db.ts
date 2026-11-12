@@ -3,8 +3,10 @@ import { createDb } from '../../src/lib/db.js';
 import { testDatabaseUrl } from './database-url.js';
 
 /**
- * Prepara la base de datos de pruebas antes de la suite de integración:
- * la crea si no existe y aplica las migraciones versionadas (prisma migrate deploy).
+ * Prepara la base de datos de pruebas antes de la suite de integración: la crea si no
+ * existe, la deja vacía (es desechable; `testDatabaseUrl` exige que su nombre contenga
+ * "test") y aplica las migraciones versionadas con `prisma migrate deploy`, igual que en
+ * producción.
  */
 export default async function setup(): Promise<void> {
   const url = new URL(testDatabaseUrl());
@@ -22,6 +24,14 @@ export default async function setup(): Promise<void> {
     }
   } finally {
     await admin.$disconnect();
+  }
+
+  const testDb = createDb(url.toString());
+  try {
+    await testDb.$executeRawUnsafe('DROP SCHEMA IF EXISTS public CASCADE');
+    await testDb.$executeRawUnsafe('CREATE SCHEMA public');
+  } finally {
+    await testDb.$disconnect();
   }
 
   execSync('pnpm exec prisma migrate deploy', {
