@@ -16,7 +16,8 @@
     "typecheck": "pnpm build:shared && pnpm -r run typecheck",
     "test": "pnpm build:shared && pnpm -r run test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

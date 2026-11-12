@@ -23,3 +23,7 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 ~$*
+
+# Pruebas e2e
+e2e/screenshots/
+e2e/.results/
