@@ -6,17 +6,25 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "dependencies": { "zod": "^4.6.7" },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
   "devDependencies": {
     "@roofing/config": "workspace:*",
+    "@types/node": "^26.6.6",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0"
   }
