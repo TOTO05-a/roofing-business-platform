@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=/pnpm:$PATH
-RUN corepack enable && corepack prepare pnpm@12.18.0 --activate
+RUN npm install -g pnpm@12.18.0 --allow-scripts=pnpm
 WORKDIR /repo
 
 FROM base AS build
@@ -17,7 +17,7 @@ COPY apps/api apps/api
 RUN pnpm --filter @roofing/shared build && pnpm --filter @roofing/api build
 RUN pnpm --filter @roofing/api deploy --prod /out
 
-FROM node:24-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 WORKDIR /app
