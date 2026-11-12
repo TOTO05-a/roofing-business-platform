@@ -2,16 +2,25 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { parseEnv } from '../src/env.js';
+import { createServices } from '../src/services.js';
+
+// Estas pruebas no tocan la base de datos: Prisma solo conecta en la primera consulta.
+const env = parseEnv({
+  NODE_ENV: 'test',
+  DATABASE_URL: 'postgresql://user:pass@127.0.0.1:1/unused',
+  BETTER_AUTH_SECRET: 'unit-test-secret-unit-test-secret-1234',
+});
+const app = createApp(createServices(env, { mailer: { send: async () => {} } }));
 
 describe('GET /api/health', () => {
   it('responde {status:"ok"}', async () => {
-    const res = await request(createApp()).get('/api/health');
+    const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'ok' });
   });
 
   it('envía cabeceras de helmet', async () => {
-    const res = await request(createApp()).get('/api/health');
+    const res = await request(app).get('/api/health');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['x-powered-by']).toBeUndefined();
   });
@@ -19,7 +28,7 @@ describe('GET /api/health', () => {
 
 describe('rutas desconocidas', () => {
   it('devuelve 404 en JSON', async () => {
-    const res = await request(createApp()).get('/api/no-existe');
+    const res = await request(app).get('/api/no-existe');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({
       error: { code: 'NOT_FOUND', message: 'Recurso no encontrado' },
@@ -29,8 +38,9 @@ describe('rutas desconocidas', () => {
 
 describe('manejo de errores', () => {
   it('responde 400 JSON ante un cuerpo JSON inválido', async () => {
-    const res = await request(createApp())
+    const res = await request(app)
       .post('/api/health')
+      .set('Origin', 'http://localhost:5173')
       .set('Content-Type', 'application/json')
       .send('{malformado');
     expect(res.status).toBe(400);
@@ -38,12 +48,80 @@ describe('manejo de errores', () => {
   });
 });
 
+describe('protección CSRF de las rutas propias', () => {
+  it('rechaza un POST sin cabecera Origin', async () => {
+    const res = await request(app).post('/api/invitations/accept').send({});
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('INVALID_ORIGIN');
+  });
+
+  it('rechaza un POST desde un origen no confiable', async () => {
+    const res = await request(app)
+      .post('/api/invitations/accept')
+      .set('Origin', 'https://evil.example')
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('también protege los endpoints de Better Auth (login CSRF)', async () => {
+    const res = await request(app)
+      .post('/api/auth/sign-in/email')
+      .set('Origin', 'https://evil.example')
+      .send({ email: 'a@example.com', password: 'x' });
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('INVALID_ORIGIN');
+  });
+
+  it('deja pasar el origen de la app hasta la validación', async () => {
+    const res = await request(app)
+      .post('/api/invitations/accept')
+      .set('Origin', 'http://localhost:5173')
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+});
+
 describe('parseEnv', () => {
+  const required = {
+    DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+    BETTER_AUTH_SECRET: 'x'.repeat(32),
+  };
+
   it('aplica valores por defecto', () => {
-    expect(parseEnv({})).toEqual({ NODE_ENV: 'development', PORT: 3000 });
+    expect(parseEnv(required)).toMatchObject({
+      NODE_ENV: 'development',
+      PORT: 3000,
+      APP_URL: 'http://localhost:5173',
+      TRUST_PROXY: 0,
+      SMTP_HOST: 'localhost',
+      SMTP_PORT: 1025,
+      SMTP_SECURE: false,
+      TRUSTED_ORIGINS: [],
+      INVITATION_TTL_HOURS: 72,
+    });
+  });
+
+  it('trata las variables vacías como no definidas', () => {
+    const env = parseEnv({ ...required, SMTP_USER: '', TRUSTED_ORIGINS: '' });
+    expect(env.SMTP_USER).toBeUndefined();
+    expect(env.TRUSTED_ORIGINS).toEqual([]);
   });
 
   it('rechaza un PORT inválido', () => {
-    expect(() => parseEnv({ PORT: 'abc' })).toThrow(/PORT/);
+    expect(() => parseEnv({ ...required, PORT: 'abc' })).toThrow(/PORT/);
+  });
+
+  it('exige DATABASE_URL y un secreto de al menos 32 caracteres', () => {
+    expect(() => parseEnv({})).toThrow(/DATABASE_URL/);
+    expect(() => parseEnv({ ...required, BETTER_AUTH_SECRET: 'corto' })).toThrow(
+      /BETTER_AUTH_SECRET/,
+    );
+  });
+
+  it('exige https y SMTP real en producción', () => {
+    expect(() => parseEnv({ ...required, NODE_ENV: 'production' })).toThrow(
+      /BETTER_AUTH_URL[\s\S]*APP_URL[\s\S]*SMTP_HOST/,
+    );
   });
 });

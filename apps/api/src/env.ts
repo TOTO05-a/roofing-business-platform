@@ -1,10 +1,77 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  DATABASE_URL: z.url().optional(),
-});
+const originList = z
+  .string()
+  .optional()
+  .transform((value) =>
+    (value ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )
+  .pipe(z.array(z.url()));
+
+// Una variable vacía en .env (`SMTP_USER=`) cuenta como no definida.
+const optionalString = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.string().optional(),
+);
+
+const booleanString = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
+
+const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+    DATABASE_URL: z.url(),
+
+    // Better Auth. Genera el secreto con: openssl rand -base64 32
+    BETTER_AUTH_SECRET: z.string().min(32, 'Debe tener al menos 32 caracteres'),
+    // URL pública con la que el navegador llega a /api (mismo origen que la app gracias al proxy).
+    BETTER_AUTH_URL: z.url().default('http://localhost:5173'),
+    // Origen de la app React: enlaces de los correos y origen de confianza para CSRF.
+    APP_URL: z.url().default('http://localhost:5173'),
+    // Orígenes adicionales de confianza, separados por comas.
+    TRUSTED_ORIGINS: originList,
+    APP_NAME: z.string().min(1).default('Roofing Platform'),
+
+    // Número de proxies de confianza delante de la API (Express "trust proxy").
+    // 0 = conexión directa; en Render hay 1.
+    TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+
+    // Correo saliente (en desarrollo, Mailpit en localhost:1025).
+    SMTP_HOST: z.string().min(1).default('localhost'),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
+    SMTP_SECURE: booleanString,
+    SMTP_USER: optionalString,
+    SMTP_PASS: optionalString,
+    MAIL_FROM: z.string().min(3).default('Roofing Platform <no-reply@roofing.local>'),
+
+    INVITATION_TTL_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 30)
+      .default(72),
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV !== 'production') return;
+    for (const key of ['BETTER_AUTH_URL', 'APP_URL'] as const) {
+      if (!env[key].startsWith('https://')) {
+        ctx.addIssue({ code: 'custom', path: [key], message: 'Debe usar https en producción' });
+      }
+    }
+    if (env.SMTP_HOST === 'localhost') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMTP_HOST'],
+        message: 'Configura un servidor SMTP real en producción',
+      });
+    }
+  });
 
 export type Env = z.infer<typeof envSchema>;
 
