@@ -1,0 +1,72 @@
+name: CI API
+
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - 'apps/api/**'
+      - 'packages/shared/**'
+      - 'packages/config/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/ci-api.yml'
+  push:
+    branches: [dev, main]
+    paths:
+      - 'apps/api/**'
+      - 'packages/shared/**'
+      - 'packages/config/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/ci-api.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: roofing
+          POSTGRES_PASSWORD: roofing_ci_password
+          POSTGRES_DB: roofing_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U roofing -d roofing_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://roofing:roofing_ci_password@localhost:5432/roofing_test
+      SHADOW_DATABASE_URL: postgresql://roofing:roofing_ci_password@localhost:5432/roofing_shadow
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:shared
+      # Comprueba que el esquema y las migraciones versionadas no divergen (sale con 2 si difieren).
+      - name: Verifica que las migraciones cubren el esquema
+        working-directory: apps/api
+        env:
+          PGPASSWORD: roofing_ci_password
+        run: >-
+          psql -h localhost -U roofing -d roofing_test -c 'CREATE DATABASE roofing_shadow' &&
+          pnpm exec prisma migrate diff
+          --from-migrations prisma/migrations
+          --to-schema prisma/schema.prisma
+          --exit-code
+      - name: Pruebas de integración (Vitest + Supertest contra PostgreSQL)
+        run: pnpm --filter @roofing/api test:integration
