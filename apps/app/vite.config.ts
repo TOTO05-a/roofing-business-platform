@@ -9,4 +9,19 @@ export default defineConfig({
     proxy: { '/api': 'http://localhost:3000' },
   },
   preview: { port: 4173 },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Vite 8 usa Rolldown: `codeSplitting.groups` separa un chunk de vendor cacheable.
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react-vendor',
+              test: /node_modules[\\/](?:react|react-dom|react-router|scheduler)[\\/]/,
+            },
+          ],
+        },
+      },
+    },
+  },
 });
