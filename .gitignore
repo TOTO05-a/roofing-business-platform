@@ -27,3 +27,6 @@ Thumbs.db
 # Pruebas e2e
 e2e/screenshots/
 e2e/.results/
+
+# Herramientas locales de Claude Code (worktrees de otras sesiones)
+.claude/
