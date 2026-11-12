@@ -4,6 +4,8 @@ packages:
 
 allowBuilds:
   esbuild: true
+  prisma: true
+  '@prisma/engines': true
 
 minimumReleaseAgeExclude:
   - prettier@3.10.1
