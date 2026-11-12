@@ -52,7 +52,7 @@ erDiagram
     CustomerProfile ||--o{ Quote : recibe
     Property ||--o{ Quote : "sobre"
     Quote ||--|{ QuoteVersion : versiones
-    QuoteVersion ||--|{ QuoteOption : "Basico/Mejor/Premium"
+    QuoteVersion ||--|{ QuoteOption : "opciones ofrecidas (varias por nivel)"
     Package |o--o{ QuoteOption : "origen"
     QuoteOption ||--|{ QuoteLine : "instantánea"
     CatalogItem |o--o{ QuoteLine : "referencia informativa"
@@ -157,13 +157,13 @@ Los cambios de precio del catálogo nunca afectan presupuestos enviados (ver 2.5
 
 ### 2.5 Presupuesto (versiones e instantánea inmutable)
 
-Modelo: `Quote` es el contenedor lógico (cliente+propiedad+inspección). Cada `QuoteVersion` es una revisión numerada con parámetros y tres `QuoteOption` (Básico/Mejor/Premium). `QuoteLine` es la partida calculada y congelada.
+Modelo: `Quote` es el contenedor lógico (cliente+propiedad+inspección). Cada `QuoteVersion` es una revisión numerada con parámetros y una `QuoteOption` por cada paquete ofrecido: el motor puede devolver varios paquetes por nivel (Básico/Mejor/Premium) y la versión guarda las opciones elegidas para mostrar al cliente. `QuoteLine` es la partida calculada y congelada.
 
 | Entidad | Campos clave y restricciones |
 |---|---|
 | Quote | `number` UQ legible (ej. `Q-2026-0001`, secuencia), `customer_id`, `property_id`, `inspection_id` null, `created_by_id` FK User, `current_version_id` null, `status` derivado/caché del estado de la versión vigente, `deleted_at` |
 | QuoteVersion | `quote_id`, `version_number` (UQ con `quote_id`), `status` (QuoteStatus), `waste_bps` Int (ej. 1000 = 10 %; se aplica a las cantidades de material no fijas), `tax_bps` Int, `tax_applies_to_labor` bool default false (base imponible = material + mano de obra si es true, ya con descuento), `discount_bps` Int default 0 (CHECK 0..10000; descuento sobre el subtotal antes de impuesto, repartido proporcionalmente entre material y mano de obra; solo administración), `deposit_bps` Int (CHECK 0..10000), `measurements_snapshot` jsonb (copia de las InspectionSection usadas), `valid_until` timestamptz, `sent_at`, `viewed_at`, `expires_at`, `pdf_file_id` null, `pdf_sha256` null, `locked_at` (se fija al enviar) |
-| QuoteOption | `version_id`, `tier` (BASIC, BETTER, PREMIUM; UQ con `version_id`), `package_id` null (origen), `title`, `material_subtotal_cents`, `labor_subtotal_cents` (ambos antes de descuento), `discount_cents`, `tax_cents`, `total_cents` (= material + mano de obra − descuento + impuesto), `deposit_cents`, `balance_cents` (CHECK `deposit_cents + balance_cents = total_cents`), `selected_material_option_ids` jsonb |
+| QuoteOption | `version_id`, `tier` (BASIC, BETTER, PREMIUM; no único), `package_id` NOT NULL (origen; UQ `(version_id, package_id)`), `title`, `material_subtotal_cents`, `labor_subtotal_cents` (ambos antes de descuento), `discount_cents`, `tax_cents`, `total_cents` (= material + mano de obra − descuento + impuesto), `deposit_cents`, `balance_cents` (CHECK `deposit_cents + balance_cents = total_cents`), `selected_material_option_ids` jsonb |
 | QuoteLine | `option_id`, `sort_order`, `item_id` FK null y `material_option_id` FK null (solo referencia informativa, `onDelete: SetNull`), **snapshot**: `name`, `sku`, `kind`, `unit`, `quantity` Numeric(12,3), `purchase_unit_name`, `purchase_quantity`, `unit_material_price_cents`, `unit_labor_price_cents`, `line_material_cents`, `line_labor_cents`, `line_total_cents`, `color_name`, `texture_name`. Dinero redondeado con regla fija (half-up por línea) y documentada |
 
 Inmutabilidad: una versión con `locked_at` no admite UPDATE/INSERT/DELETE sobre sus Option/Line (trigger `BEFORE UPDATE/DELETE` que lanza excepción si el padre está bloqueado, además de validación en servicio). Para cambiar algo se crea una nueva versión (`version_number + 1`) y la anterior pasa a SUPERSEDED.
