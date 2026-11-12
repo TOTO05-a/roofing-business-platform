@@ -487,6 +487,15 @@ describe('calculateQuote: cantidades y redondeos', () => {
 });
 
 describe('coherencia de la entrada (superRefine)', () => {
+  it('rechaza un itemId repetido dentro del mismo paquete', () => {
+    const error = parseError({
+      ...baseInput,
+      packages: [{ ...firstPackage, lines: [...firstPackage.lines, firstPackage.lines[0]] }],
+    });
+    expect(error.issues[0]?.path).toEqual(['packages', 0, 'lines', 4, 'itemId']);
+    expect(error.issues[0]).toMatchObject({ code: 'custom', params: { code: 'DUPLICATE_ID' } });
+  });
+
   it('artículo inexistente: código y path', () => {
     const error = parseError({
       ...baseInput,
@@ -642,6 +651,77 @@ describe('límites y desbordes', () => {
     expect(() => calculateQuoteFromRaw(input)).toThrow(
       expect.objectContaining({ code: 'AMOUNT_NOT_SAFE_INTEGER' }),
     );
+  });
+
+  it('lanza QUANTITY_OUT_OF_RANGE si quantity no cabe en Numeric(12,3)', () => {
+    const input = structuredClone(baseInput) as Record<string, any>;
+    input.measurements.sections = Array.from({ length: 100 }, () => ({
+      areaSqFt: 1_000_000,
+      areaKind: 'SURFACE',
+      pitchRise: 0,
+    }));
+    input.catalog = [material('free', 'UNIT', 0)];
+    input.packages = [
+      {
+        packageId: 'p',
+        tier: 'BASIC',
+        name: 'B',
+        warranty: warranty(1),
+        lines: [{ itemId: 'free', quantityRule: 'PER_SQUARE', factor: 5000 }],
+      },
+    ];
+    expect(() => calculateQuoteFromRaw(input)).toThrow(
+      expect.objectContaining({ code: 'QUANTITY_OUT_OF_RANGE' }),
+    );
+  });
+
+  it('lanza QUANTITY_OUT_OF_RANGE si purchaseQuantity no cabe aunque quantity sí', () => {
+    const input = structuredClone(baseInput) as Record<string, any>;
+    input.measurements.sections = Array.from({ length: 100 }, () => ({
+      areaSqFt: 1_000_000,
+      areaKind: 'SURFACE',
+      pitchRise: 0,
+    }));
+    input.parameters.wasteBps = 0;
+    input.catalog = [
+      {
+        ...material('free', 'UNIT', 0),
+        purchaseUnit: { name: 'tiny', baseUnitsPerPurchaseUnit: 0.001 },
+      },
+    ];
+    input.packages = [
+      {
+        packageId: 'p',
+        tier: 'BASIC',
+        name: 'B',
+        warranty: warranty(1),
+        lines: [{ itemId: 'free', quantityRule: 'PER_SQUARE', factor: 500 }],
+      },
+    ];
+    // quantity = 5e8 (cabe) pero purchaseQuantity = 5e11.
+    expect(() => calculateQuoteFromRaw(input)).toThrow(
+      expect.objectContaining({ code: 'QUANTITY_OUT_OF_RANGE' }),
+    );
+  });
+
+  it('rechaza decimales que Numeric(10,4) y Numeric(10,3) no pueden guardar', () => {
+    expect(firstIssue(mutate((i) => (i.packages[0].lines[0].factor = 1.00005)))).toEqual({
+      path: ['packages', 0, 'lines', 0, 'factor'],
+      code: 'not_multiple_of',
+    });
+    expect(
+      firstIssue(mutate((i) => (i.catalog[3].purchaseUnit.baseUnitsPerPurchaseUnit = 0.0005))),
+    ).toEqual({
+      path: ['catalog', 3, 'purchaseUnit', 'baseUnitsPerPurchaseUnit'],
+      code: 'not_multiple_of',
+    });
+  });
+
+  it('acepta los decimales máximos del modelo', () => {
+    const input = structuredClone(baseInput) as Record<string, any>;
+    input.packages[0].lines[0].factor = 3.0001;
+    input.catalog[3].purchaseUnit.baseUnitsPerPurchaseUnit = 10.001;
+    expect(() => calculateQuoteFromRaw(input)).not.toThrow();
   });
 
   it('acepta un importe justo por debajo del límite INT4', () => {

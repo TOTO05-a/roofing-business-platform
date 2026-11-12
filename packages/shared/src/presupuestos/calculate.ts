@@ -9,6 +9,7 @@ import {
   toScaledQuantity,
 } from './money.js';
 import {
+  MAX_QUANTITY,
   quoteInputSchema,
   type CatalogItem,
   type PackageDefinition,
@@ -25,7 +26,11 @@ import {
 const INT4_MAX = 2_147_483_647;
 
 export type QuoteCalculationErrorCode =
-  'UNKNOWN_ITEM' | 'MISSING_FACTOR' | 'AMOUNT_NOT_SAFE_INTEGER' | 'AMOUNT_EXCEEDS_INT4';
+  | 'UNKNOWN_ITEM'
+  | 'MISSING_FACTOR'
+  | 'AMOUNT_NOT_SAFE_INTEGER'
+  | 'AMOUNT_EXCEEDS_INT4'
+  | 'QUANTITY_OUT_OF_RANGE';
 
 /** Error de cálculo con `code` estable; el mensaje está en español. */
 export class QuoteCalculationError extends Error {
@@ -186,7 +191,7 @@ function buildPackage(
   };
 }
 
-/** Todos los importes deben ser enteros seguros y caber en INT4. */
+/** Los importes deben ser enteros seguros que quepan en INT4 y las cantidades deben caber en `Numeric(12,3)`. */
 function assertAmountsInRange(result: QuoteResult): void {
   for (const pkg of result.packages) {
     const amounts = [
@@ -210,6 +215,14 @@ function assertAmountsInRange(result: QuoteResult): void {
         throw new QuoteCalculationError(
           'AMOUNT_EXCEEDS_INT4',
           `Un importe del paquete "${pkg.packageId}" supera ${INT4_MAX} centavos`,
+        );
+      }
+    }
+    for (const line of pkg.lines) {
+      if (line.quantity > MAX_QUANTITY || line.purchaseQuantity > MAX_QUANTITY) {
+        throw new QuoteCalculationError(
+          'QUANTITY_OUT_OF_RANGE',
+          `Una cantidad del paquete "${pkg.packageId}" supera ${MAX_QUANTITY}`,
         );
       }
     }

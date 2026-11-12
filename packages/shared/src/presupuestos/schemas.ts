@@ -11,6 +11,9 @@ import { z } from 'zod';
  * - Los límites numéricos evitan desbordes: el resultado debe caber en INT4 (ver `calculate.ts`).
  */
 
+/** Máximo de `Numeric(12,3)`: 999 999 999,999. */
+export const MAX_QUANTITY = 999_999_999.999;
+
 /** Límites de entrada (ver `QuoteCalculationError` para la comprobación final de importes). */
 export const LIMITS = {
   maxSections: 100,
@@ -71,7 +74,7 @@ export type CatalogUnit = z.infer<typeof catalogUnitSchema>;
 /** Unidad de compra (`PurchaseUnit`): cuántas unidades base trae cada unidad de compra (p. ej. 10 squares por rollo). */
 export const purchaseUnitSchema = z.object({
   name: z.string().trim().min(1),
-  baseUnitsPerPurchaseUnit: positiveBounded(LIMITS.maxBaseUnitsPerPurchaseUnit),
+  baseUnitsPerPurchaseUnit: positiveBounded(LIMITS.maxBaseUnitsPerPurchaseUnit).multipleOf(0.001),
 });
 export type PurchaseUnit = z.infer<typeof purchaseUnitSchema>;
 
@@ -149,7 +152,7 @@ export type QuantityRule = z.infer<typeof quantityRuleSchema>;
 export const packageLineSchema = z.object({
   itemId: z.string().trim().min(1),
   quantityRule: quantityRuleSchema,
-  factor: positiveBounded(LIMITS.maxFactor).optional(),
+  factor: positiveBounded(LIMITS.maxFactor).multipleOf(0.0001).optional(),
 });
 export type PackageLine = z.infer<typeof packageLineSchema>;
 
@@ -159,13 +162,28 @@ export const warrantySchema = z.object({
 });
 export type Warranty = z.infer<typeof warrantySchema>;
 
-export const packageDefinitionSchema = z.object({
-  packageId: z.string().trim().min(1),
-  tier: packageTierSchema,
-  name: z.string().trim().min(1),
-  warranty: warrantySchema,
-  lines: z.array(packageLineSchema).min(1).max(LIMITS.maxLinesPerPackage),
-});
+export const packageDefinitionSchema = z
+  .object({
+    packageId: z.string().trim().min(1),
+    tier: packageTierSchema,
+    name: z.string().trim().min(1),
+    warranty: warrantySchema,
+    lines: z.array(packageLineSchema).min(1).max(LIMITS.maxLinesPerPackage),
+  })
+  .superRefine((pkg, ctx) => {
+    const seen = new Set<string>();
+    pkg.lines.forEach((line, index) => {
+      if (seen.has(line.itemId)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Artículo repetido en el paquete "${pkg.packageId}": ${line.itemId}`,
+          path: ['lines', index, 'itemId'],
+          params: { code: 'DUPLICATE_ID' satisfies QuoteIssueCode },
+        });
+      }
+      seen.add(line.itemId);
+    });
+  });
 export type PackageDefinition = z.infer<typeof packageDefinitionSchema>;
 
 /** Puede haber varios paquetes por nivel; la unicidad es por `packageId`. */
@@ -252,7 +270,7 @@ export interface QuoteLine {
   name: string;
   kind: CatalogKind;
   unit: CatalogUnit;
-  /** Cantidad facturada (3 decimales), exactamente la usada en el cálculo. */
+  /** Cantidad facturada (3 decimales, máx. `MAX_QUANTITY`), exactamente la usada en el cálculo. */
   quantity: number;
   /** Unidades de compra (rollos, cajas...) o, sin unidad de compra, igual a `quantity`. */
   purchaseQuantity: number;
