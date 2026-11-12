@@ -16,6 +16,7 @@ import {
   Logo,
   ThemeToggle,
   Toaster,
+  toast,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -25,10 +26,12 @@ import {
 import { ChevronsLeft, ChevronsRight, Menu } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { canAccess, findNavItem, navForRole, roles, type NavItem } from '../navigation';
 import { isDev } from '../config';
+import { authErrorKey } from '../api/errors';
 import { useRole } from '../role';
+import { useSession } from '../session';
 
 const COLLAPSE_KEY = 'sidebar-collapsed';
 
@@ -134,6 +137,8 @@ function RolePreview() {
 export function AppShell() {
   const { t, i18n } = useTranslation();
   const { role } = useRole();
+  const { session, signOut } = useSession();
+  const navigate = useNavigate();
   const location = useLocation();
   const [theme, setTheme] = useTheme();
   const [collapsed, toggleCollapsed] = useCollapsed();
@@ -165,6 +170,22 @@ export function AppShell() {
     mainRef.current?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }, [location.pathname]);
+
+  const user = session.status === 'authenticated' ? session.user : null;
+  const initials = (user?.name ?? '')
+    .split(/s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? '')
+    .join('');
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      void navigate('/iniciar-sesion', { replace: true, state: { notice: 'signedOut' } });
+    } catch (error) {
+      toast.error(t(`app.auth.errors.${authErrorKey(error)}`));
+    }
+  };
 
   const languageOptions = [
     { code: 'es', name: t('common.spanish') },
@@ -268,15 +289,20 @@ export function AppShell() {
           <DropdownMenu>
             <DropdownMenuTrigger className="grid size-11 place-items-center rounded-full">
               <span className="sr-only">{t('app.shell.userMenu')}</span>
-              <Avatar fallback="US" aria-hidden="true" />
+              <Avatar fallback={initials || '··'} aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{t('app.shell.userName')}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <span className="block">{user?.name}</span>
+                <span className="block text-sm font-normal text-fg-muted">{user?.email}</span>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled>{t('app.shell.profile')}</DropdownMenuItem>
               <DropdownMenuItem disabled>{t('app.shell.account')}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled>{t('app.shell.signOut')}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleSignOut()}>
+                {t('app.shell.signOut')}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
