@@ -15,7 +15,7 @@ const t = getDict(locale);
 >
   {locales.map((l) => (
     <a
-      href={alternatePath(Astro.url.pathname, l) + Astro.url.hash}
+      href={alternatePath(Astro.url.pathname, l)}
       lang={l}
       hreflang={l}
       aria-label={`${l.toUpperCase()} ${languageNames[l]}`}

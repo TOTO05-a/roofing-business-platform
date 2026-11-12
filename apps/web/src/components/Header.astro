@@ -103,9 +103,6 @@ const linkClass =
     const iconOpen = button.querySelector('[data-icon-open]');
     const iconClose = button.querySelector('[data-icon-close]');
 
-    const focusables = () =>
-      [button, ...menu.querySelectorAll<HTMLElement>('a[href]')].filter(Boolean) as HTMLElement[];
-
     const setOpen = (open: boolean, returnFocus = true) => {
       menu.hidden = !open;
       button.setAttribute('aria-expanded', String(open));
@@ -129,17 +126,6 @@ const linkClass =
       if (e.key === 'Escape') {
         e.preventDefault();
         setOpen(false);
-      } else if (e.key === 'Tab') {
-        const items = focusables();
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
       }
     };
 

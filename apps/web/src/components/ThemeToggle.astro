@@ -18,7 +18,7 @@ const t = getDict(locale);
 </button>
 
 <script>
-  import { THEME_KEY, isDark, setTheme } from '../lib/theme';
+  import { isDark, setTheme } from '../lib/theme';
   function init() {
     document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]').forEach((btn) => {
       const sync = () => btn.setAttribute('aria-pressed', String(isDark()));
@@ -29,6 +29,5 @@ const t = getDict(locale);
       };
     });
   }
-  void THEME_KEY;
   document.addEventListener('astro:page-load', init);
 </script>
