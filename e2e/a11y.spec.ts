@@ -68,6 +68,19 @@ test('cambiar de idioma en la app no mueve el foco ni el scroll', async ({ page 
   expect(await page.evaluate(() => window.scrollY)).toBe(before);
 });
 
+test('ruta de otro rol: página 403 accesible y traducida', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => localStorage.setItem('lang', 'es'));
+  await page.goto(`${APP}/agenda`);
+  await expect(page.getByText('Su rol no tiene permiso para ver esta sección.')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Acceso denegado');
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.getByRole('button', { name: 'English' }).click();
+  await expect(
+    page.getByText('Your role does not have permission', { exact: false }),
+  ).toBeVisible();
+});
+
 test('menú móvil de la web: Escape cierra y devuelve el foco', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto(`${WEB}/es/`);

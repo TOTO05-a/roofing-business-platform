@@ -199,6 +199,11 @@ export const en: Dictionary = {
       text: 'The address does not exist or was moved.',
       back: 'Back to home',
     },
+    forbidden: {
+      title: 'Access denied',
+      text: 'Your role does not have permission to view this section.',
+      back: 'Back to home',
+    },
     home: {
       title: 'Home',
       welcome: 'Welcome to the platform',

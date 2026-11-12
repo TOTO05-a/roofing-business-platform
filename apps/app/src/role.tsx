@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { isDev } from './config';
 import { roles, type Role } from './navigation';
 
 const STORAGE_KEY = 'dev-role';
-export const isDev = import.meta.env.DEV;
 
 interface RoleContextValue {
   role: Role;

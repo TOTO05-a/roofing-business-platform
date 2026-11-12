@@ -192,6 +192,11 @@ export const es = {
       text: 'La dirección no existe o fue movida.',
       back: 'Volver al inicio',
     },
+    forbidden: {
+      title: 'Acceso denegado',
+      text: 'Su rol no tiene permiso para ver esta sección.',
+      back: 'Volver al inicio',
+    },
     home: {
       title: 'Inicio',
       welcome: 'Bienvenido a la plataforma',

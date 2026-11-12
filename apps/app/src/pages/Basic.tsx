@@ -1,7 +1,8 @@
 import { Button, EmptyState } from '@roofing/ui';
-import { Construction, SearchX } from 'lucide-react';
+import { Construction, SearchX, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
+import { showcaseEnabled } from '../config';
 import { findNavItem } from '../navigation';
 
 export function HomePage() {
@@ -12,9 +13,11 @@ export function HomePage() {
         {t('app.home.welcome')}
       </h2>
       <p className="mt-3 max-w-prose text-lg text-fg-muted">{t('app.home.text')}</p>
-      <Button asChild className="mt-6">
-        <Link to="/componentes">{t('app.home.viewComponents')}</Link>
-      </Button>
+      {showcaseEnabled && (
+        <Button asChild className="mt-6">
+          <Link to="/componentes">{t('app.home.viewComponents')}</Link>
+        </Button>
+      )}
     </section>
   );
 }
@@ -42,6 +45,23 @@ export function NotFoundPage() {
       action={
         <Button asChild>
           <Link to="/">{t('app.notFound.back')}</Link>
+        </Button>
+      }
+    />
+  );
+}
+
+/** Página 403 de interfaz; la autorización real la aplica la API. */
+export function ForbiddenPage() {
+  const { t } = useTranslation();
+  return (
+    <EmptyState
+      icon={<ShieldAlert className="size-7" />}
+      title={t('app.forbidden.title')}
+      description={t('app.forbidden.text')}
+      action={
+        <Button asChild>
+          <Link to="/">{t('app.forbidden.back')}</Link>
         </Button>
       }
     />

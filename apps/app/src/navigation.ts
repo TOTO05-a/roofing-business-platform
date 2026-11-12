@@ -19,6 +19,7 @@ import {
   BarChart3,
   type LucideIcon,
 } from 'lucide-react';
+import { showcaseEnabled } from './config';
 
 export const roles = ['cliente', 'empleado', 'administrador', 'superadministrador'] as const;
 export type Role = (typeof roles)[number];
@@ -32,8 +33,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Roles que ven este elemento. */
   roles: readonly Role[];
-  /** Solo visible en desarrollo (catálogo de componentes). */
-  devOnly?: boolean;
+  /** Solo existe si el catálogo de componentes está habilitado (`showcaseEnabled`). */
+  showcase?: boolean;
 }
 
 const staff = ['administrador', 'superadministrador'] as const;
@@ -118,16 +119,24 @@ export const navItems: readonly NavItem[] = [
     labelKey: 'components',
     icon: LayoutGrid,
     roles,
-    devOnly: true,
+    showcase: true,
   },
 ];
 
-export function navForRole(role: Role, isDev: boolean): NavItem[] {
-  return navItems.filter((item) => item.roles.includes(role) && (!item.devOnly || isDev));
+const available = (item: NavItem) => !item.showcase || showcaseEnabled;
+
+export function navForRole(role: Role): NavItem[] {
+  return navItems.filter((item) => available(item) && item.roles.includes(role));
 }
 
+/** Elemento de navegación que corresponde a la ruta, si existe en esta compilación. */
 export function findNavItem(pathname: string): NavItem | undefined {
-  return navItems.find((item) => item.to === pathname);
+  return navItems.find((item) => item.to === pathname && available(item));
+}
+
+/** ¿Puede este rol ver la ruta? (solo interfaz: la autorización real es de la API). */
+export function canAccess(role: Role, item: Pick<NavItem, 'roles'>): boolean {
+  return item.roles.includes(role);
 }
 
 /** Rutas de marcador (todas excepto inicio y componentes, que tienen página propia). */

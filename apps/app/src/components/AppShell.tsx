@@ -26,8 +26,9 @@ import { ChevronsLeft, ChevronsRight, Menu } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { findNavItem, navForRole, roles, type NavItem } from '../navigation';
-import { isDev, useRole } from '../role';
+import { canAccess, findNavItem, navForRole, roles, type NavItem } from '../navigation';
+import { isDev } from '../config';
+import { useRole } from '../role';
 
 const COLLAPSE_KEY = 'sidebar-collapsed';
 
@@ -140,9 +141,13 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const first = useRef(true);
 
-  const items = navForRole(role, isDev);
+  const items = navForRole(role);
   const current = findNavItem(location.pathname);
-  const title = current ? t(`app.nav.${current.labelKey}`) : t('app.notFound.title');
+  const title = !current
+    ? t('app.notFound.title')
+    : canAccess(role, current)
+      ? t(`app.nav.${current.labelKey}`)
+      : t('app.forbidden.title');
   const lang = (i18n.resolvedLanguage ?? 'es').split('-')[0] ?? 'es';
 
   // Título del documento: se actualiza también al cambiar de idioma.
