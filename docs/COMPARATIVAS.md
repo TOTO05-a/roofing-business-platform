@@ -184,3 +184,71 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 | --------------------------------- | --------------------------------------------- | --------------------------------------------------------- |
 | ✅ **general-purpose (Sonnet)**   | Funciona en este monorepo; usa las skills necesarias | No es especialista                                 |
 | fullstack-web-engineer            | Especialista en web                           | Su skill de shadcn falla en la raíz de un monorepo y no arranca |
+
+---
+
+## Etapa 1B · Visualizador de techos (aprobadas el 12-11-2026)
+
+### C21. Aspecto del visualizador: ¿dibujo, fotos o mezcla? → D4
+
+| Opción                                                   | A favor                                                                           | En contra                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| SVG plano                                                | Ligero, cambio instantáneo de color                                               | Se ve «dibujado»                                                       |
+| SVG con luz y sombras                                    | Semirrealista, cambio instantáneo                                                 | Sigue sin parecer un techo real                                        |
+| ✅ **Casa vectorial + texturas fotográficas reales (CC0)** | El techo parece real; el cambio de material sigue siendo instantáneo; sin costo ni problemas de derechos | ≈ 100–300 kB por textura; hay que descargarlas (se pide permiso antes) |
+| Foto de casa real con el techo recortado                 | Máximo realismo                                                                   | Necesita fotos propias de la empresa y una máscara por foto; el teñido puede verse artificial |
+
+**Por qué:** realismo donde el cliente mira (el techo) sin perder fluidez. Las fotos de obras propias se podrán añadir después sin rehacer nada. Las texturas viven en el proyecto (fuera de OneDrive) y ocupan menos de 2 MB.
+
+### C22. Materiales y colores: ¿de dónde salen?
+
+| Opción                                           | A favor                                         | En contra                                     |
+| ------------------------------------------------ | ----------------------------------------------- | --------------------------------------------- |
+| ✅ **Archivo de datos genérico en `packages/shared`** | Permite avanzar ya; se sustituye por el catálogo real (Etapa 5) | Nombres genéricos, sin marcas         |
+| Esperar al catálogo real                         | Datos definitivos                               | Frena la etapa                                |
+| Marcas reales ahora                              | Más concreto                                    | No sabemos qué marcas instala la empresa: sería inventar |
+
+### C23. Animación al cambiar de material
+
+| Opción                                   | A favor                                     | En contra                        |
+| ---------------------------------------- | ------------------------------------------- | -------------------------------- |
+| ✅ **Motion: barrido de abajo arriba + fundido** | Fluido; ya instalado; instantáneo con «reducir movimiento» | —                    |
+| Sin animación                            | Lo más simple                               | Menos atractivo; no cumple lo pedido |
+| Otra librería                            | —                                           | Más peso sin necesidad           |
+
+### C24. Alcance de la Etapa 1B
+
+| Opción                                                        | A favor                              | En contra                       |
+| ------------------------------------------------------------- | ------------------------------------ | ------------------------------- |
+| ✅ **Visualizador + sección «Elige tu techo» + animación de entrada** | Etapa acotada y verificable    | La anatomía por capas espera    |
+| Incluir anatomía por capas y comparador de paquetes           | Todo junto                           | Etapa grande; encajan mejor en las Etapas 3 y 5 |
+
+### C25. Animación de entrada
+
+| Opción                                                        | A favor                                       | En contra                      |
+| ------------------------------------------------------------- | --------------------------------------------- | ------------------------------ |
+| ✅ **Solo CSS, una vez por sesión, con «Saltar»**             | No retrasa la página; no molesta              | Efectos más sencillos          |
+| Con React/Motion                                              | Efectos más ricos                             | Carga JavaScript antes de ver la página |
+| En cada visita                                                | —                                             | Molesta                        |
+
+### C26. Accesibilidad del visualizador
+
+| Opción                                                              | A favor                                          | En contra             |
+| ------------------------------------------------------------------- | ------------------------------------------------ | --------------------- |
+| ✅ **Teclado + anuncio al lector de pantalla + nombre de cada color** | Cumple WCAG 2.2 AA; usable con daltonismo       | Algo más de trabajo   |
+| Solo muestras de color                                              | Visualmente limpio                               | Excluye a personas con daltonismo o lector de pantalla |
+
+### C27. Pruebas del visualizador
+
+| Opción                                                     | A favor                                     | En contra                 |
+| ---------------------------------------------------------- | ------------------------------------------- | ------------------------- |
+| ✅ **Unitarias + e2e con axe + capturas en 3 tamaños**     | Detecta fallos y roturas futuras en la CI   | Más tiempo de CI          |
+| Revisión a ojo                                             | Rápida                                      | No protege nada a futuro  |
+
+### C28. Quién implementa la Etapa 1B
+
+| Opción                                          | A favor                                   | En contra                                    |
+| ----------------------------------------------- | ----------------------------------------- | -------------------------------------------- |
+| ✅ **general-purpose (Sonnet) + code-reviewer** | Funciona en el monorepo; costo moderado; revisión independiente | —                        |
+| fullstack-web-engineer                          | Especialista                              | No arranca en este monorepo (skill shadcn)   |
+| Opus                                            | Máxima capacidad                          | Más caro sin necesidad                       |
