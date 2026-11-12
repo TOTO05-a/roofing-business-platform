@@ -1,0 +1,31 @@
+---
+import { alternatePath, getDict, languageNames, locales, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const t = getDict(locale);
+---
+
+<div
+  role="group"
+  aria-label={t.common.language}
+  class="inline-flex rounded-md border border-white/40 p-0.5"
+>
+  {locales.map((l) => (
+    <a
+      href={alternatePath(Astro.url.pathname, l) + Astro.url.hash}
+      lang={l}
+      hreflang={l}
+      aria-label={`${l.toUpperCase()} ${languageNames[l]}`}
+      aria-current={l === locale ? 'true' : undefined}
+      class:list={[
+        'inline-flex min-h-11 min-w-11 items-center justify-center rounded-[0.5rem] px-2.5 font-display text-sm font-bold no-underline transition-colors',
+        l === locale ? 'bg-white text-[var(--brand-slate)]' : 'text-on-brand hover:bg-white/15',
+      ]}
+    >
+      {l.toUpperCase()}
+    </a>
+  ))}
+</div>

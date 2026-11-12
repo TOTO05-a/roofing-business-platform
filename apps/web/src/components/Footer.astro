@@ -1,0 +1,55 @@
+---
+import { getDict, type Locale } from '../i18n/ui';
+import Logo from './Logo.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const t = getDict(locale);
+const year = new Date().getFullYear();
+---
+
+<footer
+  class="on-brand bg-surface-brand pb-24 text-on-brand lg:pb-0"
+  aria-label={t.web.footer.label}
+>
+  <div class="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
+    <div>
+      <Logo label={t.brand.name} />
+      <p class="mt-4 max-w-xs text-on-brand-muted">{t.brand.tagline}</p>
+    </div>
+    <div>
+      <h2 class="font-display text-base font-bold">{t.brand.name}</h2>
+      <ul class="mt-3 space-y-1 text-on-brand-muted">
+        <li>{t.web.footer.license}</li>
+        <li>{t.web.footer.insurance}</li>
+        <li>
+          <a class="text-on-brand-accent" href="tel:+10000000000">
+            {t.common.examplePhone}
+          </a>
+        </li>
+      </ul>
+    </div>
+    <nav aria-label={t.web.footer.legal}>
+      <h2 class="font-display text-base font-bold">{t.web.footer.legal}</h2>
+      <ul class="mt-3 space-y-1">
+        <li>
+          <a class="inline-flex min-h-11 items-center text-on-brand-accent" href="#privacidad">
+            {t.web.footer.privacy}
+          </a>
+        </li>
+        <li>
+          <a class="inline-flex min-h-11 items-center text-on-brand-accent" href="#terminos">
+            {t.web.footer.terms}
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+  <div class="border-t border-white/15">
+    <p class="mx-auto max-w-6xl px-4 py-5 text-sm text-on-brand-muted sm:px-6">
+      © {year} {t.brand.name}. {t.web.footer.rights} {t.web.footer.placeholderNote}
+    </p>
+  </div>
+</footer>

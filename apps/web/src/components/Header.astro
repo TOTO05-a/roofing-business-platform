@@ -1,0 +1,152 @@
+---
+import { Menu, Phone, X } from '@lucide/astro';
+import { getDict, type Locale } from '../i18n/ui';
+import LanguageSwitcher from './LanguageSwitcher.astro';
+import Logo from './Logo.astro';
+import ThemeToggle from './ThemeToggle.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const t = getDict(locale);
+const home = `/${locale}/`;
+const links = [
+  { href: `${home}#servicios`, label: t.web.nav.services },
+  { href: `${home}#proyectos`, label: t.web.nav.projects },
+  { href: `${home}#nosotros`, label: t.web.nav.about },
+  { href: `${home}#contacto`, label: t.web.nav.contact },
+];
+const linkClass =
+  'inline-flex min-h-11 items-center rounded-md px-3 font-display font-semibold text-on-brand no-underline hover:bg-white/10';
+---
+
+<header class="on-brand sticky top-0 z-40 bg-surface-brand text-on-brand" data-site-header>
+  <div class="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
+    <a href={home} class="text-on-brand no-underline">
+      <Logo label={t.brand.name} />
+    </a>
+
+    <nav aria-label={t.web.nav.label} class="ms-6 hidden lg:block">
+      <ul class="flex items-center gap-1">
+        {links.map((l) => (
+          <li>
+            <a href={l.href} class={linkClass}>
+              {l.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <div class="ms-auto flex items-center gap-2">
+      <a
+        href="tel:+10000000000"
+        class="hidden min-h-11 items-center gap-2 whitespace-nowrap rounded-md px-3 font-display font-semibold text-on-brand no-underline hover:bg-white/10 xl:inline-flex"
+      >
+        <Phone aria-hidden="true" class="size-4" />
+        <span>{t.common.examplePhone}</span>
+      </a>
+      <a
+        href={`${home}#contacto`}
+        class="hidden min-h-11 items-center whitespace-nowrap rounded-md bg-primary px-5 font-display font-semibold text-primary-fg no-underline hover:bg-primary-hover sm:inline-flex"
+      >
+        {t.web.header.cta}
+      </a>
+      <LanguageSwitcher locale={locale} />
+      <ThemeToggle locale={locale} />
+      <button
+        type="button"
+        data-menu-button
+        aria-expanded="false"
+        aria-controls="menu-movil"
+        aria-label={t.web.nav.openMenu}
+        data-open-label={t.web.nav.openMenu}
+        data-close-label={t.web.nav.closeMenu}
+        class="inline-flex size-11 items-center justify-center rounded-md text-on-brand hover:bg-white/10 lg:hidden"
+      >
+        <Menu aria-hidden="true" class="size-6" data-icon-open />
+        <X aria-hidden="true" class="hidden size-6" data-icon-close />
+      </button>
+    </div>
+  </div>
+
+  <div id="menu-movil" hidden class="border-t border-white/15 lg:hidden">
+    <nav aria-label={t.web.nav.label} class="mx-auto max-w-6xl px-4 py-3 sm:px-6">
+      <ul class="flex flex-col gap-1">
+        {links.map((l) => (
+          <li>
+            <a href={l.href} class={linkClass + ' w-full text-lg'}>
+              {l.label}
+            </a>
+          </li>
+        ))}
+        <li>
+          <a
+            href={`${home}#contacto`}
+            class="mt-2 inline-flex min-h-12 w-full items-center justify-center rounded-md bg-primary font-display font-semibold text-primary-fg no-underline"
+          >
+            {t.web.header.cta}
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<script>
+  function init() {
+    const header = document.querySelector<HTMLElement>('[data-site-header]');
+    const button = header?.querySelector<HTMLButtonElement>('[data-menu-button]');
+    const menu = header?.querySelector<HTMLElement>('#menu-movil');
+    if (!header || !button || !menu) return;
+    const iconOpen = button.querySelector('[data-icon-open]');
+    const iconClose = button.querySelector('[data-icon-close]');
+
+    const focusables = () =>
+      [button, ...menu.querySelectorAll<HTMLElement>('a[href]')].filter(Boolean) as HTMLElement[];
+
+    const setOpen = (open: boolean, returnFocus = true) => {
+      menu.hidden = !open;
+      button.setAttribute('aria-expanded', String(open));
+      button.setAttribute(
+        'aria-label',
+        (open ? button.dataset.closeLabel : button.dataset.openLabel) ?? '',
+      );
+      iconOpen?.classList.toggle('hidden', open);
+      iconClose?.classList.toggle('hidden', !open);
+      if (open) menu.querySelector<HTMLElement>('a[href]')?.focus();
+      else if (returnFocus) button.focus();
+    };
+
+    button.onclick = () => setOpen(Boolean(menu.hidden));
+    menu
+      .querySelectorAll('a')
+      .forEach((a) => a.addEventListener('click', () => setOpen(false, false)));
+
+    header.onkeydown = (e) => {
+      if (menu.hidden) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setOpen(false);
+      } else if (e.key === 'Tab') {
+        const items = focusables();
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+
+    // Al pasar a escritorio el menú móvil se cierra.
+    window.matchMedia('(min-width: 1024px)').onchange = (e) => {
+      if (e.matches && !menu.hidden) setOpen(false, false);
+    };
+  }
+  document.addEventListener('astro:page-load', init);
+</script>
