@@ -14,7 +14,15 @@ const pages = [
   { name: 'app-componentes', url: `${APP}/componentes` },
 ];
 
+/** Espera a que terminen las animaciones (p. ej. opacidad de Motion) antes de medir o capturar. */
+async function settle(page: Page) {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState !== 'running'),
+  );
+}
+
 async function seriousViolations(page: Page) {
+  await settle(page);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -43,6 +51,21 @@ test('formulario inválido: errores visibles, sin violaciones y traducibles', as
   await page.getByRole('button', { name: 'English' }).click();
   await expect(page.getByText('This field is required.').first()).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+});
+
+test('cambiar de idioma en la app no mueve el foco ni el scroll', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => localStorage.setItem('lang', 'es'));
+  await page.goto(`${APP}/componentes`);
+  await page.locator('main').waitFor();
+  await page.evaluate(() => window.scrollTo(0, 400));
+  const before = await page.evaluate(() => window.scrollY);
+  expect(before).toBeGreaterThan(0);
+  const english = page.getByRole('button', { name: 'English' });
+  await english.click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(english).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
 });
 
 test('menú móvil de la web: Escape cierra y devuelve el foco', async ({ page }) => {
@@ -75,6 +98,7 @@ test.describe('capturas de pantalla', () => {
         await page.goto(p.url);
         await page.locator('main').first().waitFor();
         await page.evaluate(() => document.fonts.ready);
+        await settle(page);
         const file = resolve(SHOTS, `${p.name}-${width}.png`);
         await page.screenshot({ path: file, fullPage: true });
         console.log(`captura: ${file}`);

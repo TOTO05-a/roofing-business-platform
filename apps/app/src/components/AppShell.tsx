@@ -14,7 +14,6 @@ import {
   DropdownMenuTrigger,
   LanguageSwitcher,
   Logo,
-  slideUp,
   ThemeToggle,
   Toaster,
   Tooltip,
@@ -24,7 +23,6 @@ import {
   useTheme,
 } from '@roofing/ui';
 import { ChevronsLeft, ChevronsRight, Menu } from 'lucide-react';
-import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router';
@@ -147,16 +145,21 @@ export function AppShell() {
   const title = current ? t(`app.nav.${current.labelKey}`) : t('app.notFound.title');
   const lang = (i18n.resolvedLanguage ?? 'es').split('-')[0] ?? 'es';
 
-  // Título del documento y foco al contenido en cada cambio de ruta (lectores de pantalla y teclado).
+  // Título del documento: se actualiza también al cambiar de idioma.
   useEffect(() => {
     document.title = `${title} | ${t('brand.name')}`;
+  }, [title, t]);
+
+  // Foco al contenido y scroll arriba solo al cambiar de ruta (lectores de pantalla y teclado);
+  // cambiar de idioma no debe mover el foco ni la posición.
+  useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
     mainRef.current?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
-  }, [location.pathname, title, t]);
+  }, [location.pathname]);
 
   const languageOptions = [
     { code: 'es', name: t('common.spanish') },
@@ -279,9 +282,9 @@ export function AppShell() {
           tabIndex={-1}
           className="mx-auto max-w-6xl p-4 outline-none sm:p-6 lg:p-8"
         >
-          <motion.div key={location.pathname} variants={slideUp} initial="hidden" animate="visible">
+          <div key={location.pathname} className="page-enter">
             <Outlet />
-          </motion.div>
+          </div>
         </main>
       </div>
 
