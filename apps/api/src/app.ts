@@ -12,6 +12,22 @@ import type { AppServices } from './services.js';
 
 export { HttpError } from './lib/http-error.js';
 
+const MAX_BODY_BYTES = 100 * 1024;
+
+const limitAuthBody: RequestHandler = (req, _res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    next();
+    return;
+  }
+  if (req.headers['transfer-encoding']) {
+    throw new HttpError(411, 'LENGTH_REQUIRED', 'Falta la cabecera Content-Length');
+  }
+  if (Number(req.headers['content-length'] ?? 0) > MAX_BODY_BYTES) {
+    throw new HttpError(413, 'PAYLOAD_TOO_LARGE', 'El cuerpo de la petición es demasiado grande');
+  }
+  next();
+};
+
 const notFound: RequestHandler = (_req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurso no encontrado' } });
 };
@@ -78,10 +94,12 @@ export function createApp(services: AppServices): Express {
   // Origin (o Referer) de confianza.
   app.use('/api', requireTrustedOrigin(trustedOriginsFor(env)));
 
+  // Better Auth lee el cuerpo entero sin límite: se exige Content-Length y un tamaño máximo.
+  app.use('/api/auth', limitAuthBody);
   // Better Auth va antes de express.json(): necesita leer el cuerpo sin procesar.
   app.all('/api/auth/*splat', toNodeHandler(auth));
 
-  app.use(express.json({ limit: '100kb' }));
+  app.use(express.json({ limit: MAX_BODY_BYTES }));
 
   app.use('/api/me', meRouter(services));
   app.use('/api/invitations', invitationsRouter(services));

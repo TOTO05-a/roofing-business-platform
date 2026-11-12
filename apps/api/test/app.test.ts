@@ -84,6 +84,7 @@ describe('protección CSRF de las rutas propias', () => {
 
 describe('parseEnv', () => {
   const required = {
+    NODE_ENV: 'development',
     DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
     BETTER_AUTH_SECRET: 'x'.repeat(32),
   };
@@ -112,11 +113,25 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...required, PORT: 'abc' })).toThrow(/PORT/);
   });
 
-  it('exige DATABASE_URL y un secreto de al menos 32 caracteres', () => {
-    expect(() => parseEnv({})).toThrow(/DATABASE_URL/);
+  it('exige NODE_ENV, DATABASE_URL y un secreto de al menos 32 caracteres', () => {
+    expect(() => parseEnv({})).toThrow(/NODE_ENV[\s\S]*DATABASE_URL/);
     expect(() => parseEnv({ ...required, BETTER_AUTH_SECRET: 'corto' })).toThrow(
       /BETTER_AUTH_SECRET/,
     );
+  });
+
+  it('rechaza en producción el secreto de ejemplo de .env.example', () => {
+    const production = {
+      ...required,
+      NODE_ENV: 'production',
+      BETTER_AUTH_URL: 'https://app.example.com',
+      APP_URL: 'https://app.example.com',
+      SMTP_HOST: 'smtp.example.com',
+    };
+    expect(() =>
+      parseEnv({ ...production, BETTER_AUTH_SECRET: 'cambia-esto-por-un-secreto-aleatorio-de-32' }),
+    ).toThrow(/BETTER_AUTH_SECRET/);
+    expect(parseEnv(production).NODE_ENV).toBe('production');
   });
 
   it('exige https y SMTP real en producción', () => {

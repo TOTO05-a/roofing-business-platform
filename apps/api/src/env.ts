@@ -22,9 +22,13 @@ const booleanString = z
   .default('false')
   .transform((value) => value === 'true');
 
+/** Prefijo del secreto de ejemplo de .env.example (no debe llegar a producción). */
+export const EXAMPLE_SECRET_PREFIX = 'cambia-esto';
+
 const envSchema = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    // Sin valor por defecto: si faltara en producción, todo fallaría "en abierto" (cookies sin Secure…).
+    NODE_ENV: z.enum(['development', 'test', 'production']),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     DATABASE_URL: z.url(),
 
@@ -63,6 +67,13 @@ const envSchema = z
       if (!env[key].startsWith('https://')) {
         ctx.addIssue({ code: 'custom', path: [key], message: 'Debe usar https en producción' });
       }
+    }
+    if (env.BETTER_AUTH_SECRET.startsWith(EXAMPLE_SECRET_PREFIX)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['BETTER_AUTH_SECRET'],
+        message: 'Usa un secreto propio, no el de .env.example',
+      });
     }
     if (env.SMTP_HOST === 'localhost') {
       ctx.addIssue({
