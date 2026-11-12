@@ -2,7 +2,8 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 
 const isProductionBuild = Boolean(process.env.CI) || process.env.NODE_ENV === 'production';
-const site = process.env.PUBLIC_SITE_URL ?? (isProductionBuild ? undefined : 'http://localhost:4321');
+const site =
+  process.env.PUBLIC_SITE_URL ?? (isProductionBuild ? undefined : 'http://localhost:4321');
 
 if (!site) {
   throw new Error(
