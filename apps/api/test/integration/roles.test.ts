@@ -4,6 +4,7 @@ import {
   createTestContext,
   createTestDb,
   createUser,
+  enableTwoFactor,
   newAgent,
   resetDatabase,
   signIn,
@@ -88,6 +89,8 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
     const target = await createUser(db, { role: 'EMPLOYEE' });
     const targetAgent = newAgent(ctx.app);
     await signIn(targetAgent, target.email, target.password);
+    // Para recibir un rol privilegiado debe haber activado antes su 2FA.
+    await enableTwoFactor(targetAgent, target.password);
 
     const res = await agent.patch(`/api/admin/users/${target.id}`).send({ role: 'ADMIN' });
     expect(res.status).toBe(200);
@@ -104,6 +107,18 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
       after: { role: 'ADMIN' },
     });
     expect(entry.ip).toMatch(/^198\.51\.100\./);
+  });
+
+  it('no asciende a ADMIN ni a SUPERADMIN a quien no tiene 2FA activo', async () => {
+    const { agent } = await signInWithTwoFactor(ctx);
+    const employee = await createUser(db, { role: 'EMPLOYEE' });
+    for (const role of ['ADMIN', 'SUPERADMIN']) {
+      const res = await agent.patch(`/api/admin/users/${employee.id}`).send({ role });
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('TWO_FACTOR_REQUIRED_FOR_ROLE');
+    }
+    expect((await db.user.findUniqueOrThrow({ where: { id: employee.id } })).role).toBe('EMPLOYEE');
+    expect(await db.auditLog.count({ where: { action: 'user.role_change' } })).toBe(0);
   });
 
   it('una cuenta de cliente no cambia de rol ni nadie pasa a ser cliente', async () => {

@@ -188,6 +188,7 @@ describe('recuperación de contraseña', () => {
     expect((await oldSession.get('/api/me')).status).toBe(401);
     expect((await signIn(newAgent(ctx.app), user.email, user.password)).status).toBe(401);
     expect((await signIn(newAgent(ctx.app), user.email, newPassword)).status).toBe(200);
+    expect(await db.auditLog.count({ where: { action: 'auth.password_reset' } })).toBe(1);
 
     const reuse = await agent
       .post('/api/auth/reset-password')

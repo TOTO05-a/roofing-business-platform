@@ -49,10 +49,18 @@ export function createTestDb(): Db {
   return createDb(testDatabaseUrl());
 }
 
+/**
+ * Vacía la base de pruebas. audit_logs bloquea TRUNCATE con un trigger; solo aquí (base
+ * desechable de pruebas) se desactiva un instante, dentro de la misma transacción.
+ */
 export async function resetDatabase(db: Db): Promise<void> {
-  await db.$executeRawUnsafe(
-    'TRUNCATE TABLE audit_logs, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
-  );
+  await db.$transaction([
+    db.$executeRawUnsafe('ALTER TABLE audit_logs DISABLE TRIGGER audit_logs_no_truncate'),
+    db.$executeRawUnsafe(
+      'TRUNCATE TABLE audit_logs, login_throttles, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
+    ),
+    db.$executeRawUnsafe('ALTER TABLE audit_logs ENABLE TRIGGER audit_logs_no_truncate'),
+  ]);
 }
 
 export interface CreatedUser {

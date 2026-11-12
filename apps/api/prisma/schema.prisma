@@ -242,3 +242,14 @@ model EmployeeProfile {
 
   @@map("employee_profiles")
 }
+
+// Límite de intentos de login por cuenta (además del de por IP de Better Auth). Clave: correo
+// normalizado, exista o no la cuenta, para no revelar cuáles existen.
+model LoginThrottle {
+  email       String    @id
+  failures    Int       @default(0)
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("login_throttles")
+}

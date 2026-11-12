@@ -251,6 +251,9 @@ describe('auditoría de solo inserción', () => {
       db.auditLog.update({ where: { id: entry.id }, data: { action: 'cambiado' } }),
     ).rejects.toThrow(/solo inserción/);
     await expect(db.auditLog.delete({ where: { id: entry.id } })).rejects.toThrow(/solo inserción/);
+    await expect(db.$executeRawUnsafe('TRUNCATE TABLE audit_logs')).rejects.toThrow(
+      /solo inserción/,
+    );
     expect((await db.auditLog.findUniqueOrThrow({ where: { id: entry.id } })).action).toBe('test');
   });
 });

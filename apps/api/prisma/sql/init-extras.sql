@@ -40,7 +40,7 @@ ALTER TABLE "invitations" ADD CONSTRAINT "invitations_profile_by_role_chk" CHECK
 );
 
 -- Auditoría de solo inserción: nadie puede modificar ni borrar entradas (ni siquiera la app).
--- Cuando exista el rol app_user (RLS), además: REVOKE UPDATE, DELETE ON audit_logs FROM app_user.
+-- Cuando exista el rol app_user (RLS), además: REVOKE UPDATE, DELETE, TRUNCATE ON audit_logs FROM app_user.
 -- Una anonimización legal futura debe hacerse con el rol dueño desactivando este trigger.
 CREATE FUNCTION "audit_logs_append_only"() RETURNS trigger
   LANGUAGE plpgsql AS $$
@@ -53,3 +53,9 @@ $$;
 CREATE TRIGGER "audit_logs_no_update_delete"
   BEFORE UPDATE OR DELETE ON "audit_logs"
   FOR EACH ROW EXECUTE FUNCTION "audit_logs_append_only"();
+
+-- TRUNCATE no dispara triggers de fila: se bloquea aparte. Solo las pruebas de integración lo
+-- desactivan un instante para vaciar la base desechable (ALTER TABLE … DISABLE TRIGGER).
+CREATE TRIGGER "audit_logs_no_truncate"
+  BEFORE TRUNCATE ON "audit_logs"
+  FOR EACH STATEMENT EXECUTE FUNCTION "audit_logs_append_only"();

@@ -1,11 +1,17 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { twoFactor } from 'better-auth/plugins';
 import type { Env } from '../env.js';
 import { recordAudit } from '../lib/audit.js';
 import type { Db } from '../lib/db.js';
 import { actionEmail, type Mailer } from '../lib/mailer.js';
+import {
+  clearLoginFailures,
+  isLoginLocked,
+  normalizeLoginEmail,
+  recordLoginFailure,
+} from './login-throttle.js';
 import { ROLES, USER_STATUSES } from './roles.js';
 
 /**
@@ -65,6 +71,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/** IP y user-agent de la petición en curso, para la auditoría desde hooks de Better Auth. */
+function auditMeta(ctx: { headers?: Headers | undefined } | null | undefined) {
+  return {
+    ip: ctx?.headers?.get(CLIENT_IP_HEADER) ?? null,
+    userAgent: ctx?.headers?.get('user-agent')?.slice(0, 512) ?? null,
+  };
+}
+
+const TOO_MANY_ATTEMPTS = {
+  code: 'TOO_MANY_ATTEMPTS',
+  message: 'Demasiados intentos. Prueba de nuevo más tarde.',
+};
+
 export function createAuth({ env, db, mailer }: AuthDeps) {
   const isProduction = env.NODE_ENV === 'production';
 
@@ -97,6 +116,18 @@ export function createAuth({ env, db, mailer }: AuthDeps) {
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       resetPasswordTokenExpiresIn: 60 * 60,
       revokeSessionsOnPasswordReset: true,
+      onPasswordReset: async ({ user }, request) => {
+        // Restablecer la contraseña también desbloquea el límite de intentos por cuenta.
+        await clearLoginFailures(db, user.email.toLowerCase());
+        await recordAudit(db, {
+          actorUserId: user.id,
+          actorEmail: user.email,
+          action: 'auth.password_reset',
+          entityType: 'user',
+          entityId: user.id,
+          ...auditMeta(request),
+        });
+      },
       sendResetPassword: async ({ user, url }) => {
         sendInBackground(
           mailer,
@@ -167,6 +198,13 @@ export function createAuth({ env, db, mailer }: AuthDeps) {
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         const body: unknown = ctx.body;
+        // Límite por cuenta: se comprueba antes de validar la contraseña.
+        if (ctx.path === '/sign-in/email' && isRecord(body)) {
+          const email = normalizeLoginEmail(body.email);
+          if (email && (await isLoginLocked(db, email))) {
+            throw new APIError('TOO_MANY_REQUESTS', TOO_MANY_ATTEMPTS);
+          }
+        }
         // "Confiar en este dispositivo" permitiría a un ADMIN entrar 30 días solo con contraseña.
         if (ctx.path.startsWith('/two-factor/verify') && isRecord(body) && body.trustDevice) {
           throw new APIError('BAD_REQUEST', {
@@ -185,9 +223,62 @@ export function createAuth({ env, db, mailer }: AuthDeps) {
           }
         }
       }),
+      // Corre también cuando el endpoint falla: `returned` trae entonces el APIError.
+      after: createAuthMiddleware(async (ctx) => {
+        const returned: unknown = ctx.context.returned;
+        const failed = isAPIError(returned);
+        const body: unknown = ctx.body;
+        if (ctx.path === '/sign-in/email' && isRecord(body)) {
+          const email = normalizeLoginEmail(body.email);
+          if (!email) return;
+          if (!failed) {
+            await clearLoginFailures(db, email);
+          } else if (returned.statusCode === 401) {
+            // 401 = credenciales incorrectas (exista o no la cuenta). Otros errores no cuentan.
+            const lockedNow = await recordLoginFailure(db, email);
+            if (lockedNow) {
+              await recordAudit(db, {
+                action: 'auth.account_locked',
+                entityType: 'login_throttle',
+                entityId: email,
+                ...auditMeta(ctx),
+              });
+            }
+          }
+        }
+        if (ctx.path === '/change-password' && !failed) {
+          const user = ctx.context.session?.user;
+          if (user) {
+            await recordAudit(db, {
+              actorUserId: user.id,
+              actorEmail: user.email,
+              action: 'auth.password_change',
+              entityType: 'user',
+              entityId: user.id,
+              ...auditMeta(ctx),
+            });
+          }
+        }
+      }),
     },
 
     databaseHooks: {
+      user: {
+        update: {
+          after: async (user, ctx) => {
+            // El plugin twoFactor solo modifica al usuario para activar o desactivar el 2FA.
+            if (!ctx?.path.startsWith('/two-factor/')) return;
+            await recordAudit(db, {
+              actorUserId: user.id,
+              actorEmail: user.email,
+              action: user.twoFactorEnabled ? 'auth.two_factor_enable' : 'auth.two_factor_disable',
+              entityType: 'user',
+              entityId: user.id,
+              ...auditMeta(ctx),
+            });
+          },
+        },
+      },
       session: {
         create: {
           before: async (session) => {

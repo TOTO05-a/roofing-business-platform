@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { currentUser, requireAuth, requireRole } from '../auth/middleware.js';
-import { EMPLOYEE_JOB_TYPES, ROLES, USER_STATUSES } from '../auth/roles.js';
+import { EMPLOYEE_JOB_TYPES, requiresTwoFactor, ROLES, USER_STATUSES } from '../auth/roles.js';
 import { recordAudit, requestMeta } from '../lib/audit.js';
 import { HttpError } from '../lib/http-error.js';
 import { actionEmail } from '../lib/mailer.js';
@@ -209,6 +209,14 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
             409,
             'ROLE_CHANGE_NOT_ALLOWED',
             'Las cuentas de cliente no cambian de rol',
+          );
+        }
+        // Nadie llega a ADMIN o SUPERADMIN sin haber activado antes su 2FA.
+        if (requiresTwoFactor(nextRole) && !target.twoFactorEnabled) {
+          throw new HttpError(
+            409,
+            'TWO_FACTOR_REQUIRED_FOR_ROLE',
+            'La persona debe activar la verificación en dos pasos antes de recibir ese rol',
           );
         }
         // EMPLOYEE necesita un EmployeeProfile activo (un ADMIN puede tenerlo además).
