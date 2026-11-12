@@ -1,0 +1,28 @@
+{
+  "name": "roofing-business-platform",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Plataforma de negocio para roofing: sitio web, aplicación y API.",
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm build:shared && pnpm --parallel --filter \"./apps/*\" run dev",
+    "build:shared": "pnpm --filter @roofing/shared build",
+    "build": "pnpm build:shared && pnpm -r run build",
+    "lint": "eslint .",
+    "typecheck": "pnpm build:shared && pnpm -r run typecheck",
+    "test": "pnpm build:shared && pnpm -r run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@roofing/config": "workspace:*",
+    "eslint": "^10.14.0",
+    "prettier": "^3.10.1",
+    "prettier-plugin-astro": "^1.1.2",
+    "typescript": "~6.0.3"
+  }
+}
