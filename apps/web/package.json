@@ -11,11 +11,18 @@
     "test": "echo \"Sin pruebas en apps/web por ahora\""
   },
   "dependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource-variable/source-sans-3": "^5.3.1",
+    "@lucide/astro": "^1.72.0",
+    "@roofing/shared": "workspace:*",
     "astro": "^7.4.11"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
     "@roofing/config": "workspace:*",
+    "@roofing/ui": "workspace:*",
+    "@tailwindcss/vite": "^4.3.5",
+    "tailwindcss": "^4.3.5",
     "typescript": "~6.0.3"
   }
 }
