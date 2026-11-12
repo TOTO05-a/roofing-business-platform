@@ -9,7 +9,8 @@ export interface DiscountedSubtotals {
 /**
  * Aplica el descuento al subtotal (material + mano de obra), ANTES del impuesto.
  *
- * Regla (pendiente de confirmación del usuario; aislada aquí para poder cambiarla):
+ * Regla APROBADA por el usuario (decisión 10 de docs/arquitectura/modelo-datos.md, sección 7);
+ * se mantiene aislada aquí por claridad:
  * - descuento total = subtotal × discountBps, half-up;
  * - se reparte de forma proporcional entre material y mano de obra: la parte de material
  *   es `descuento × material / subtotal` (half-up) y la de mano de obra es el resto, de modo

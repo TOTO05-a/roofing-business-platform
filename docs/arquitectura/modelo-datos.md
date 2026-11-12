@@ -355,3 +355,5 @@ Respuestas a las preguntas de la sección 6, aprobadas por el usuario como valor
 | 8 | Retención | 7 años por defecto, configurable (validar con contador o abogado). |
 | 9 | Reseñas | Solo se envía el enlace; no se guardan calificaciones. |
 | 10 | Precios y descuentos | Solo administración modifica el catálogo. Se añade `discount_bps` en `QuoteVersion`, aplicable solo por administración. |
+
+**Descuento (aprobado):** `discount_bps` se aplica al subtotal (material + mano de obra) ANTES del impuesto y se reparte de forma proporcional entre material y mano de obra; la base imponible se calcula sobre los subtotales ya descontados. El motor lo implementa en `packages/shared/src/presupuestos/discount.ts`.

@@ -198,7 +198,7 @@ export const quoteParametersSchema = z.strictObject({
   taxBps: basisPoints,
   /** Si el impuesto también grava la mano de obra (por defecto solo material). */
   taxAppliesToLabor: z.boolean().default(false),
-  /** Descuento sobre el subtotal, antes de impuesto. Solo administración (pendiente de confirmación). */
+  /** Descuento sobre el subtotal, antes de impuesto. Solo administración. Regla aprobada: antes de impuesto, repartido proporcionalmente. */
   discountBps: basisPoints.default(0),
   /** Anticipo como porcentaje del total, en puntos base. */
   depositBps: basisPoints,
