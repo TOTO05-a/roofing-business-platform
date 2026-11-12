@@ -1,0 +1,21 @@
+{
+  "name": "@roofing/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check",
+    "test": "echo \"Sin pruebas en apps/web por ahora\""
+  },
+  "dependencies": {
+    "astro": "^7.4.11"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@roofing/config": "workspace:*",
+    "typescript": "~6.0.3"
+  }
+}
