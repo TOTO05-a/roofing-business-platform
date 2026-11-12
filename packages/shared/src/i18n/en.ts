@@ -93,9 +93,18 @@ export const en: Dictionary = {
       title: 'How we work',
       steps: {
         one: { title: 'Inspection', text: 'We visit your home and check the roof at no cost.' },
-        two: { title: 'Estimate', text: 'You get options and prices in writing, with no pressure.' },
-        three: { title: 'Installation', text: 'A careful crew that leaves everything clean and tidy.' },
-        four: { title: 'Warranty', text: 'A final walkthrough and a written warranty for the work.' },
+        two: {
+          title: 'Estimate',
+          text: 'You get options and prices in writing, with no pressure.',
+        },
+        three: {
+          title: 'Installation',
+          text: 'A careful crew that leaves everything clean and tidy.',
+        },
+        four: {
+          title: 'Warranty',
+          text: 'A final walkthrough and a written warranty for the work.',
+        },
       },
     },
     projects: {
@@ -110,8 +119,14 @@ export const en: Dictionary = {
       text: 'We are a family-run residential roofing company. We treat your home like our own and speak plainly about work and costs.',
       values: {
         one: { title: 'Clarity', text: 'We explain every step and every cost before we start.' },
-        two: { title: 'Care', text: 'We protect your yard and siding, and leave everything clean.' },
-        three: { title: 'Backing', text: 'We meet deadlines and stand behind our work in writing.' },
+        two: {
+          title: 'Care',
+          text: 'We protect your yard and siding, and leave everything clean.',
+        },
+        three: {
+          title: 'Backing',
+          text: 'We meet deadlines and stand behind our work in writing.',
+        },
       },
     },
     contact: {

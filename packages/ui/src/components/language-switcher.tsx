@@ -45,12 +45,12 @@ export function LanguageSwitcher({
             type="button"
             lang={o.code}
             aria-pressed={active}
-            aria-label={o.name}
+            aria-label={`${o.short ?? o.code.toUpperCase()} ${o.name}`}
             onClick={() => {
               if (!active) onChange(o.code);
             }}
             className={cn(
-              'inline-flex min-h-10 min-w-11 items-center justify-center rounded-[calc(var(--radius-md)-2px)] px-2.5 font-display text-sm font-bold',
+              'inline-flex min-h-11 min-w-11 items-center justify-center rounded-[calc(var(--radius-md)-2px)] px-2.5 font-display text-sm font-bold',
               'transition-colors duration-[var(--duration-fast)]',
               active ? 'bg-surface-brand text-on-brand' : 'text-fg hover:bg-surface-alt',
             )}

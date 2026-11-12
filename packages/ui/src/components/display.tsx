@@ -72,8 +72,7 @@ const alertIcons = {
 } as const;
 
 export interface AlertProps
-  extends Omit<ComponentProps<'div'>, 'title'>,
-    VariantProps<typeof alertVariants> {
+  extends Omit<ComponentProps<'div'>, 'title'>, VariantProps<typeof alertVariants> {
   title?: ReactNode;
 }
 export function Alert({ className, variant = 'info', title, children, ...props }: AlertProps) {
@@ -122,7 +121,9 @@ export function Avatar({ src, alt = '', fallback, className, ...props }: AvatarP
       )}
       {...props}
     >
-      {src ? <AvatarPrimitive.Image src={src} alt={alt} className="size-full object-cover" /> : null}
+      {src ? (
+        <AvatarPrimitive.Image src={src} alt={alt} className="size-full object-cover" />
+      ) : null}
       <AvatarPrimitive.Fallback className="font-display text-sm font-bold" delayMs={src ? 300 : 0}>
         {fallback}
       </AvatarPrimitive.Fallback>
@@ -154,7 +155,10 @@ export function EmptyState({
       {...props}
     >
       {icon ? (
-        <div aria-hidden="true" className="grid size-14 place-items-center rounded-full bg-surface-alt text-link">
+        <div
+          aria-hidden="true"
+          className="grid size-14 place-items-center rounded-full bg-surface-alt text-link"
+        >
           {icon}
         </div>
       ) : null}

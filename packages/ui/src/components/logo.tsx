@@ -34,7 +34,12 @@ export function LogoMark({ className, ...props }: ComponentProps<'svg'>) {
  * Variantes: `horizontal` (icono + nombre + descriptor), `compact` (icono + nombre) e `icon`.
  * Hereda el color del texto (`currentColor`) y usa el token `--primary` para el acento.
  */
-export function Logo({ variant = 'horizontal', label = 'Cresta Roofing', className, ...props }: LogoProps) {
+export function Logo({
+  variant = 'horizontal',
+  label = 'Cresta Roofing',
+  className,
+  ...props
+}: LogoProps) {
   return (
     <span
       role="img"

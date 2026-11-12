@@ -135,7 +135,12 @@ describe('tokens de marca', () => {
   });
 
   it('define los tokens de movimiento', () => {
-    for (const k of ['--duration-fast', '--duration-base', '--duration-slow', '--duration-slower']) {
+    for (const k of [
+      '--duration-fast',
+      '--duration-base',
+      '--duration-slow',
+      '--duration-slower',
+    ]) {
       expect(light[k]).toMatch(/^\d+ms$/);
     }
     expect(light['--ease-standard']).toContain('cubic-bezier');

@@ -96,7 +96,10 @@ export const es = {
       steps: {
         one: { title: 'Inspección', text: 'Visitamos su casa y revisamos el techo sin costo.' },
         two: { title: 'Presupuesto', text: 'Recibe opciones y precios por escrito, sin presión.' },
-        three: { title: 'Instalación', text: 'Un equipo cuidadoso que deja todo limpio y ordenado.' },
+        three: {
+          title: 'Instalación',
+          text: 'Un equipo cuidadoso que deja todo limpio y ordenado.',
+        },
         four: { title: 'Garantía', text: 'Revisión final y garantía por escrito de la obra.' },
       },
     },
@@ -113,7 +116,10 @@ export const es = {
       values: {
         one: { title: 'Claridad', text: 'Explicamos cada paso y cada costo antes de empezar.' },
         two: { title: 'Cuidado', text: 'Protegemos jardín y fachada, y dejamos todo limpio.' },
-        three: { title: 'Respaldo', text: 'Cumplimos plazos y respaldamos el trabajo por escrito.' },
+        three: {
+          title: 'Respaldo',
+          text: 'Cumplimos plazos y respaldamos el trabajo por escrito.',
+        },
       },
     },
     contact: {

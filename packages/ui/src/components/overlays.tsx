@@ -53,14 +53,19 @@ export function DialogContent({
 }
 export function DialogTitle({ className, ...props }: ComponentProps<typeof DialogPrimitive.Title>) {
   return (
-    <DialogPrimitive.Title className={cn('pe-10 font-display text-xl font-bold', className)} {...props} />
+    <DialogPrimitive.Title
+      className={cn('pe-10 font-display text-xl font-bold', className)}
+      {...props}
+    />
   );
 }
 export function DialogDescription({
   className,
   ...props
 }: ComponentProps<typeof DialogPrimitive.Description>) {
-  return <DialogPrimitive.Description className={cn('mt-1.5 text-fg-muted', className)} {...props} />;
+  return (
+    <DialogPrimitive.Description className={cn('mt-1.5 text-fg-muted', className)} {...props} />
+  );
 }
 export function DialogFooter({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('mt-6 flex flex-wrap justify-end gap-3', className)} {...props} />;
@@ -92,19 +97,30 @@ export function DropdownMenuContent({
     </MenuPrimitive.Portal>
   );
 }
-export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof MenuPrimitive.Item>) {
+export function DropdownMenuItem({
+  className,
+  ...props
+}: ComponentProps<typeof MenuPrimitive.Item>) {
   return <MenuPrimitive.Item className={cn(menuItem, className)} {...props} />;
 }
-export function DropdownMenuLabel({ className, ...props }: ComponentProps<typeof MenuPrimitive.Label>) {
+export function DropdownMenuLabel({
+  className,
+  ...props
+}: ComponentProps<typeof MenuPrimitive.Label>) {
   return (
-    <MenuPrimitive.Label className={cn('px-3 py-2 text-sm font-semibold text-fg-muted', className)} {...props} />
+    <MenuPrimitive.Label
+      className={cn('px-3 py-2 text-sm font-semibold text-fg-muted', className)}
+      {...props}
+    />
   );
 }
 export function DropdownMenuSeparator({
   className,
   ...props
 }: ComponentProps<typeof MenuPrimitive.Separator>) {
-  return <MenuPrimitive.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />;
+  return (
+    <MenuPrimitive.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
+  );
 }
 export function DropdownMenuRadioItem({
   className,
@@ -163,7 +179,12 @@ export function TabsTrigger({ className, ...props }: ComponentProps<typeof TabsP
   );
 }
 export function TabsContent({ className, ...props }: ComponentProps<typeof TabsPrimitive.Content>) {
-  return <TabsPrimitive.Content className={cn('mt-4 focus-visible:outline-offset-4', className)} {...props} />;
+  return (
+    <TabsPrimitive.Content
+      className={cn('mt-4 focus-visible:outline-offset-4', className)}
+      {...props}
+    />
+  );
 }
 
 /* ---------- Tooltip ---------- */

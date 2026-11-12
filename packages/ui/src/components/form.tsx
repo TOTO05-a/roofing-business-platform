@@ -1,5 +1,9 @@
 import { AlertCircle, Check, ChevronDown } from 'lucide-react';
-import { Checkbox as CheckboxPrimitive, Label as LabelPrimitive, Select as SelectPrimitive } from 'radix-ui';
+import {
+  Checkbox as CheckboxPrimitive,
+  Label as LabelPrimitive,
+  Select as SelectPrimitive,
+} from 'radix-ui';
 import { useId, type ComponentProps, type ReactNode } from 'react';
 import { cn } from '../lib/cn';
 
