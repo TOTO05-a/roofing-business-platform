@@ -1,40 +1,49 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { requireRole, type RequestAuth } from '../src/auth/middleware.js';
-import { assertCanAccess, canAccessResource } from '../src/auth/ownership.js';
+import { requireRole, type AuthContext, type RequestAuth } from '../src/auth/middleware.js';
 import type { Role } from '../src/auth/roles.js';
+import { scopedWhere, scopes, visibleOr404 } from '../src/auth/scope.js';
 import { HttpError } from '../src/lib/http-error.js';
 
-const CLIENT = { id: 'cliente-1', role: 'CUSTOMER' as const };
-const EMPLOYEE = { id: 'empleado-1', role: 'EMPLOYEE' as const };
-const project = { ownerId: 'cliente-1', assigneeIds: ['empleado-1'] };
+const NOTHING = { id: { in: [] } };
+const customer: AuthContext = { userId: 'u-c', role: 'CUSTOMER', customerId: 'cust-1' };
+const employee: AuthContext = { userId: 'u-e', role: 'EMPLOYEE', employeeId: 'emp-1' };
+const admin: AuthContext = { userId: 'u-a', role: 'ADMIN' };
+const superadmin: AuthContext = { userId: 'u-s', role: 'SUPERADMIN' };
 
-describe('canAccessResource', () => {
-  it('ADMIN y SUPERADMIN acceden a todo', () => {
-    expect(canAccessResource({ id: 'a', role: 'ADMIN' }, project)).toBe(true);
-    expect(canAccessResource({ id: 's', role: 'SUPERADMIN' }, { ownerId: null })).toBe(true);
+describe('filtro de alcance centralizado', () => {
+  it('ADMIN y SUPERADMIN ven todos los perfiles no borrados', () => {
+    for (const context of [admin, superadmin]) {
+      expect(scopes.customerProfile(context)).toEqual({ deletedAt: null });
+      expect(scopes.employeeProfile(context)).toEqual({ deletedAt: null });
+    }
   });
 
-  it('un cliente solo accede a lo suyo', () => {
-    expect(canAccessResource(CLIENT, project)).toBe(true);
-    expect(canAccessResource({ id: 'cliente-2', role: 'CUSTOMER' }, project)).toBe(false);
-    expect(canAccessResource(CLIENT, { ownerId: null })).toBe(false);
+  it('un cliente solo ve su propio perfil y ningún empleado', () => {
+    expect(scopes.customerProfile(customer)).toEqual({ deletedAt: null, id: 'cust-1' });
+    expect(scopes.employeeProfile(customer)).toEqual(NOTHING);
   });
 
-  it('un empleado solo accede a lo asignado', () => {
-    expect(canAccessResource(EMPLOYEE, project)).toBe(true);
-    expect(canAccessResource({ id: 'empleado-2', role: 'EMPLOYEE' }, project)).toBe(false);
-    expect(canAccessResource(EMPLOYEE, { ownerId: 'empleado-1' })).toBe(false);
+  it('un cliente sin perfil enlazado no ve nada', () => {
+    expect(scopes.customerProfile({ userId: 'u', role: 'CUSTOMER' })).toEqual(NOTHING);
   });
-});
 
-describe('assertCanAccess', () => {
-  it('responde 404 sin acceso o si el recurso no existe', () => {
-    const intruder = { id: 'cliente-2', role: 'CUSTOMER' as const };
-    expect(() => assertCanAccess(intruder, project)).toThrow(HttpError);
-    expect(() => assertCanAccess(CLIENT, null)).toThrow(/no encontrado/);
-    expect(() => assertCanAccess(CLIENT, project)).not.toThrow();
+  it('un empleado ve su perfil y, por ahora, ningún cliente', () => {
+    expect(scopes.employeeProfile(employee)).toEqual({ deletedAt: null, id: 'emp-1' });
+    expect(scopes.customerProfile(employee)).toEqual(NOTHING);
+  });
+
+  it('scopedWhere combina el alcance con el filtro de la consulta', () => {
+    expect(scopedWhere('customerProfile', customer, { id: 'otro' })).toEqual({
+      AND: [{ deletedAt: null, id: 'cust-1' }, { id: 'otro' }],
+    });
+  });
+
+  it('visibleOr404 responde 404 cuando la fila no es visible', () => {
+    expect(() => visibleOr404(null)).toThrow(HttpError);
+    expect(() => visibleOr404(undefined)).toThrow(/no encontrado/);
+    expect(visibleOr404({ id: 1 })).toEqual({ id: 1 });
   });
 });
 
@@ -45,6 +54,7 @@ describe('requireRole', () => {
       if (role) {
         const auth: RequestAuth = {
           sessionId: 's',
+          context: { userId: 'u', role },
           user: {
             id: 'u',
             email: 'u@example.com',

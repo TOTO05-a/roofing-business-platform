@@ -51,7 +51,7 @@ export function createTestDb(): Db {
 
 export async function resetDatabase(db: Db): Promise<void> {
   await db.$executeRawUnsafe(
-    'TRUNCATE TABLE audit_logs, invitations, two_factors, verifications, accounts, sessions, users CASCADE',
+    'TRUNCATE TABLE audit_logs, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
   );
 }
 
@@ -60,6 +60,26 @@ export interface CreatedUser {
   email: string;
   password: string;
   role: Role;
+  /** CustomerProfile (rol CUSTOMER) o EmployeeProfile (rol EMPLOYEE) creado junto a la cuenta. */
+  customerId?: string;
+  employeeId?: string;
+}
+
+/** Crea un CustomerProfile sin cuenta (como lo da de alta la oficina). */
+export async function createCustomerProfile(
+  db: Db,
+  options: { email?: string | null; userId?: string } = {},
+): Promise<string> {
+  const profile = await db.customerProfile.create({
+    data: {
+      firstName: 'Cliente',
+      lastName: 'De Prueba',
+      email: options.email === undefined ? null : options.email,
+      userId: options.userId ?? null,
+    },
+    select: { id: true },
+  });
+  return profile.id;
 }
 
 export async function createUser(
@@ -71,6 +91,8 @@ export async function createUser(
     name?: string;
     emailVerified?: boolean;
     status?: UserStatus;
+    /** Por defecto, CUSTOMER y EMPLOYEE se crean con su perfil. */
+    withProfile?: boolean;
   } = {},
 ): Promise<CreatedUser> {
   const id = randomUUID();
@@ -90,7 +112,19 @@ export async function createUser(
       },
     },
   });
-  return { id, email, password, role };
+  const created: CreatedUser = { id, email, password, role };
+  if (options.withProfile ?? true) {
+    if (role === 'CUSTOMER') {
+      created.customerId = await createCustomerProfile(db, { email, userId: id });
+    } else if (role === 'EMPLOYEE') {
+      const profile = await db.employeeProfile.create({
+        data: { userId: id, jobTypes: ['SALES'] },
+        select: { id: true },
+      });
+      created.employeeId = profile.id;
+    }
+  }
+  return created;
 }
 
 let ipCounter = 0;

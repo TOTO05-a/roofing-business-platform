@@ -83,17 +83,17 @@ describe('endurecimiento de Better Auth', () => {
     const first = newAgent(ctx.app);
     await signIn(first, user.email, user.password);
     const secret = await enableTwoFactor(first, user.password);
-    await db.auditLog.deleteMany();
+    const signIns = await db.auditLog.count({ where: { action: 'auth.sign_in' } });
 
     const agent = newAgent(ctx.app);
     await signIn(agent, user.email, user.password);
-    expect(await db.auditLog.count({ where: { action: 'auth.sign_in' } })).toBe(0);
+    expect(await db.auditLog.count({ where: { action: 'auth.sign_in' } })).toBe(signIns);
     expect(await db.auditLog.count({ where: { action: 'auth.password_verified' } })).toBe(1);
 
     const verify = await agent
       .post('/api/auth/two-factor/verify-totp')
       .send({ code: totpCode(secret, Date.now() + 30_000) });
     expect(verify.status).toBe(200);
-    expect(await db.auditLog.count({ where: { action: 'auth.sign_in' } })).toBe(1);
+    expect(await db.auditLog.count({ where: { action: 'auth.sign_in' } })).toBe(signIns + 1);
   });
 });

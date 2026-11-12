@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import { fromNodeHeaders } from 'better-auth/node';
+import type { Db } from '../lib/db.js';
 import { HttpError } from '../lib/http-error.js';
 import type { Auth, AuthSession } from './better-auth.js';
 import { isRole, requiresTwoFactor, type Role } from './roles.js';
@@ -13,9 +14,23 @@ export interface AuthUser {
   twoFactorEnabled: boolean;
 }
 
+/**
+ * Contexto de autorización de la petición (modelo de datos §4.4). Lo recibe el filtro de
+ * alcance centralizado (`scope.ts`) para decidir qué filas puede ver cada persona.
+ */
+export interface AuthContext {
+  userId: string;
+  role: Role;
+  /** CustomerProfile enlazado a la cuenta (no borrado). */
+  customerId?: string;
+  /** EmployeeProfile activo enlazado a la cuenta. */
+  employeeId?: string;
+}
+
 export interface RequestAuth {
   user: AuthUser;
   sessionId: string;
+  context: AuthContext;
 }
 
 declare global {
@@ -43,6 +58,26 @@ function toAuthUser(session: AuthSession): AuthUser {
   };
 }
 
+/** Resuelve los perfiles de la cuenta para construir el AuthContext. */
+export async function loadAuthContext(
+  db: Pick<Db, 'user'>,
+  user: Pick<AuthUser, 'id' | 'role'>,
+): Promise<AuthContext> {
+  const profiles = await db.user.findUnique({
+    where: { id: user.id },
+    select: {
+      customerProfile: { select: { id: true, deletedAt: true } },
+      employeeProfile: { select: { id: true, isActive: true, deletedAt: true } },
+    },
+  });
+  const context: AuthContext = { userId: user.id, role: user.role };
+  const customer = profiles?.customerProfile;
+  if (customer && !customer.deletedAt) context.customerId = customer.id;
+  const employee = profiles?.employeeProfile;
+  if (employee && employee.isActive && !employee.deletedAt) context.employeeId = employee.id;
+  return context;
+}
+
 export interface RequireAuthOptions {
   /**
    * Permite pasar a un ADMIN/SUPERADMIN que aún no activó 2FA. Solo para las rutas que
@@ -51,8 +86,11 @@ export interface RequireAuthOptions {
   allowPendingTwoFactor?: boolean;
 }
 
-/** Exige una sesión válida de Better Auth y una cuenta activa. */
-export function requireAuth(auth: Auth, options: RequireAuthOptions = {}): RequestHandler {
+/** Exige una sesión válida de Better Auth y una cuenta activa, y construye el AuthContext. */
+export function requireAuth(
+  { auth, db }: { auth: Auth; db: Db },
+  options: RequireAuthOptions = {},
+): RequestHandler {
   return async (req, res, next) => {
     const { headers, response: session } = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
@@ -76,7 +114,7 @@ export function requireAuth(auth: Auth, options: RequireAuthOptions = {}): Reque
         'Activa la verificación en dos pasos para continuar',
       );
     }
-    req.auth = { user, sessionId: session.session.id };
+    req.auth = { user, sessionId: session.session.id, context: await loadAuthContext(db, user) };
     next();
   };
 }
@@ -95,10 +133,19 @@ export function requireRole(...roles: Role[]): RequestHandler {
   };
 }
 
-/** Devuelve el usuario autenticado o lanza 401 (para handlers detrás de `requireAuth`). */
-export function currentUser(req: { auth?: RequestAuth | undefined }): AuthUser {
+function requestAuth(req: { auth?: RequestAuth | undefined }): RequestAuth {
   if (!req.auth) {
     throw new HttpError(401, 'UNAUTHENTICATED', 'Debes iniciar sesión');
   }
-  return req.auth.user;
+  return req.auth;
+}
+
+/** Usuario autenticado (para handlers detrás de `requireAuth`). */
+export function currentUser(req: { auth?: RequestAuth | undefined }): AuthUser {
+  return requestAuth(req).user;
+}
+
+/** AuthContext de la petición (para handlers detrás de `requireAuth`). */
+export function authContext(req: { auth?: RequestAuth | undefined }): AuthContext {
+  return requestAuth(req).context;
 }

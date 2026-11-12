@@ -85,13 +85,13 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
 
   it('cambia el rol, cierra las sesiones de esa persona y lo audita', async () => {
     const { agent, user: actor } = await signInWithTwoFactor(ctx);
-    const target = await createUser(db, { role: 'CUSTOMER' });
+    const target = await createUser(db, { role: 'EMPLOYEE' });
     const targetAgent = newAgent(ctx.app);
     await signIn(targetAgent, target.email, target.password);
 
-    const res = await agent.patch(`/api/admin/users/${target.id}`).send({ role: 'EMPLOYEE' });
+    const res = await agent.patch(`/api/admin/users/${target.id}`).send({ role: 'ADMIN' });
     expect(res.status).toBe(200);
-    expect(res.body.user).toMatchObject({ id: target.id, role: 'EMPLOYEE', status: 'ACTIVE' });
+    expect(res.body.user).toMatchObject({ id: target.id, role: 'ADMIN', status: 'ACTIVE' });
     expect((await targetAgent.get('/api/me')).status).toBe(401);
 
     const entry = await db.auditLog.findFirstOrThrow({ where: { action: 'user.role_change' } });
@@ -100,10 +100,38 @@ describe('gestión de usuarios (SUPERADMIN)', () => {
       actorEmail: actor.email,
       entityType: 'user',
       entityId: target.id,
-      before: { role: 'CUSTOMER' },
-      after: { role: 'EMPLOYEE' },
+      before: { role: 'EMPLOYEE' },
+      after: { role: 'ADMIN' },
     });
     expect(entry.ip).toMatch(/^198\.51\.100\./);
+  });
+
+  it('una cuenta de cliente no cambia de rol ni nadie pasa a ser cliente', async () => {
+    const { agent } = await signInWithTwoFactor(ctx);
+    const customer = await createUser(db, { role: 'CUSTOMER' });
+    const employee = await createUser(db, { role: 'EMPLOYEE' });
+
+    const fromCustomer = await agent
+      .patch(`/api/admin/users/${customer.id}`)
+      .send({ role: 'EMPLOYEE' });
+    expect(fromCustomer.status).toBe(409);
+    expect(fromCustomer.body.error.code).toBe('ROLE_CHANGE_NOT_ALLOWED');
+    const toCustomer = await agent
+      .patch(`/api/admin/users/${employee.id}`)
+      .send({ role: 'CUSTOMER' });
+    expect(toCustomer.status).toBe(409);
+  });
+
+  it('para pasar a EMPLOYEE hace falta un perfil de empleado activo', async () => {
+    const { agent } = await signInWithTwoFactor(ctx);
+    const admin = await createUser(db, { role: 'ADMIN' });
+    const res = await agent.patch(`/api/admin/users/${admin.id}`).send({ role: 'EMPLOYEE' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('EMPLOYEE_PROFILE_REQUIRED');
+
+    await db.employeeProfile.create({ data: { userId: admin.id, jobTypes: ['INSPECTOR'] } });
+    const ok = await agent.patch(`/api/admin/users/${admin.id}`).send({ role: 'EMPLOYEE' });
+    expect(ok.status).toBe(200);
   });
 
   it('desactiva a un usuario: pierde la sesión, no puede volver a entrar y queda auditado', async () => {

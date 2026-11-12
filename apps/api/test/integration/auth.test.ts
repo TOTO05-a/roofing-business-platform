@@ -54,6 +54,8 @@ describe('inicio de sesión con correo y contraseña', () => {
         emailVerified: true,
         twoFactorEnabled: false,
       },
+      customerId: user.customerId,
+      employeeId: null,
       twoFactorRequired: false,
     });
   });

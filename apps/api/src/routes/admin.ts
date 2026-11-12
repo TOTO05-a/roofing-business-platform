@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { currentUser, requireAuth, requireRole } from '../auth/middleware.js';
-import { ROLES, USER_STATUSES } from '../auth/roles.js';
+import { EMPLOYEE_JOB_TYPES, ROLES, USER_STATUSES } from '../auth/roles.js';
 import { recordAudit, requestMeta } from '../lib/audit.js';
 import { HttpError } from '../lib/http-error.js';
 import { actionEmail } from '../lib/mailer.js';
@@ -12,10 +12,23 @@ import type { AppServices } from '../services.js';
 const roleSchema = z.enum(ROLES);
 const statusSchema = z.enum(USER_STATUSES);
 
-const createInvitationSchema = z.object({
-  email: emailSchema,
-  role: roleSchema,
-});
+// Cada rol trae lo que necesita su perfil (modelo de datos §2.1):
+// - CUSTOMER: el CustomerProfile ya creado por la oficina.
+// - EMPLOYEE: los tipos de trabajo; el EmployeeProfile se crea al aceptar.
+const createInvitationSchema = z.discriminatedUnion('role', [
+  z.object({ role: z.literal('CUSTOMER'), email: emailSchema, customerId: z.uuid() }).strict(),
+  z
+    .object({
+      role: z.literal('EMPLOYEE'),
+      email: emailSchema,
+      jobTypes: z
+        .array(z.enum(EMPLOYEE_JOB_TYPES))
+        .min(1)
+        .refine((types) => new Set(types).size === types.length, 'Tipos de trabajo repetidos'),
+    })
+    .strict(),
+  z.object({ role: z.enum(['ADMIN', 'SUPERADMIN']), email: emailSchema }).strict(),
+]);
 
 const listUsersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
@@ -50,7 +63,7 @@ const userSelect = {
 /** Administración de usuarios e invitaciones: solo SUPERADMIN (con 2FA activo). */
 export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
   const router = Router();
-  router.use(requireAuth(auth), requireRole('SUPERADMIN'));
+  router.use(requireAuth({ auth, db }), requireRole('SUPERADMIN'));
 
   router.post('/invitations', async (req, res) => {
     const actor = currentUser(req);
@@ -62,6 +75,26 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
     });
     if (existingUser) {
       throw new HttpError(409, 'USER_EXISTS', 'Ya existe una cuenta con ese correo');
+    }
+
+    if (input.role === 'CUSTOMER') {
+      const customer = await db.customerProfile.findFirst({
+        where: { id: input.customerId, deletedAt: null },
+        select: { userId: true, email: true },
+      });
+      if (!customer) {
+        throw new HttpError(404, 'CUSTOMER_NOT_FOUND', 'El cliente no existe');
+      }
+      if (customer.userId) {
+        throw new HttpError(409, 'CUSTOMER_HAS_ACCOUNT', 'Ese cliente ya tiene una cuenta');
+      }
+      if (customer.email && customer.email !== input.email) {
+        throw new HttpError(
+          409,
+          'EMAIL_MISMATCH',
+          'El correo no coincide con el registrado para ese cliente',
+        );
+      }
     }
 
     const token = generateToken();
@@ -81,8 +114,18 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
           tokenHash: hashToken(token),
           expiresAt,
           invitedById: actor.id,
+          customerId: input.role === 'CUSTOMER' ? input.customerId : null,
+          employeeJobTypes: input.role === 'EMPLOYEE' ? input.jobTypes : [],
         },
-        select: { id: true, email: true, role: true, expiresAt: true, createdAt: true },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          customerId: true,
+          employeeJobTypes: true,
+          expiresAt: true,
+          createdAt: true,
+        },
       });
       await recordAudit(tx, {
         actorUserId: actor.id,
@@ -93,6 +136,8 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
         after: {
           email: created.email,
           role: created.role,
+          customerId: created.customerId,
+          employeeJobTypes: created.employeeJobTypes,
           expiresAt: created.expiresAt.toISOString(),
           revokedPending: revoked.count,
         },
@@ -150,12 +195,32 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
     const user = await db.$transaction(async (tx) => {
       const target = await tx.user.findFirst({
         where: { id, deletedAt: null },
-        select: userSelect,
+        select: { ...userSelect, employeeProfile: { select: { isActive: true, deletedAt: true } } },
       });
       if (!target) {
         throw new HttpError(404, 'NOT_FOUND', 'Usuario no encontrado');
       }
       const nextRole = input.role ?? target.role;
+      if (nextRole !== target.role) {
+        // Una cuenta de cliente nunca cambia de rol (ni nadie pasa a ser cliente): sus datos
+        // cuelgan del CustomerProfile.
+        if (target.role === 'CUSTOMER' || nextRole === 'CUSTOMER') {
+          throw new HttpError(
+            409,
+            'ROLE_CHANGE_NOT_ALLOWED',
+            'Las cuentas de cliente no cambian de rol',
+          );
+        }
+        // EMPLOYEE necesita un EmployeeProfile activo (un ADMIN puede tenerlo además).
+        const profile = target.employeeProfile;
+        if (nextRole === 'EMPLOYEE' && (!profile || !profile.isActive || profile.deletedAt)) {
+          throw new HttpError(
+            409,
+            'EMPLOYEE_PROFILE_REQUIRED',
+            'Para ser EMPLOYEE hace falta un perfil de empleado activo',
+          );
+        }
+      }
       const nextStatus = input.status ?? target.status;
       const roleChanged = nextRole !== target.role;
       const statusChanged = nextStatus !== target.status;

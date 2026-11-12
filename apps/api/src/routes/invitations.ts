@@ -23,6 +23,8 @@ const invitationSelect = {
   acceptedAt: true,
   revokedAt: true,
   expiresAt: true,
+  customerId: true,
+  employeeJobTypes: true,
   invitedBy: { select: { role: true, status: true, deletedAt: true } },
 } as const;
 
@@ -91,8 +93,12 @@ export function invitationsRouter({ db, env }: AppServices): Router {
     // 2) scrypt es lento a propósito: fuera de la transacción.
     const passwordHash = await hashPassword(input.password);
 
-    // 3) Reclamo atómico y creación de la cuenta en una sola transacción.
+    // 3) Cuenta, perfil y aceptación en una sola transacción.
     const user = await db.$transaction(async (tx) => {
+      // Bloquea la fila: si dos peticiones llegan a la vez, la segunda espera aquí y, al
+      // releer, ve la invitación ya aceptada. (No se puede marcar aceptada antes de crear el
+      // perfil: el CHECK por rol exige employee_id en las invitaciones de empleado aceptadas.)
+      await tx.$queryRaw`SELECT id FROM invitations WHERE token_hash = ${tokenHash} FOR UPDATE`;
       const now = new Date();
       const invitation = await tx.invitation.findUnique({
         where: { tokenHash },
@@ -100,14 +106,6 @@ export function invitationsRouter({ db, env }: AppServices): Router {
       });
       assertUsable(invitation, now);
 
-      // Si dos peticiones llegan a la vez, solo una actualiza la fila.
-      const claimed = await tx.invitation.updateMany({
-        where: { id: invitation.id, acceptedAt: null, revokedAt: null },
-        data: { acceptedAt: now },
-      });
-      if (claimed.count !== 1) {
-        throw new HttpError(410, 'INVITATION_USED', 'La invitación ya fue utilizada');
-      }
       const existing = await tx.user.findUnique({
         where: { email: invitation.email },
         select: { id: true },
@@ -131,17 +129,48 @@ export function invitationsRouter({ db, env }: AppServices): Router {
         },
         select: { id: true, email: true, name: true, role: true },
       });
-      await tx.invitation.update({
-        where: { id: invitation.id },
-        data: { acceptedUserId: created.id },
+      // Perfil: el cliente ya existía (se enlaza); el empleado se crea ahora.
+      let employeeId: string | null = null;
+      if (invitation.role === 'CUSTOMER') {
+        if (!invitation.customerId) throw new Error('Invitación CUSTOMER sin customer_id');
+        const linked = await tx.customerProfile.updateMany({
+          where: { id: invitation.customerId, userId: null, deletedAt: null },
+          data: { userId: created.id },
+        });
+        if (linked.count !== 1) {
+          throw new HttpError(409, 'CUSTOMER_HAS_ACCOUNT', 'Ese cliente ya tiene una cuenta');
+        }
+        // Si el cliente no tenía correo registrado, queda el de la invitación.
+        await tx.customerProfile.updateMany({
+          where: { id: invitation.customerId, email: null },
+          data: { email: invitation.email },
+        });
+      } else if (invitation.role === 'EMPLOYEE') {
+        const profile = await tx.employeeProfile.create({
+          data: { userId: created.id, jobTypes: invitation.employeeJobTypes },
+          select: { id: true },
+        });
+        employeeId = profile.id;
+      }
+      const accepted = await tx.invitation.updateMany({
+        where: { id: invitation.id, acceptedAt: null, revokedAt: null },
+        data: { acceptedAt: now, acceptedUserId: created.id, employeeId },
       });
+      if (accepted.count !== 1) {
+        throw new HttpError(410, 'INVITATION_USED', 'La invitación ya fue utilizada');
+      }
       await recordAudit(tx, {
         actorUserId: created.id,
         actorEmail: created.email,
         action: 'invitation.accept',
         entityType: 'invitation',
         entityId: invitation.id,
-        after: { userId: created.id, role: created.role },
+        after: {
+          userId: created.id,
+          role: created.role,
+          customerId: invitation.customerId,
+          employeeId,
+        },
         ...requestMeta(req),
       });
       return created;

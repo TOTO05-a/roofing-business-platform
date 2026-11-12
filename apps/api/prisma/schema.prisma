@@ -1,6 +1,5 @@
-// Esquema de identidad y acceso (Etapa 2), alineado con docs/arquitectura/modelo-datos.md §2.1.
-// Los perfiles CustomerProfile/EmployeeProfile (y el enlace de la invitación con ellos) llegan
-// en la siguiente etapa.
+// Esquema de identidad, acceso y perfiles (Etapa 2), según docs/arquitectura/modelo-datos.md
+// §2.1 y §4. Las tablas del negocio (leads, presupuestos, proyectos…) llegan en etapas posteriores.
 // Los modelos User, Session, Account, Verification y TwoFactor siguen el esquema que
 // espera Better Auth (núcleo + plugin twoFactor). Los nombres de modelo y campo son los
 // que usa el adaptador de Prisma; las tablas y columnas se mapean a snake_case.
@@ -29,6 +28,18 @@ enum UserStatus {
   DISABLED
 }
 
+enum EmployeeJobType {
+  SALES
+  INSPECTOR
+  CREW_LEAD
+}
+
+enum ContactMethod {
+  EMAIL
+  PHONE
+  SMS
+}
+
 model User {
   id               String     @id @default(uuid(7)) @db.Uuid
   name             String
@@ -47,9 +58,11 @@ model User {
   sessions           Session[]
   accounts           Account[]
   twoFactors         TwoFactor[]
-  invitationsSent    Invitation[] @relation("InvitationInvitedBy")
-  invitationAccepted Invitation?  @relation("InvitationAcceptedUser")
+  invitationsSent    Invitation[]     @relation("InvitationInvitedBy")
+  invitationAccepted Invitation?      @relation("InvitationAcceptedUser")
   auditLogs          AuditLog[]
+  customerProfile    CustomerProfile?
+  employeeProfile    EmployeeProfile?
 
   // Listado paginado de usuarios (filtrado opcional por rol, más recientes primero).
   @@index([role, createdAt(sort: Desc), id(sort: Desc)])
@@ -131,28 +144,40 @@ model TwoFactor {
 
 // Invitaciones: único camino de registro. El token en claro solo viaja en el correo;
 // aquí se guarda su SHA-256.
-// En SQL (migración) además: CHECK de correo en minúsculas y el índice único parcial
-// `invitations_email_pending_key` (una sola invitación pendiente —sin aceptar ni revocar— por correo).
+// En SQL (migración) además:
+// - CHECK de correo en minúsculas;
+// - índice único parcial `invitations_email_pending_key` (una pendiente por correo);
+// - CHECK por rol: CUSTOMER exige customer_id; EMPLOYEE exige job types y, una vez aceptada,
+//   employee_id (el EmployeeProfile se crea al aceptar porque su user_id es obligatorio).
 model Invitation {
-  id             String    @id @default(uuid(7)) @db.Uuid
-  email          String
-  role           Role
-  tokenHash      String    @unique @map("token_hash")
-  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
-  acceptedAt     DateTime? @map("accepted_at") @db.Timestamptz(3)
-  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
-  invitedById    String?   @map("invited_by_id") @db.Uuid
-  acceptedUserId String?   @unique @map("accepted_user_id") @db.Uuid
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  id               String            @id @default(uuid(7)) @db.Uuid
+  email            String
+  role             Role
+  tokenHash        String            @unique @map("token_hash")
+  expiresAt        DateTime          @map("expires_at") @db.Timestamptz(3)
+  acceptedAt       DateTime?         @map("accepted_at") @db.Timestamptz(3)
+  revokedAt        DateTime?         @map("revoked_at") @db.Timestamptz(3)
+  invitedById      String?           @map("invited_by_id") @db.Uuid
+  acceptedUserId   String?           @unique @map("accepted_user_id") @db.Uuid
+  // Perfil destino: el cliente ya existe al invitar; el empleado se crea al aceptar.
+  customerId       String?           @map("customer_id") @db.Uuid
+  employeeId       String?           @map("employee_id") @db.Uuid
+  // Tipos de trabajo con los que se creará el EmployeeProfile (solo invitaciones EMPLOYEE).
+  employeeJobTypes EmployeeJobType[] @map("employee_job_types")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  invitedBy    User? @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
-  acceptedUser User? @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+  invitedBy    User?            @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedUser User?            @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+  customer     CustomerProfile? @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  employee     EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
 
   @@index([invitedById])
+  @@index([customerId])
+  @@index([employeeId])
   @@map("invitations")
 }
 
-// Registro de auditoría (solo se inserta; nunca se actualiza ni se borra desde la app).
+// Registro de auditoría: solo inserción. Un trigger (migración) rechaza UPDATE y DELETE.
 model AuditLog {
   id          String   @id @default(uuid(7)) @db.Uuid
   // Nulo para acciones del sistema (seed, webhooks) o si el actor se anonimiza.
@@ -175,4 +200,45 @@ model AuditLog {
   @@index([entityType, entityId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
+}
+
+// Cliente: nace como contacto sin cuenta (user_id nulo) y se enlaza al aceptar su invitación.
+// En SQL además: CHECK de correo en minúsculas, CHECK de teléfono E.164 y el índice único
+// parcial `customer_profiles_email_active_key` sobre lower(email) WHERE deleted_at IS NULL.
+model CustomerProfile {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  userId           String?        @unique @map("user_id") @db.Uuid
+  firstName        String         @map("first_name")
+  lastName         String         @map("last_name")
+  email            String?
+  phone            String?
+  preferredContact ContactMethod? @map("preferred_contact")
+  marketingOptIn   Boolean        @default(false) @map("marketing_opt_in")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  user        User?        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations Invitation[]
+
+  @@index([lastName, firstName])
+  @@map("customer_profiles")
+}
+
+// Empleado: siempre tiene cuenta. Puede tener varios tipos de trabajo (vende e inspecciona).
+// En SQL además: CHECK de al menos un tipo de trabajo y CHECK de teléfono E.164.
+model EmployeeProfile {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  userId    String            @unique @map("user_id") @db.Uuid
+  jobTypes  EmployeeJobType[] @map("job_types")
+  phone     String?
+  isActive  Boolean           @default(true) @map("is_active")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(3)
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations Invitation[]
+
+  @@map("employee_profiles")
 }

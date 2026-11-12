@@ -4,6 +4,7 @@ import {
   APP_ORIGIN,
   createTestContext,
   createTestDb,
+  createCustomerProfile,
   createUser,
   linkFrom,
   newAgent,
@@ -31,8 +32,12 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
+/** Invita con lo que exige cada rol: CUSTOMER → perfil de cliente; EMPLOYEE → tipos de trabajo. */
 async function invite(email: string, role: string): Promise<string> {
-  const res = await superadmin.post('/api/admin/invitations').send({ email, role });
+  const extra: Record<string, unknown> = {};
+  if (role === 'CUSTOMER') extra.customerId = await createCustomerProfile(db);
+  if (role === 'EMPLOYEE') extra.jobTypes = ['SALES', 'INSPECTOR'];
+  const res = await superadmin.post('/api/admin/invitations').send({ email, role, ...extra });
   expect(res.status, JSON.stringify(res.body)).toBe(201);
   const link = linkFrom(ctx.mail.filter((m) => m.to === email.trim().toLowerCase()).at(-1));
   expect(link.origin).toBe(APP_ORIGIN);
@@ -188,21 +193,24 @@ describe('invitaciones', () => {
     const existing = await createUser(db);
     const res = await superadmin
       .post('/api/admin/invitations')
-      .send({ email: existing.email, role: 'CUSTOMER' });
+      .send({ email: existing.email, role: 'ADMIN' });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('USER_EXISTS');
   });
 
   it('valida la entrada con Zod', async () => {
-    const res = await superadmin
+    const badRole = await superadmin
       .post('/api/admin/invitations')
-      .send({ email: 'no-es-un-correo', role: 'DUEÑO' });
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe('VALIDATION_ERROR');
-    expect(res.body.error.issues.map((i: { path: string }) => i.path).sort()).toEqual([
-      'email',
-      'role',
-    ]);
+      .send({ email: 'x@example.com', role: 'DUEÑO' });
+    expect(badRole.status).toBe(400);
+    expect(badRole.body.error.code).toBe('VALIDATION_ERROR');
+    expect(badRole.body.error.issues[0].path).toBe('role');
+
+    const badEmail = await superadmin
+      .post('/api/admin/invitations')
+      .send({ email: 'no-es-un-correo', role: 'ADMIN' });
+    expect(badEmail.status).toBe(400);
+    expect(badEmail.body.error.issues[0].path).toBe('email');
 
     const weak = await accept('x'.repeat(43), 'corta');
     expect(weak.status).toBe(400);
