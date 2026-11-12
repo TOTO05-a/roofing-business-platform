@@ -9,23 +9,19 @@ export function pitchFactor(pitchRise: number): number {
 }
 
 /**
- * Resume las medidas: convierte el área proyectada en planta a área real con el
+ * Resume las medidas: convierte el área proyectada en planta (`PLAN`) a área real con el
  * factor de pendiente (las secciones ya declaradas como reales no se modifican),
- * suma todas las secciones y expresa el total en squares, con y sin desperdicio.
+ * suma todas las secciones y expresa el total en squares. El desperdicio se aplica
+ * después, por línea de material.
  */
-export function summarizeRoof(measurements: RoofMeasurements, wasteBps: number): RoofSummary {
+export function summarizeRoof(measurements: RoofMeasurements): RoofSummary {
   const surfaceAreaSqFt = measurements.sections.reduce(
     (total, section) =>
       total +
-      (section.areaKind === 'plan'
+      (section.areaKind === 'PLAN'
         ? section.areaSqFt * pitchFactor(section.pitchRise)
         : section.areaSqFt),
     0,
   );
-  const squares = surfaceAreaSqFt / SQ_FT_PER_SQUARE;
-  return {
-    surfaceAreaSqFt,
-    squares,
-    squaresWithWaste: squares * (1 + wasteBps / 10_000),
-  };
+  return { surfaceAreaSqFt, squares: surfaceAreaSqFt / SQ_FT_PER_SQUARE };
 }

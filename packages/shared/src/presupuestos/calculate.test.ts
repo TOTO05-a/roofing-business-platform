@@ -1,246 +1,422 @@
+/* eslint-disable @typescript-eslint/no-explicit-any --
+   Los casos inválidos mutan el JSON de entrada a propósito: se tipa de forma laxa solo en estas pruebas. */
 import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 import { calculateQuote, calculateQuoteFromRaw, QuoteCalculationError } from './calculate.js';
-import { quoteInputSchema, type QuoteInputRaw } from './schemas.js';
+import { quoteInputSchema, type QuoteInput, type QuoteInputRaw } from './schemas.js';
 
 // Datos de EJEMPLO solo para pruebas: no son precios ni porcentajes del negocio.
 const catalog: QuoteInputRaw['catalog'] = [
   {
     id: 'shingle-basic',
+    sku: 'SH-B',
     name: 'Teja básica',
-    category: 'shingles',
-    unit: 'square',
-    quantityBasis: 'roof_squares',
-    purchaseUnit: { kind: 'packages_per_unit', label: 'bundle', count: 3 },
+    kind: 'MATERIAL',
+    unit: 'BUNDLE',
     materialPriceCents: 3000,
-    laborPerUnitCents: 10_000,
-    appliesWaste: true,
+    laborPriceCents: 0,
   },
   {
     id: 'shingle-premium',
     name: 'Teja premium',
-    category: 'shingles',
-    unit: 'square',
-    quantityBasis: 'roof_squares',
-    purchaseUnit: { kind: 'packages_per_unit', label: 'bundle', count: 3 },
+    kind: 'MATERIAL',
+    unit: 'BUNDLE',
     materialPriceCents: 4500,
-    laborPerUnitCents: 10_000,
-    appliesWaste: true,
+    laborPriceCents: 0,
+  },
+  {
+    id: 'install',
+    name: 'Instalación',
+    kind: 'LABOR',
+    unit: 'SQUARE',
+    materialPriceCents: 0,
+    laborPriceCents: 10_000,
   },
   {
     id: 'underlayment',
     name: 'Membrana',
-    category: 'underlayment',
-    unit: 'square',
-    quantityBasis: 'roof_squares',
-    purchaseUnit: { kind: 'units_per_package', label: 'roll', count: 10 },
-    materialPriceCents: 8000,
-    laborPerUnitCents: 0,
-    appliesWaste: true,
+    kind: 'MATERIAL',
+    unit: 'SQUARE',
+    purchaseUnit: { name: 'roll', baseUnitsPerPurchaseUnit: 10 },
+    materialPriceCents: 800,
+    laborPriceCents: 0,
   },
   {
     id: 'ridge-cap',
     name: 'Cumbrera',
-    category: 'ridge_cap',
-    unit: 'linear_foot',
-    quantityBasis: 'ridge_and_hips_ft',
-    purchaseUnit: { kind: 'units_per_package', label: 'bundle', count: 33 },
-    materialPriceCents: 4500,
-    laborPerUnitCents: 200,
-    appliesWaste: false,
+    kind: 'MATERIAL',
+    unit: 'LINEAR_FT',
+    purchaseUnit: { name: 'bundle', baseUnitsPerPurchaseUnit: 30 },
+    materialPriceCents: 150,
+    laborPriceCents: 0,
   },
   {
     id: 'drip-edge',
     name: 'Gotero',
-    category: 'flashing',
-    unit: 'linear_foot',
-    quantityBasis: 'eaves_ft',
+    kind: 'MATERIAL',
+    unit: 'LINEAR_FT',
     materialPriceCents: 150,
-    laborPerUnitCents: 100,
-    appliesWaste: true,
+    laborPriceCents: 100,
   },
   {
     id: 'vent',
     name: 'Ventilación',
-    category: 'ventilation',
-    unit: 'each',
-    quantityBasis: 'fixed',
+    kind: 'MATERIAL',
+    unit: 'UNIT',
     materialPriceCents: 2500,
-    laborPerUnitCents: 5000,
-    appliesWaste: false,
+    laborPriceCents: 5000,
   },
 ];
 
 const warranty = (years: number) => ({ text: `Garantía de ejemplo ${years} años`, years });
 
+const common = [
+  { itemId: 'install', quantityRule: 'PER_SQUARE' },
+  { itemId: 'underlayment', quantityRule: 'PER_SQUARE' },
+  { itemId: 'drip-edge', quantityRule: 'PER_LINEAR_FT_EAVE' },
+] as const;
+const extras = [
+  { itemId: 'ridge-cap', quantityRule: 'PER_LINEAR_FT_RIDGE' },
+  { itemId: 'vent', quantityRule: 'FIXED', factor: 4 },
+] as const;
+
 const baseInput: QuoteInputRaw = {
   measurements: {
-    sections: [{ areaSqFt: 3000, areaKind: 'surface', pitchRise: 6 }],
-    ridgeFt: 60,
-    hipsFt: 40,
+    sections: [{ areaSqFt: 3000, areaKind: 'SURFACE', pitchRise: 6 }],
+    ridgeFt: 100,
     eavesFt: 120,
   },
   catalog,
   packages: [
     {
-      tier: 'basic',
+      packageId: 'basic-1',
+      tier: 'BASIC',
       name: 'Básico',
       warranty: warranty(10),
-      lines: [{ itemId: 'shingle-basic' }, { itemId: 'underlayment' }, { itemId: 'drip-edge' }],
+      lines: [{ itemId: 'shingle-basic', quantityRule: 'PER_SQUARE', factor: 3 }, ...common],
     },
     {
-      tier: 'better',
+      packageId: 'better-1',
+      tier: 'BETTER',
       name: 'Mejor',
       warranty: warranty(20),
       lines: [
-        { itemId: 'shingle-basic' },
-        { itemId: 'underlayment' },
-        { itemId: 'drip-edge' },
-        { itemId: 'ridge-cap' },
-        { itemId: 'vent', fixedQuantity: 4 },
+        { itemId: 'shingle-basic', quantityRule: 'PER_SQUARE', factor: 3 },
+        ...common,
+        ...extras,
       ],
     },
     {
-      tier: 'premium',
+      packageId: 'premium-1',
+      tier: 'PREMIUM',
       name: 'Premium',
       warranty: warranty(30),
       lines: [
-        { itemId: 'shingle-premium' },
-        { itemId: 'underlayment' },
-        { itemId: 'drip-edge' },
-        { itemId: 'ridge-cap' },
-        { itemId: 'vent', fixedQuantity: 4 },
+        { itemId: 'shingle-premium', quantityRule: 'PER_SQUARE', factor: 3 },
+        ...common,
+        ...extras,
       ],
     },
   ],
-  parameters: { wasteBps: 1000, materialTaxBps: 825, markupBps: 2000, depositBps: 3000 },
+  parameters: { wasteBps: 1000, taxBps: 825, depositBps: 3000 },
 };
 
-const withParameters = (parameters: Partial<QuoteInputRaw['parameters']>): QuoteInputRaw => ({
+const firstPackage = baseInput.packages[0];
+if (firstPackage === undefined) throw new Error('fixture');
+
+const withParameters = (parameters: Record<string, unknown>): QuoteInputRaw => ({
   ...baseInput,
-  parameters: { ...baseInput.parameters, ...parameters },
+  parameters: { ...baseInput.parameters, ...parameters } as QuoteInputRaw['parameters'],
 });
 
-const single = (input: QuoteInputRaw, tier: 'basic' | 'better' | 'premium' = 'basic') => {
-  const pkg = calculateQuoteFromRaw(input).packages.find((p) => p.tier === tier);
-  if (pkg === undefined) throw new Error('paquete no encontrado');
+function parseError(raw: unknown): ZodError {
+  try {
+    calculateQuoteFromRaw(raw);
+  } catch (error) {
+    if (error instanceof ZodError) return error;
+    throw error;
+  }
+  throw new Error('se esperaba un ZodError');
+}
+
+const basicOf = (input: QuoteInputRaw) => {
+  const pkg = calculateQuoteFromRaw(input).packages[0];
+  if (pkg === undefined) throw new Error('sin paquetes');
   return pkg;
 };
+
+/** Paquete de una sola línea sobre un catálogo propio, para pruebas puntuales. */
+const singleLine = (
+  parameters: Record<string, unknown>,
+  item: QuoteInputRaw['catalog'][number],
+  line: QuoteInputRaw['packages'][number]['lines'][number],
+  measurements: QuoteInputRaw['measurements'] = {
+    sections: [{ areaSqFt: 100, areaKind: 'SURFACE', pitchRise: 0 }],
+  },
+) =>
+  basicOf({
+    measurements,
+    catalog: [item],
+    packages: [{ packageId: 'p', tier: 'BASIC', name: 'B', warranty: warranty(1), lines: [line] }],
+    parameters: { wasteBps: 0, taxBps: 0, depositBps: 0, ...parameters } as never,
+  });
+
+const material = (id: string, unit: 'UNIT' | 'LINEAR_FT', price: number) =>
+  ({
+    id,
+    name: id,
+    kind: 'MATERIAL',
+    unit,
+    materialPriceCents: price,
+    laborPriceCents: 0,
+  }) as const;
+
+const labor = (id: string, unit: 'SQUARE' | 'LINEAR_FT', price: number) =>
+  ({
+    id,
+    name: id,
+    kind: 'LABOR',
+    unit,
+    materialPriceCents: 0,
+    laborPriceCents: price,
+  }) as const;
 
 describe('calculateQuote: caso completo de tres paquetes', () => {
   const result = calculateQuoteFromRaw(baseInput);
 
   it('resume el techo', () => {
-    expect(result.roof.surfaceAreaSqFt).toBe(3000);
-    expect(result.roof.squares).toBe(30);
-    expect(result.roof.squaresWithWaste).toBeCloseTo(33, 9);
+    expect(result.roof).toEqual({ surfaceAreaSqFt: 3000, squares: 30 });
+  });
+
+  it('calcula las partidas del paquete Básico con la instantánea completa', () => {
+    const [basic] = result.packages;
+    expect(basic?.lines).toEqual([
+      {
+        sortOrder: 0,
+        itemId: 'shingle-basic',
+        sku: 'SH-B',
+        name: 'Teja básica',
+        kind: 'MATERIAL',
+        unit: 'BUNDLE',
+        quantity: 99,
+        purchaseQuantity: 99,
+        purchaseUnitName: null,
+        unitMaterialPriceCents: 3000,
+        unitLaborPriceCents: 0,
+        lineMaterialCents: 297_000,
+        lineLaborCents: 0,
+        lineTotalCents: 297_000,
+      },
+      expect.objectContaining({
+        sortOrder: 1,
+        itemId: 'install',
+        sku: null,
+        kind: 'LABOR',
+        quantity: 30,
+        lineMaterialCents: 0,
+        lineLaborCents: 300_000,
+      }),
+      expect.objectContaining({
+        sortOrder: 2,
+        itemId: 'underlayment',
+        quantity: 40,
+        purchaseQuantity: 4,
+        purchaseUnitName: 'roll',
+        lineMaterialCents: 32_000,
+      }),
+      expect.objectContaining({
+        sortOrder: 3,
+        itemId: 'drip-edge',
+        quantity: 132,
+        lineMaterialCents: 19_800,
+        lineLaborCents: 13_200,
+      }),
+    ]);
   });
 
   it('calcula el paquete Básico', () => {
-    const [basic] = result.packages;
-    expect(basic?.tier).toBe('basic');
-    expect(basic?.lines.map((l) => l.purchasedQuantity)).toEqual([99, 4, 132]);
-    expect(basic?.lines.map((l) => l.totalCents)).toEqual([716_400, 38_400, 38_160]);
-    expect(basic).toMatchObject({
-      materialSubtotalCents: 418_560,
-      laborSubtotalCents: 374_400,
-      taxCents: 34_531,
-      totalCents: 827_491,
-      depositCents: 248_247,
-      balanceCents: 579_244,
+    expect(result.packages[0]).toMatchObject({
+      packageId: 'basic-1',
+      tier: 'BASIC',
+      materialSubtotalCents: 348_800,
+      laborSubtotalCents: 313_200,
+      discountCents: 0,
+      taxCents: 28_776,
+      totalCents: 690_776,
+      depositCents: 207_233,
+      balanceCents: 483_543,
       warranty: { years: 10 },
     });
   });
 
-  it('calcula el paquete Mejor', () => {
+  it('calcula el paquete Mejor (cumbrera con unidad de compra y cantidad fija)', () => {
     const better = result.packages[1];
+    // 100 ft × 1.10 = 110 ft → 4 bundles de 30 ft = 120 ft facturados.
+    expect(better?.lines[4]).toMatchObject({
+      quantity: 120,
+      purchaseQuantity: 4,
+      lineMaterialCents: 18_000,
+    });
+    // Ventilaciones: FIXED, sin desperdicio.
+    expect(better?.lines[5]).toMatchObject({
+      quantity: 4,
+      lineMaterialCents: 10_000,
+      lineLaborCents: 20_000,
+    });
     expect(better).toMatchObject({
-      tier: 'better',
-      materialSubtotalCents: 452_160,
-      laborSubtotalCents: 422_400,
-      taxCents: 37_303,
-      totalCents: 911_863,
-      depositCents: 273_559,
-      balanceCents: 638_304,
+      materialSubtotalCents: 376_800,
+      laborSubtotalCents: 333_200,
+      taxCents: 31_086,
+      totalCents: 741_086,
+      depositCents: 222_326,
+      balanceCents: 518_760,
     });
   });
 
-  it('calcula el paquete Premium con anticipo en la mitad exacta (half-up)', () => {
-    const premium = result.packages[2];
-    expect(premium).toMatchObject({
-      tier: 'premium',
-      materialSubtotalCents: 630_360,
-      laborSubtotalCents: 422_400,
-      taxCents: 52_005,
-      totalCents: 1_104_765,
-      depositCents: 331_430,
-      balanceCents: 773_335,
+  it('calcula el paquete Premium', () => {
+    expect(result.packages[2]).toMatchObject({
+      tier: 'PREMIUM',
+      materialSubtotalCents: 525_300,
+      laborSubtotalCents: 333_200,
+      taxCents: 43_337,
+      totalCents: 901_837,
+      depositCents: 270_551,
+      balanceCents: 631_286,
     });
+  });
+
+  it('precio unitario × cantidad reproduce el importe de cada línea', () => {
+    for (const pkg of result.packages) {
+      for (const line of pkg.lines) {
+        const milli = Math.round(line.quantity * 1000);
+        expect(Math.floor((2 * milli * line.unitMaterialPriceCents + 1000) / 2000)).toBe(
+          line.lineMaterialCents,
+        );
+        expect(Math.floor((2 * milli * line.unitLaborPriceCents + 1000) / 2000)).toBe(
+          line.lineLaborCents,
+        );
+      }
+    }
   });
 
   it('cumple las identidades de suma y solo usa enteros', () => {
     for (const pkg of result.packages) {
       expect(pkg.totalCents).toBe(
-        pkg.materialSubtotalCents + pkg.laborSubtotalCents + pkg.taxCents,
+        pkg.materialSubtotalCents + pkg.laborSubtotalCents - pkg.discountCents + pkg.taxCents,
       );
       expect(pkg.depositCents + pkg.balanceCents).toBe(pkg.totalCents);
-      expect(pkg.lines.reduce((sum, l) => sum + l.totalCents, 0)).toBe(
+      expect(pkg.lines.reduce((sum, l) => sum + l.lineTotalCents, 0)).toBe(
         pkg.materialSubtotalCents + pkg.laborSubtotalCents,
       );
       for (const value of [
-        pkg.materialSubtotalCents,
-        pkg.laborSubtotalCents,
-        pkg.taxCents,
         pkg.totalCents,
+        pkg.taxCents,
         pkg.depositCents,
         pkg.balanceCents,
-        ...pkg.lines.flatMap((l) => [l.materialCents, l.laborCents, l.totalCents]),
+        ...pkg.lines.flatMap((l) => [l.lineMaterialCents, l.lineLaborCents, l.lineTotalCents]),
       ]) {
         expect(Number.isInteger(value)).toBe(true);
       }
     }
   });
+});
 
-  it('ordena los paquetes Básico < Mejor < Premium en total', () => {
-    const totals = result.packages.map((p) => p.totalCents);
-    expect(totals).toEqual([...totals].sort((a, b) => a - b));
+describe('calculateQuote: varios paquetes por nivel', () => {
+  it('acepta dos paquetes del mismo tier con distinto packageId', () => {
+    const result = calculateQuoteFromRaw({
+      ...baseInput,
+      packages: [firstPackage, { ...firstPackage, packageId: 'basic-metal', name: 'Básico metal' }],
+    });
+    expect(result.packages.map((p) => [p.packageId, p.tier])).toEqual([
+      ['basic-1', 'BASIC'],
+      ['basic-metal', 'BASIC'],
+    ]);
+  });
+
+  it('rechaza packageId duplicado con su path', () => {
+    const error = parseError({ ...baseInput, packages: [firstPackage, { ...firstPackage }] });
+    expect(error.issues[0]?.path).toEqual(['packages', 1, 'packageId']);
+    expect(error.issues[0]?.code).toBe('custom');
+    expect(error.issues[0]).toMatchObject({ params: { code: 'DUPLICATE_ID' } });
+  });
+});
+
+describe('calculateQuote: impuesto', () => {
+  it('por defecto grava solo el material', () => {
+    expect(basicOf(baseInput).taxCents).toBe(28_776);
+  });
+
+  it('con taxAppliesToLabor grava material + mano de obra', () => {
+    const pkg = basicOf(withParameters({ taxAppliesToLabor: true }));
+    // (348 800 + 313 200) × 8.25 % = 54 615
+    expect(pkg.taxCents).toBe(54_615);
+    expect(pkg.totalCents).toBe(716_615);
+  });
+
+  it('taxAppliesToLabor false explícito equivale al valor por defecto', () => {
+    expect(basicOf(withParameters({ taxAppliesToLabor: false })).taxCents).toBe(28_776);
+  });
+
+  it('el impuesto usa half-up en la mitad exacta', () => {
+    const pkg = singleLine({ taxBps: 5000, depositBps: 5000 }, material('odd', 'UNIT', 1), {
+      itemId: 'odd',
+      quantityRule: 'FIXED',
+      factor: 1,
+    });
+    expect(pkg.taxCents).toBe(1); // 0.5 ¢ → 1 ¢
+    expect(pkg.totalCents).toBe(2);
+    expect(pkg.depositCents).toBe(1);
+    expect(pkg.balanceCents).toBe(1);
+  });
+});
+
+describe('calculateQuote: descuento', () => {
+  it('se aplica antes del impuesto y se reparte proporcionalmente', () => {
+    const pkg = basicOf(withParameters({ discountBps: 1000 }));
+    expect(pkg).toMatchObject({
+      materialSubtotalCents: 348_800,
+      laborSubtotalCents: 313_200,
+      discountCents: 66_200,
+      // base imponible: 348 800 − 34 880 = 313 920 → 25 898.4 → 25 898
+      taxCents: 25_898,
+      totalCents: 621_698,
+      depositCents: 186_509,
+      balanceCents: 435_189,
+    });
+  });
+
+  it('con taxAppliesToLabor el impuesto grava material y mano de obra descontados', () => {
+    const pkg = basicOf(withParameters({ discountBps: 1000, taxAppliesToLabor: true }));
+    // (662 000 − 66 200) × 8.25 % = 49 153.5 → 49 154
+    expect(pkg.taxCents).toBe(49_154);
+    expect(pkg.totalCents).toBe(644_954);
+  });
+
+  it('descuento por defecto 0', () => {
+    expect(basicOf(baseInput).discountCents).toBe(0);
   });
 });
 
 describe('calculateQuote: cantidades y redondeos', () => {
-  it('convierte área en planta a real y la usa para squares y mano de obra', () => {
-    const pkg = single({
-      ...withParameters({ wasteBps: 0, materialTaxBps: 0, markupBps: 0, depositBps: 0 }),
-      measurements: { sections: [{ areaSqFt: 2000, areaKind: 'plan', pitchRise: 6 }] },
-      packages: [
-        {
-          tier: 'basic',
-          name: 'Básico',
-          warranty: warranty(5),
-          lines: [{ itemId: 'shingle-basic' }],
-        },
-      ],
-    });
-    const [line] = pkg.lines;
-    // 2000 × sqrt(1.25) / 100 = 22.36068 squares → 67.08 bundles → 68.
-    expect(line?.measuredQuantity).toBe(22.36068);
-    expect(line?.purchasedQuantity).toBe(68);
-    expect(line?.materialCents).toBe(68 * 3000);
-    expect(line?.laborCents).toBe(223_607);
-    expect(pkg.depositCents).toBe(0);
-    expect(pkg.balanceCents).toBe(pkg.totalCents);
+  it('convierte área en planta a real y usa 3 decimales en mano de obra', () => {
+    const pkg = singleLine(
+      {},
+      labor('labor', 'SQUARE', 10_000),
+      { itemId: 'labor', quantityRule: 'PER_SQUARE' },
+      { sections: [{ areaSqFt: 2000, areaKind: 'PLAN', pitchRise: 6 }] },
+    );
+    // 2000 × sqrt(1.25) / 100 = 22.360679… → 22.361 squares
+    expect(pkg.lines[0]?.quantity).toBe(22.361);
+    expect(pkg.lines[0]?.lineLaborCents).toBe(223_610);
   });
 
   it('suma varias secciones con pendientes de 0/12 a 12/12', () => {
     const sections = [0, 3, 6, 9, 12].map((pitchRise) => ({
       areaSqFt: 1000,
-      areaKind: 'plan' as const,
+      areaKind: 'PLAN' as const,
       pitchRise,
     }));
-    const result = calculateQuoteFromRaw({
-      ...baseInput,
-      measurements: { sections },
-    });
+    const result = calculateQuoteFromRaw({ ...baseInput, measurements: { sections } });
     const expected = sections.reduce(
       (sum, s) => sum + 1000 * Math.sqrt(1 + (s.pitchRise / 12) ** 2),
       0,
@@ -248,167 +424,259 @@ describe('calculateQuote: cantidades y redondeos', () => {
     expect(result.roof.surfaceAreaSqFt).toBeCloseTo(expected, 9);
   });
 
-  it('no compra una unidad de más por ruido de coma flotante', () => {
-    // 30 squares + 10 % = 33 squares exactos (sin ruido de coma flotante).
-    const line = single(baseInput).lines[1];
-    expect(line?.purchasedQuantity).toBe(4);
-    expect(single(baseInput).lines[0]?.purchasedQuantity).toBe(99);
-    expect(single(baseInput).lines[2]?.purchasedQuantity).toBe(132);
+  it('el material se redondea hacia arriba a unidades de compra', () => {
+    const line = basicOf(baseInput).lines[2];
+    // 30 squares + 10 % = 33 → 3.3 rollos → 4 rollos de 10 squares
+    expect(line?.purchaseQuantity).toBe(4);
+    expect(line?.quantity).toBe(40);
   });
 
-  it('sin unidad de compra redondea hacia arriba a la unidad de medida entera', () => {
-    const pkg = single(
-      {
-        ...withParameters({ wasteBps: 0, markupBps: 0, materialTaxBps: 0 }),
-        measurements: {
-          sections: [{ areaSqFt: 100, areaKind: 'surface', pitchRise: 0 }],
-          eavesFt: 10.2,
-        },
-      },
-      'basic',
+  it('sin unidad de compra redondea hacia arriba a la unidad base entera', () => {
+    const pkg = singleLine(
+      {},
+      material('d', 'LINEAR_FT', 100),
+      { itemId: 'd', quantityRule: 'PER_LINEAR_FT_EAVE' },
+      { sections: [{ areaSqFt: 100, areaKind: 'SURFACE', pitchRise: 0 }], eavesFt: 10.2 },
     );
-    expect(pkg.lines[2]?.purchasedQuantity).toBe(11);
-    expect(pkg.lines[2]?.purchaseUnitLabel).toBeNull();
-    expect(pkg.lines[0]?.purchaseUnitLabel).toBe('bundle');
+    expect(pkg.lines[0]?.quantity).toBe(11);
+    expect(pkg.lines[0]?.purchaseUnitName).toBeNull();
   });
 
-  it('no aplica desperdicio a artículos que no lo usan', () => {
-    const pkg = single(baseInput, 'better');
-    // 100 ft de cumbrera+limatesas / 33 ft por paquete = 3.03 → 4 (sin desperdicio).
-    expect(pkg.lines[3]?.purchasedQuantity).toBe(4);
-    expect(pkg.lines[3]?.measuredQuantity).toBe(100);
-    // 4 ventilaciones fijas sin desperdicio.
-    expect(pkg.lines[4]?.purchasedQuantity).toBe(4);
-  });
-
-  it('aplica el recargo y el impuesto con half-up por partida', () => {
-    const pkg = single({
-      ...withParameters({ markupBps: 0, materialTaxBps: 5000, depositBps: 5000, wasteBps: 0 }),
-      measurements: { sections: [{ areaSqFt: 100, areaKind: 'surface', pitchRise: 0 }] },
-      catalog: [
-        {
-          id: 'odd',
-          name: 'Artículo impar',
-          category: 'other',
-          unit: 'each',
-          quantityBasis: 'fixed',
-          materialPriceCents: 1,
-          laborPerUnitCents: 0,
-          appliesWaste: false,
-        },
-      ],
-      packages: [
-        {
-          tier: 'basic',
-          name: 'B',
-          warranty: warranty(1),
-          lines: [{ itemId: 'odd', fixedQuantity: 1 }],
-        },
-      ],
-    });
-    // Impuesto: 0.5 ¢ → 1 ¢. Total 2 ¢. Anticipo 1 ¢.
-    expect(pkg.taxCents).toBe(1);
-    expect(pkg.totalCents).toBe(2);
-    expect(pkg.depositCents).toBe(1);
-    expect(pkg.balanceCents).toBe(1);
+  it('el factor multiplica la medida y la mano de obra no lleva desperdicio', () => {
+    const pkg = singleLine(
+      { wasteBps: 5000 },
+      labor('l', 'LINEAR_FT', 100),
+      { itemId: 'l', quantityRule: 'PER_LINEAR_FT_RIDGE', factor: 1.5 },
+      { sections: [{ areaSqFt: 100, areaKind: 'SURFACE', pitchRise: 0 }], ridgeFt: 10 },
+    );
+    expect(pkg.lines[0]?.quantity).toBe(15);
+    expect(pkg.lines[0]?.lineLaborCents).toBe(1500);
   });
 
   it('con anticipo del 100 % el saldo es cero', () => {
-    const pkg = single(withParameters({ depositBps: 10_000 }));
+    const pkg = basicOf(withParameters({ depositBps: 10_000 }));
     expect(pkg.depositCents).toBe(pkg.totalCents);
     expect(pkg.balanceCents).toBe(0);
   });
 
   it('usa 0 para longitudes lineales omitidas', () => {
-    const pkg = single(
-      {
-        ...baseInput,
-        measurements: { sections: [{ areaSqFt: 3000, areaKind: 'surface', pitchRise: 6 }] },
-      },
-      'better',
-    );
-    expect(pkg.lines[2]?.purchasedQuantity).toBe(0);
-    expect(pkg.lines[3]?.purchasedQuantity).toBe(0);
-    expect(pkg.lines[2]?.totalCents).toBe(0);
+    const pkg = calculateQuoteFromRaw({
+      ...baseInput,
+      measurements: { sections: [{ areaSqFt: 3000, areaKind: 'SURFACE', pitchRise: 6 }] },
+    }).packages[1];
+    expect(pkg?.lines[2]?.quantity).toBe(40);
+    expect(pkg?.lines[3]?.quantity).toBe(0);
+    expect(pkg?.lines[4]?.quantity).toBe(0);
   });
 
   it.each([
-    ['ridge_ft', { ridgeFt: 50 }, 50],
-    ['eaves_ft', { eavesFt: 70 }, 70],
-    ['hips_ft', { hipsFt: 30 }, 30],
-    ['valleys_ft', { valleysFt: 25 }, 25],
-    ['gutters_ft', { guttersFt: 90 }, 90],
-  ] as const)('usa la medida correcta para %s', (quantityBasis, extra, expected) => {
-    const pkg = single({
-      ...withParameters({ wasteBps: 0 }),
-      measurements: {
-        sections: [{ areaSqFt: 100, areaKind: 'surface', pitchRise: 0 }],
-        ...extra,
-      },
-      catalog: [
-        {
-          id: 'x',
-          name: 'X',
-          category: 'other',
-          unit: 'linear_foot',
-          quantityBasis,
-          materialPriceCents: 100,
-          laborPerUnitCents: 0,
-          appliesWaste: true,
-        },
-      ],
-      packages: [{ tier: 'basic', name: 'B', warranty: warranty(1), lines: [{ itemId: 'x' }] }],
-    });
-    expect(pkg.lines[0]?.measuredQuantity).toBe(expected);
+    ['PER_LINEAR_FT_RIDGE', { ridgeFt: 50 }, 50],
+    ['PER_LINEAR_FT_EAVE', { eavesFt: 70 }, 70],
+    ['PER_LINEAR_FT_HIP', { hipsFt: 30 }, 30],
+    ['PER_LINEAR_FT_VALLEY', { valleysFt: 25 }, 25],
+    ['PER_LINEAR_FT_GUTTER', { guttersFt: 90 }, 90],
+  ] as const)('usa la medida correcta para %s', (quantityRule, extra, expected) => {
+    const pkg = singleLine(
+      {},
+      material('x', 'LINEAR_FT', 100),
+      { itemId: 'x', quantityRule },
+      { sections: [{ areaSqFt: 100, areaKind: 'SURFACE', pitchRise: 0 }], ...extra },
+    );
+    expect(pkg.lines[0]?.quantity).toBe(expected);
   });
 });
 
-describe('calculateQuote: errores de coherencia', () => {
-  it('rechaza un paquete que referencia un artículo inexistente', () => {
-    const input: QuoteInputRaw = {
+describe('coherencia de la entrada (superRefine)', () => {
+  it('artículo inexistente: código y path', () => {
+    const error = parseError({
       ...baseInput,
-      packages: [
-        { tier: 'basic', name: 'B', warranty: warranty(1), lines: [{ itemId: 'no-existe' }] },
-      ],
-    };
-    expect(() => calculateQuoteFromRaw(input)).toThrow(QuoteCalculationError);
-    expect(() => calculateQuoteFromRaw(input)).toThrow(/no-existe/);
+      packages: [{ ...firstPackage, lines: [{ itemId: 'no-existe', quantityRule: 'PER_SQUARE' }] }],
+    });
+    expect(error.issues[0]?.path).toEqual(['packages', 0, 'lines', 0, 'itemId']);
+    expect(error.issues[0]).toMatchObject({ code: 'custom', params: { code: 'UNKNOWN_ITEM' } });
   });
 
-  it('rechaza un artículo de cantidad fija sin fixedQuantity', () => {
-    const input: QuoteInputRaw = {
+  it('regla FIXED sin factor: código y path', () => {
+    const error = parseError({
       ...baseInput,
-      packages: [{ tier: 'basic', name: 'B', warranty: warranty(1), lines: [{ itemId: 'vent' }] }],
+      packages: [
+        {
+          ...firstPackage,
+          lines: [
+            { itemId: 'install', quantityRule: 'PER_SQUARE' },
+            { itemId: 'vent', quantityRule: 'FIXED' },
+          ],
+        },
+      ],
+    });
+    expect(error.issues[0]?.path).toEqual(['packages', 0, 'lines', 1, 'factor']);
+    expect(error.issues[0]).toMatchObject({ params: { code: 'MISSING_FACTOR' } });
+  });
+
+  it('calculateQuote defiende también las entradas sin validar', () => {
+    const parsed = quoteInputSchema.parse(baseInput);
+    const unknownItem: QuoteInput = {
+      ...parsed,
+      packages: [{ ...firstPackage, lines: [{ itemId: 'zz', quantityRule: 'PER_SQUARE' }] }],
     };
-    expect(() => calculateQuoteFromRaw(input)).toThrow(QuoteCalculationError);
+    expect(() => calculateQuote(unknownItem)).toThrow(
+      expect.objectContaining({ code: 'UNKNOWN_ITEM' }),
+    );
+    const noFactor: QuoteInput = {
+      ...parsed,
+      packages: [{ ...firstPackage, lines: [{ itemId: 'vent', quantityRule: 'FIXED' }] }],
+    };
+    expect(() => calculateQuote(noFactor)).toThrow(
+      expect.objectContaining({ code: 'MISSING_FACTOR' }),
+    );
   });
 
   it('calculateQuote acepta la entrada ya validada', () => {
-    const parsed = quoteInputSchema.parse(baseInput);
-    expect(calculateQuote(parsed)).toEqual(calculateQuoteFromRaw(baseInput));
+    expect(calculateQuote(quoteInputSchema.parse(baseInput))).toEqual(
+      calculateQuoteFromRaw(baseInput),
+    );
+  });
+
+  it('artículo de mano de obra con material o unidad de compra: path', () => {
+    const install = catalog[2];
+    if (install === undefined) throw new Error('fixture');
+    let error = parseError({ ...baseInput, catalog: [{ ...install, materialPriceCents: 5 }] });
+    expect(error.issues[0]?.path).toEqual(['catalog', 0, 'materialPriceCents']);
+    error = parseError({
+      ...baseInput,
+      catalog: [{ ...install, purchaseUnit: { name: 'x', baseUnitsPerPurchaseUnit: 1 } }],
+    });
+    expect(error.issues[0]?.path).toEqual(['catalog', 0, 'purchaseUnit']);
+    expect(error.issues[0]).toMatchObject({ params: { code: 'INVALID_ITEM' } });
+  });
+
+  it('catálogo con id duplicado: path', () => {
+    const item = catalog[0];
+    if (item === undefined) throw new Error('fixture');
+    const error = parseError({ ...baseInput, catalog: [item, { ...item }] });
+    expect(error.issues[0]?.path).toEqual(['catalog', 1, 'id']);
+    expect(error.issues[0]).toMatchObject({ params: { code: 'DUPLICATE_ID' } });
+  });
+});
+
+describe('límites y desbordes', () => {
+  const mutate = (fn: (input: Record<string, any>) => void): ZodError => {
+    const input = structuredClone(baseInput) as Record<string, any>;
+    fn(input);
+    return parseError(input);
+  };
+  const firstIssue = (error: ZodError) => ({
+    path: error.issues[0]?.path,
+    code: error.issues[0]?.code,
+  });
+
+  it('rechaza áreas y longitudes sobre el tope', () => {
+    expect(firstIssue(mutate((i) => (i.measurements.sections[0].areaSqFt = 1_000_001)))).toEqual({
+      path: ['measurements', 'sections', 0, 'areaSqFt'],
+      code: 'too_big',
+    });
+    expect(firstIssue(mutate((i) => (i.measurements.ridgeFt = 100_001)))).toEqual({
+      path: ['measurements', 'ridgeFt'],
+      code: 'too_big',
+    });
+  });
+
+  it('rechaza más de 100 secciones', () => {
+    const error = mutate(
+      (i) =>
+        (i.measurements.sections = Array.from({ length: 101 }, () => ({
+          areaSqFt: 3000,
+          areaKind: 'SURFACE',
+          pitchRise: 6,
+        }))),
+    );
+    expect(firstIssue(error)).toEqual({ path: ['measurements', 'sections'], code: 'too_big' });
+  });
+
+  it('rechaza precios, factor y unidades de compra sobre el tope', () => {
+    expect(firstIssue(mutate((i) => (i.catalog[0].materialPriceCents = 10_000_001)))).toEqual({
+      path: ['catalog', 0, 'materialPriceCents'],
+      code: 'too_big',
+    });
+    expect(firstIssue(mutate((i) => (i.packages[0].lines[0].factor = 10_001)))).toEqual({
+      path: ['packages', 0, 'lines', 0, 'factor'],
+      code: 'too_big',
+    });
+    expect(
+      firstIssue(mutate((i) => (i.catalog[3].purchaseUnit.baseUnitsPerPurchaseUnit = 1_000_001))),
+    ).toEqual({
+      path: ['catalog', 3, 'purchaseUnit', 'baseUnitsPerPurchaseUnit'],
+      code: 'too_big',
+    });
+  });
+
+  it('rechaza factor o unidades por paquete cero o negativos', () => {
+    expect(firstIssue(mutate((i) => (i.packages[0].lines[0].factor = 0))).code).toBe('too_small');
+    expect(
+      firstIssue(mutate((i) => (i.catalog[3].purchaseUnit.baseUnitsPerPurchaseUnit = -1))).code,
+    ).toBe('too_small');
+  });
+
+  it('lanza AMOUNT_EXCEEDS_INT4 si un importe pasa de 2 147 483 647', () => {
+    const input = structuredClone(baseInput) as Record<string, any>;
+    input.measurements.sections = Array.from({ length: 20 }, () => ({
+      areaSqFt: 1_000_000,
+      areaKind: 'SURFACE',
+      pitchRise: 0,
+    }));
+    expect(() => calculateQuoteFromRaw(input)).toThrow(QuoteCalculationError);
+    expect(() => calculateQuoteFromRaw(input)).toThrow(
+      expect.objectContaining({ code: 'AMOUNT_EXCEEDS_INT4' }),
+    );
+  });
+
+  it('lanza AMOUNT_NOT_SAFE_INTEGER si el cálculo pierde precisión entera', () => {
+    const input = structuredClone(baseInput) as Record<string, any>;
+    input.measurements.sections = Array.from({ length: 100 }, () => ({
+      areaSqFt: 1_000_000,
+      areaKind: 'SURFACE',
+      pitchRise: 24,
+    }));
+    input.catalog[0].materialPriceCents = 10_000_000;
+    input.packages[0].lines[0].factor = 10_000;
+    expect(() => calculateQuoteFromRaw(input)).toThrow(
+      expect.objectContaining({ code: 'AMOUNT_NOT_SAFE_INTEGER' }),
+    );
+  });
+
+  it('acepta un importe justo por debajo del límite INT4', () => {
+    const pkg = singleLine({}, material('u', 'UNIT', 10_000_000), {
+      itemId: 'u',
+      quantityRule: 'FIXED',
+      factor: 214,
+    });
+    expect(pkg.totalCents).toBe(2_140_000_000);
   });
 });
 
 describe('validación Zod de la entrada', () => {
-  const clone = (): Record<string, unknown> => structuredClone(baseInput) as never;
-  // Los casos inválidos mutan el JSON de entrada a propósito: se tipa de forma laxa solo aquí.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rejects = (mutate: (input: Record<string, any>) => void) => {
-    const input = clone();
+    const input = structuredClone(baseInput) as Record<string, any>;
     mutate(input);
     expect(() => calculateQuoteFromRaw(input)).toThrow(ZodError);
   };
 
-  it('acepta la entrada base', () => {
-    expect(quoteInputSchema.safeParse(baseInput).success).toBe(true);
+  it('acepta la entrada base y aplica los valores por defecto', () => {
+    const parsed = quoteInputSchema.parse(baseInput);
+    expect(parsed.parameters).toMatchObject({ taxAppliesToLabor: false, discountBps: 0 });
+    expect(parsed.catalog[1]?.sku).toBeNull();
+  });
+
+  it('rechaza claves desconocidas en parámetros (p. ej. markupBps)', () => {
+    const error = parseError(withParameters({ markupBps: 2000 }));
+    expect(error.issues[0]?.code).toBe('unrecognized_keys');
+    expect(error.issues[0]?.path).toEqual(['parameters']);
   });
 
   it('rechaza techo sin secciones', () => rejects((i) => (i.measurements.sections = [])));
-  it('rechaza área cero o negativa', () => {
+  it('rechaza área cero, negativa o no finita', () => {
     rejects((i) => (i.measurements.sections[0].areaSqFt = 0));
     rejects((i) => (i.measurements.sections[0].areaSqFt = -5));
-  });
-  it('rechaza área o longitud no finita', () => {
     rejects((i) => (i.measurements.sections[0].areaSqFt = Number.NaN));
     rejects((i) => (i.measurements.ridgeFt = Number.POSITIVE_INFINITY));
   });
@@ -417,36 +685,32 @@ describe('validación Zod de la entrada', () => {
     rejects((i) => (i.measurements.sections[0].pitchRise = 25));
   });
   it('rechaza longitudes negativas', () => rejects((i) => (i.measurements.guttersFt = -1)));
-  it('rechaza tipo de área desconocido', () =>
-    rejects((i) => (i.measurements.sections[0].areaKind = 'otro')));
+  it('rechaza tipos de área, unidades, tipos o reglas desconocidos', () => {
+    rejects((i) => (i.measurements.sections[0].areaKind = 'plan'));
+    rejects((i) => (i.catalog[0].unit = 'GALON'));
+    rejects((i) => (i.catalog[0].kind = 'OTRO'));
+    rejects((i) => (i.packages[0].tier = 'GOLD'));
+    rejects((i) => (i.packages[0].lines[0].quantityRule = 'PER_ROOM'));
+  });
   it('rechaza precios no enteros o negativos', () => {
     rejects((i) => (i.catalog[0].materialPriceCents = 10.5));
-    rejects((i) => (i.catalog[0].laborPerUnitCents = -1));
+    rejects((i) => (i.catalog[0].laborPriceCents = -1));
   });
-  it('rechaza unidades o categorías desconocidas', () => {
-    rejects((i) => (i.catalog[0].unit = 'galon'));
-    rejects((i) => (i.catalog[0].category = 'x'));
-  });
-  it('rechaza unidad de compra inválida', () => {
-    rejects((i) => (i.catalog[0].purchaseUnit.count = 0));
-    rejects((i) => (i.catalog[0].purchaseUnit.kind = 'otra'));
-  });
-  it('rechaza artículos duplicados en el catálogo', () =>
-    rejects((i) => i.catalog.push({ ...i.catalog[0] })));
-  it('rechaza paquetes duplicados, vacíos o sin líneas', () => {
-    rejects((i) => i.packages.push({ ...i.packages[0] }));
+  it('rechaza paquetes vacíos o sin líneas', () => {
     rejects((i) => (i.packages = []));
     rejects((i) => (i.packages[0].lines = []));
   });
-  it('rechaza garantía con años negativos o no enteros', () => {
+  it('rechaza garantía con años negativos, no enteros o excesivos', () => {
     rejects((i) => (i.packages[0].warranty.years = -1));
     rejects((i) => (i.packages[0].warranty.years = 1.5));
+    rejects((i) => (i.packages[0].warranty.years = 101));
   });
   it('rechaza parámetros fuera de rango o no enteros', () => {
     rejects((i) => (i.parameters.wasteBps = -1));
-    rejects((i) => (i.parameters.materialTaxBps = 10_001));
+    rejects((i) => (i.parameters.taxBps = 10_001));
     rejects((i) => (i.parameters.depositBps = 12.5));
-    rejects((i) => (i.parameters.markupBps = 100_001));
+    rejects((i) => (i.parameters.discountBps = 10_001));
+    rejects((i) => (i.parameters.taxAppliesToLabor = 'si'));
   });
   it('rechaza entradas que no son objetos', () => {
     expect(() => calculateQuoteFromRaw(null)).toThrow(ZodError);

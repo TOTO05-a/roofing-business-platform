@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addMarkupCents,
+  applyWaste,
   ceilSnapped,
   divRoundHalfUp,
   percentOfCents,
@@ -51,27 +51,26 @@ describe('percentOfCents', () => {
   });
 });
 
-describe('addMarkupCents', () => {
-  it('suma el recargo con half-up', () => {
-    expect(addMarkupCents(297_000, 2000)).toBe(356_400);
-    expect(addMarkupCents(1, 5000)).toBe(2);
-    expect(addMarkupCents(1, 4999)).toBe(1);
-    expect(addMarkupCents(500, 0)).toBe(500);
+describe('applyWaste', () => {
+  it('aplica el desperdicio en puntos base', () => {
+    expect(applyWaste(30, 1000)).toBeCloseTo(33, 9);
+    expect(applyWaste(30, 0)).toBe(30);
+    expect(applyWaste(10, 10_000)).toBe(20);
   });
 });
 
 describe('cantidades escaladas', () => {
-  it('convierte a diezmilésimas con half-up', () => {
-    expect(toScaledQuantity(22.360679775)).toBe(223_607);
-    expect(toScaledQuantity(0.00005)).toBe(1);
-    expect(toScaledQuantity(0.00004)).toBe(0);
-    expect(toScaledQuantity(30)).toBe(300_000);
+  it('convierte a milésimas con half-up', () => {
+    expect(toScaledQuantity(22.360679775)).toBe(22_361);
+    expect(toScaledQuantity(0.0005)).toBe(1);
+    expect(toScaledQuantity(0.0004)).toBe(0);
+    expect(toScaledQuantity(30)).toBe(30_000);
   });
 
   it('multiplica por el precio y redondea una sola vez', () => {
-    expect(scaledQuantityTimesCents(300_000, 10_000)).toBe(300_000);
-    expect(scaledQuantityTimesCents(5_000, 1)).toBe(1);
-    expect(scaledQuantityTimesCents(4_999, 1)).toBe(0);
+    expect(scaledQuantityTimesCents(30_000, 10_000)).toBe(300_000);
+    expect(scaledQuantityTimesCents(500, 1)).toBe(1);
+    expect(scaledQuantityTimesCents(499, 1)).toBe(0);
     expect(scaledQuantityTimesCents(0, 12_345)).toBe(0);
   });
 });

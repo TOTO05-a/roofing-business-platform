@@ -1,10 +1,11 @@
+import { applyDiscount } from './discount.js';
 import { summarizeRoof } from './geometry.js';
 import {
-  addMarkupCents,
+  applyWaste,
   ceilSnapped,
   percentOfCents,
+  QUANTITY_SCALE,
   scaledQuantityTimesCents,
-  snap,
   toScaledQuantity,
 } from './money.js';
 import {
@@ -13,7 +14,6 @@ import {
   type PackageDefinition,
   type PackageLine,
   type QuoteInput,
-  type QuoteInputRaw,
   type QuoteLine,
   type QuoteParameters,
   type QuotePackageResult,
@@ -21,82 +21,114 @@ import {
   type RoofMeasurements,
 } from './schemas.js';
 
-/** Error de datos coherentes por separado pero inconsistentes entre sí (p. ej. artículo inexistente). */
+/** Valor máximo de una columna INT4 de PostgreSQL. */
+const INT4_MAX = 2_147_483_647;
+
+export type QuoteCalculationErrorCode =
+  'UNKNOWN_ITEM' | 'MISSING_FACTOR' | 'AMOUNT_NOT_SAFE_INTEGER' | 'AMOUNT_EXCEEDS_INT4';
+
+/** Error de cálculo con `code` estable; el mensaje está en español. */
 export class QuoteCalculationError extends Error {
   override readonly name = 'QuoteCalculationError';
+  readonly code: QuoteCalculationErrorCode;
+
+  constructor(code: QuoteCalculationErrorCode, message: string) {
+    super(message);
+    this.code = code;
+  }
 }
 
-/** Cantidad necesaria (en unidades de medida) de un artículo según su base de cálculo. */
-function measuredQuantity(
+/** Medida base de la regla de cantidad (para `FIXED` es 1: la cantidad es el factor). */
+function ruleMeasure(line: PackageLine, measurements: RoofMeasurements, squares: number): number {
+  switch (line.quantityRule) {
+    case 'PER_SQUARE':
+      return squares;
+    case 'PER_LINEAR_FT_RIDGE':
+      return measurements.ridgeFt;
+    case 'PER_LINEAR_FT_EAVE':
+      return measurements.eavesFt;
+    case 'PER_LINEAR_FT_HIP':
+      return measurements.hipsFt;
+    case 'PER_LINEAR_FT_VALLEY':
+      return measurements.valleysFt;
+    case 'PER_LINEAR_FT_GUTTER':
+      return measurements.guttersFt;
+    case 'FIXED':
+      return 1;
+  }
+}
+
+interface Quantity {
+  /** Cantidad facturada en milésimas. */
+  milli: number;
+  purchaseQuantity: number;
+  purchaseUnitName: string | null;
+}
+
+/**
+ * Cantidad de una línea:
+ * - MANO DE OBRA: medida × factor, redondeada half-up a milésimas; sin desperdicio ni compra.
+ * - MATERIAL: medida × factor, con desperdicio (salvo regla FIXED); se redondea SIEMPRE hacia arriba
+ *   a unidades de compra enteras (o a unidad base entera si no hay unidad de compra). La cantidad
+ *   facturada es lo realmente comprado, expresado en unidad base.
+ */
+function lineQuantity(
   item: CatalogItem,
   line: PackageLine,
-  measurements: RoofMeasurements,
-  squares: number,
-): number {
-  switch (item.quantityBasis) {
-    case 'roof_squares':
-      return squares;
-    case 'ridge_ft':
-      return measurements.ridgeFt;
-    case 'eaves_ft':
-      return measurements.eavesFt;
-    case 'hips_ft':
-      return measurements.hipsFt;
-    case 'valleys_ft':
-      return measurements.valleysFt;
-    case 'ridge_and_hips_ft':
-      return measurements.ridgeFt + measurements.hipsFt;
-    case 'gutters_ft':
-      return measurements.guttersFt;
-    case 'fixed':
-      if (line.fixedQuantity === undefined) {
-        throw new QuoteCalculationError(
-          `El artículo "${item.id}" es de cantidad fija y la línea no indica fixedQuantity`,
-        );
-      }
-      return line.fixedQuantity;
+  base: number,
+  wasteBps: number,
+): Quantity {
+  const raw = base * (line.factor ?? 1);
+  if (item.kind === 'LABOR') {
+    const milli = toScaledQuantity(raw);
+    return { milli, purchaseQuantity: milli / QUANTITY_SCALE, purchaseUnitName: null };
   }
-}
-
-/** Unidades compradas: aplica desperdicio, convierte a unidades de compra y redondea hacia arriba. */
-function purchasedQuantity(item: CatalogItem, measured: number, wasteBps: number): number {
-  const withWaste = item.appliesWaste ? measured * (1 + wasteBps / 10_000) : measured;
+  const needed = line.quantityRule === 'FIXED' ? raw : applyWaste(raw, wasteBps);
   const purchase = item.purchaseUnit;
   if (purchase === undefined) {
-    return ceilSnapped(withWaste);
+    const whole = ceilSnapped(needed);
+    return { milli: whole * QUANTITY_SCALE, purchaseQuantity: whole, purchaseUnitName: null };
   }
-  return purchase.kind === 'packages_per_unit'
-    ? ceilSnapped(withWaste * purchase.count)
-    : ceilSnapped(withWaste / purchase.count);
+  const packs = ceilSnapped(needed / purchase.baseUnitsPerPurchaseUnit);
+  return {
+    milli: toScaledQuantity(packs * purchase.baseUnitsPerPurchaseUnit),
+    purchaseQuantity: packs,
+    purchaseUnitName: purchase.name,
+  };
 }
 
 function buildLine(
   item: CatalogItem,
   line: PackageLine,
+  sortOrder: number,
   measurements: RoofMeasurements,
   squares: number,
   parameters: QuoteParameters,
 ): QuoteLine {
-  const measured = measuredQuantity(item, line, measurements, squares);
-  const purchased = purchasedQuantity(item, measured, parameters.wasteBps);
-
-  // Material: unidades de compra enteras × precio por unidad de compra, más recargo.
-  const materialCents = addMarkupCents(purchased * item.materialPriceCents, parameters.markupBps);
-  // Mano de obra: cantidad medida (sin desperdicio ni redondeo de compra) × tarifa, más recargo.
-  const laborBase = scaledQuantityTimesCents(toScaledQuantity(measured), item.laborPerUnitCents);
-  const laborCents = addMarkupCents(laborBase, parameters.markupBps);
-
+  const base = ruleMeasure(line, measurements, squares);
+  const { milli, purchaseQuantity, purchaseUnitName } = lineQuantity(
+    item,
+    line,
+    base,
+    parameters.wasteBps,
+  );
+  const lineMaterialCents = scaledQuantityTimesCents(milli, item.materialPriceCents);
+  const lineLaborCents = scaledQuantityTimesCents(milli, item.laborPriceCents);
   return {
+    sortOrder,
     itemId: item.id,
+    sku: item.sku,
     name: item.name,
-    category: item.category,
+    kind: item.kind,
     unit: item.unit,
-    measuredQuantity: snap(measured),
-    purchasedQuantity: purchased,
-    purchaseUnitLabel: item.purchaseUnit?.label ?? null,
-    materialCents,
-    laborCents,
-    totalCents: materialCents + laborCents,
+    quantity: milli / QUANTITY_SCALE,
+    purchaseQuantity,
+    purchaseUnitName,
+    unitMaterialPriceCents: item.materialPriceCents,
+    unitLaborPriceCents: item.laborPriceCents,
+    lineMaterialCents,
+    lineLaborCents,
+    lineTotalCents: lineMaterialCents + lineLaborCents,
   };
 }
 
@@ -107,30 +139,46 @@ function buildPackage(
   squares: number,
   parameters: QuoteParameters,
 ): QuotePackageResult {
-  const lines = definition.lines.map((packageLine) => {
+  const lines = definition.lines.map((packageLine, index) => {
     const item = catalog.get(packageLine.itemId);
     if (item === undefined) {
       throw new QuoteCalculationError(
-        `El paquete "${definition.tier}" usa un artículo inexistente: "${packageLine.itemId}"`,
+        'UNKNOWN_ITEM',
+        `El paquete "${definition.packageId}" usa un artículo inexistente: ${packageLine.itemId}`,
       );
     }
-    return buildLine(item, packageLine, measurements, squares, parameters);
+    if (packageLine.quantityRule === 'FIXED' && packageLine.factor === undefined) {
+      throw new QuoteCalculationError(
+        'MISSING_FACTOR',
+        `La línea de cantidad fija del artículo "${packageLine.itemId}" requiere factor`,
+      );
+    }
+    return buildLine(item, packageLine, index, measurements, squares, parameters);
   });
 
-  const materialSubtotalCents = lines.reduce((sum, line) => sum + line.materialCents, 0);
-  const laborSubtotalCents = lines.reduce((sum, line) => sum + line.laborCents, 0);
-  // El impuesto grava solo el subtotal de materiales (ya con recargo).
-  const taxCents = percentOfCents(materialSubtotalCents, parameters.materialTaxBps);
-  const totalCents = materialSubtotalCents + laborSubtotalCents + taxCents;
+  const materialSubtotalCents = lines.reduce((sum, line) => sum + line.lineMaterialCents, 0);
+  const laborSubtotalCents = lines.reduce((sum, line) => sum + line.lineLaborCents, 0);
+  const discounted = applyDiscount(
+    materialSubtotalCents,
+    laborSubtotalCents,
+    parameters.discountBps,
+  );
+  // Base imponible: material (y mano de obra si el flag lo indica), ya con descuento.
+  const taxableCents =
+    discounted.materialCents + (parameters.taxAppliesToLabor ? discounted.laborCents : 0);
+  const taxCents = percentOfCents(taxableCents, parameters.taxBps);
+  const totalCents = discounted.materialCents + discounted.laborCents + taxCents;
   const depositCents = percentOfCents(totalCents, parameters.depositBps);
 
   return {
+    packageId: definition.packageId,
     tier: definition.tier,
     name: definition.name,
     warranty: definition.warranty,
     lines,
     materialSubtotalCents,
     laborSubtotalCents,
+    discountCents: discounted.discountCents,
     taxCents,
     totalCents,
     depositCents,
@@ -138,21 +186,52 @@ function buildPackage(
   };
 }
 
+/** Todos los importes deben ser enteros seguros y caber en INT4. */
+function assertAmountsInRange(result: QuoteResult): void {
+  for (const pkg of result.packages) {
+    const amounts = [
+      pkg.materialSubtotalCents,
+      pkg.laborSubtotalCents,
+      pkg.discountCents,
+      pkg.taxCents,
+      pkg.totalCents,
+      pkg.depositCents,
+      pkg.balanceCents,
+      ...pkg.lines.flatMap((l) => [l.lineMaterialCents, l.lineLaborCents, l.lineTotalCents]),
+    ];
+    for (const amount of amounts) {
+      if (!Number.isSafeInteger(amount)) {
+        throw new QuoteCalculationError(
+          'AMOUNT_NOT_SAFE_INTEGER',
+          `Un importe del paquete "${pkg.packageId}" no es un entero seguro`,
+        );
+      }
+      if (amount > INT4_MAX) {
+        throw new QuoteCalculationError(
+          'AMOUNT_EXCEEDS_INT4',
+          `Un importe del paquete "${pkg.packageId}" supera ${INT4_MAX} centavos`,
+        );
+      }
+    }
+  }
+}
+
 /** Calcula los paquetes a partir de una entrada ya validada. */
 export function calculateQuote(input: QuoteInput): QuoteResult {
   const { measurements, catalog, packages, parameters } = input;
-  const roof = summarizeRoof(measurements, parameters.wasteBps);
+  const roof = summarizeRoof(measurements);
   const catalogById = new Map(catalog.map((item) => [item.id, item]));
-
-  return {
+  const result: QuoteResult = {
     roof,
     packages: packages.map((definition) =>
       buildPackage(definition, catalogById, measurements, roof.squares, parameters),
     ),
   };
+  assertAmountsInRange(result);
+  return result;
 }
 
 /** Valida con Zod (lanza `ZodError` si es inválida) y calcula. Punto de entrada para datos externos. */
-export function calculateQuoteFromRaw(raw: QuoteInputRaw | unknown): QuoteResult {
+export function calculateQuoteFromRaw(raw: unknown): QuoteResult {
   return calculateQuote(quoteInputSchema.parse(raw));
 }

@@ -28,18 +28,15 @@ describe('pitchFactor', () => {
 describe('summarizeRoof', () => {
   it('convierte área en planta a real con la pendiente', () => {
     const roof = summarizeRoof(
-      measure({ sections: [{ areaSqFt: 1000, areaKind: 'plan', pitchRise: 12 }] }),
-      0,
+      measure({ sections: [{ areaSqFt: 1000, areaKind: 'PLAN', pitchRise: 12 }] }),
     );
     expect(roof.surfaceAreaSqFt).toBeCloseTo(1000 * Math.SQRT2, 9);
     expect(roof.squares).toBeCloseTo(14.142135623, 8);
-    expect(roof.squaresWithWaste).toBeCloseTo(roof.squares, 12);
   });
 
   it('no modifica el área ya declarada como real', () => {
     const roof = summarizeRoof(
-      measure({ sections: [{ areaSqFt: 1250, areaKind: 'surface', pitchRise: 8 }] }),
-      0,
+      measure({ sections: [{ areaSqFt: 1250, areaKind: 'SURFACE', pitchRise: 8 }] }),
     );
     expect(roof.surfaceAreaSqFt).toBe(1250);
     expect(roof.squares).toBe(12.5);
@@ -49,23 +46,13 @@ describe('summarizeRoof', () => {
     const roof = summarizeRoof(
       measure({
         sections: [
-          { areaSqFt: 1000, areaKind: 'plan', pitchRise: 6 },
-          { areaSqFt: 500, areaKind: 'plan', pitchRise: 0 },
-          { areaSqFt: 300, areaKind: 'surface', pitchRise: 9 },
+          { areaSqFt: 1000, areaKind: 'PLAN', pitchRise: 6 },
+          { areaSqFt: 500, areaKind: 'PLAN', pitchRise: 0 },
+          { areaSqFt: 300, areaKind: 'SURFACE', pitchRise: 9 },
         ],
       }),
-      0,
     );
     expect(roof.surfaceAreaSqFt).toBeCloseTo(1000 * Math.sqrt(1.25) + 500 + 300, 9);
     expect(roof.squares).toBeCloseTo(roof.surfaceAreaSqFt / 100, 12);
-  });
-
-  it('aplica el desperdicio a los squares', () => {
-    const roof = summarizeRoof(
-      measure({ sections: [{ areaSqFt: 2000, areaKind: 'surface', pitchRise: 4 }] }),
-      1500,
-    );
-    expect(roof.squares).toBe(20);
-    expect(roof.squaresWithWaste).toBeCloseTo(23, 12);
   });
 });
