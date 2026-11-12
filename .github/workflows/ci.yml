@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Marcador: el build de producción exige PUBLIC_SITE_URL (canónicas, hreflang, sitemap).
+  # Los despliegues reales definen su dominio.
+  PUBLIC_SITE_URL: https://example.com
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -32,8 +37,12 @@ jobs:
       - run: pnpm build
 
   e2e:
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Habilita el catálogo de componentes (/componentes), que las pruebas e2e verifican.
+      VITE_ENABLE_SHOWCASE: 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -43,6 +52,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
@@ -52,4 +65,5 @@ jobs:
           path: |
             playwright-report/
             e2e/screenshots/
+            e2e/.results/
           retention-days: 7

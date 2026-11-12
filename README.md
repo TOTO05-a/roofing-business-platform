@@ -40,6 +40,8 @@ pnpm dev                  # web, app y API en paralelo
 ## Calidad
 
 ```bash
+# Los builds de producción exigen PUBLIC_SITE_URL (la web) y el e2e necesita el catálogo:
+export PUBLIC_SITE_URL=https://example.com VITE_ENABLE_SHOWCASE=true
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 pnpm exec playwright install chromium   # solo la primera vez
 pnpm test:e2e                           # accesibilidad y capturas en 390/834/1512 px
