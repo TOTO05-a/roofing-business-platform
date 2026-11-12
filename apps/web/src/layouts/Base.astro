@@ -1,11 +1,25 @@
 ---
-import { languageNames, locales, ui, type Locale } from '../i18n/ui';
+import { ClientRouter } from 'astro:transitions';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import MobileBar from '../components/MobileBar.astro';
+import { alternatePath, getDict, locales, type Locale } from '../i18n/ui';
+import '../styles/global.css';
 
 interface Props {
   locale: Locale;
+  title?: string;
+  description?: string;
 }
 const { locale } = Astro.props;
-const t = ui[locale];
+const t = getDict(locale);
+const title = Astro.props.title ?? t.web.meta.title;
+const description = Astro.props.description ?? t.web.meta.description;
+
+const site = Astro.site ?? new URL('http://localhost:4321');
+const pathname = Astro.url.pathname;
+const abs = (p: string) => new URL(p, site).href;
+const canonical = abs(pathname);
 ---
 
 <!doctype html>
@@ -13,62 +27,47 @@ const t = ui[locale];
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{t.title}</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonical} />
     {locales.map((l) => (
-      <link rel="alternate" hreflang={l} href={`/${l}/`} />
+      <link rel="alternate" hreflang={l} href={abs(alternatePath(pathname, l))} />
     ))}
+    <link rel="alternate" hreflang="x-default" href={abs(alternatePath(pathname, 'es'))} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content={locale === 'es' ? 'es_US' : 'en_US'} />
+    <script is:inline>
+      // Aplica el tema guardado antes de pintar (y tras cada navegación con View Transitions).
+      function applyStoredTheme(doc) {
+        try {
+          const t = localStorage.getItem('theme');
+          if (t === 'light' || t === 'dark') doc.documentElement.setAttribute('data-theme', t);
+        } catch {
+          /* sin almacenamiento: se usa el tema del sistema */
+        }
+      }
+      applyStoredTheme(document);
+      document.addEventListener('astro:before-swap', function (e) {
+        applyStoredTheme(e.newDocument);
+      });
+    </script>
+    <ClientRouter />
   </head>
-  <body>
-    <a class="skip" href="#contenido">
-      {t.skip}
+  <body class="min-h-dvh">
+    <a
+      href="#contenido"
+      class="fixed start-3 top-3 z-[60] -translate-y-20 rounded-md bg-primary px-4 py-3 font-display font-semibold text-primary-fg no-underline focus:translate-y-0"
+    >
+      {t.common.skipToContent}
     </a>
-    <header>
-      <nav aria-label={t.language}>
-        <ul>
-          {locales.map((l) => (
-            <li>
-              <a
-                href={`/${l}/`}
-                lang={l}
-                hreflang={l}
-                aria-current={l === locale ? 'page' : undefined}
-              >
-                {languageNames[l]}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    </header>
-    <main id="contenido">
+    <Header locale={locale} />
+    <main id="contenido" tabindex="-1" class="outline-none">
       <slot />
     </main>
+    <Footer locale={locale} />
+    <MobileBar locale={locale} />
   </body>
 </html>
-
-<style>
-  body {
-    font-family: system-ui, sans-serif;
-    margin: 0 auto;
-    padding: 1rem;
-    max-width: 40rem;
-    line-height: 1.5;
-  }
-  ul {
-    display: flex;
-    gap: 1rem;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  a[aria-current='page'] {
-    font-weight: 700;
-  }
-  .skip {
-    position: absolute;
-    left: -999px;
-  }
-  .skip:focus {
-    left: 1rem;
-  }
-</style>

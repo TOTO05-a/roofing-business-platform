@@ -1,0 +1,220 @@
+---
+import {
+  ArrowRight,
+  CircleCheck,
+  ClipboardCheck,
+  Hammer,
+  HousePlus,
+  Phone,
+  Search,
+  ShieldCheck,
+  Siren,
+  Wrench,
+  Layers,
+} from '@lucide/astro';
+import Base from '../layouts/Base.astro';
+import { getDict, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const t = getDict(locale);
+const w = t.web;
+
+const services = [
+  { key: 'repair', icon: Wrench },
+  { key: 'replacement', icon: Layers },
+  { key: 'installation', icon: HousePlus },
+  { key: 'inspection', icon: Search },
+  { key: 'maintenance', icon: Hammer },
+  { key: 'emergency', icon: Siren },
+] as const;
+const steps = ['one', 'two', 'three', 'four'] as const;
+const values = ['one', 'two', 'three'] as const;
+const points = ['one', 'two', 'three'] as const;
+
+const btnPrimary =
+  'inline-flex min-h-14 items-center justify-center gap-2 rounded-md bg-primary px-8 font-display text-lg font-semibold text-primary-fg no-underline shadow-md transition-colors hover:bg-primary-hover';
+---
+
+<Base locale={locale}>
+  <!-- Hero -->
+  <section
+    class="on-brand relative isolate overflow-hidden bg-surface-brand text-on-brand"
+    aria-labelledby="hero-title"
+  >
+    <svg
+      aria-hidden="true"
+      class="pointer-events-none absolute -end-24 top-1/2 -z-10 h-[140%] -translate-y-1/2 opacity-[0.12]"
+      viewBox="0 0 400 400"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="14"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M20 240 200 80l180 160"></path>
+      <path d="M60 300 200 175l140 125" style="stroke: var(--brand-copper)"></path>
+      <path d="M100 360 200 270l100 90"></path>
+    </svg>
+    <div class="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.3fr_1fr] lg:items-center">
+      <div>
+        <p class="font-display text-sm font-bold tracking-[0.18em] text-on-brand-accent uppercase">
+          {w.hero.eyebrow}
+        </p>
+        <h1 id="hero-title" class="mt-4 text-4xl font-extrabold sm:text-5xl lg:text-6xl">
+          {w.hero.title}
+        </h1>
+        <p class="mt-6 max-w-xl text-lg text-on-brand-muted sm:text-xl">{w.hero.subtitle}</p>
+        <div class="mt-9 flex flex-wrap gap-3">
+          <a href={`/${locale}/#contacto`} class={btnPrimary}>
+            {w.hero.primaryCta}
+            <ArrowRight aria-hidden="true" class="size-5" />
+          </a>
+          <a
+            href={`/${locale}/#servicios`}
+            class="inline-flex min-h-14 items-center justify-center rounded-md border-2 border-white/60 px-8 font-display text-lg font-semibold text-on-brand no-underline hover:bg-white/10"
+          >
+            {w.hero.secondaryCta}
+          </a>
+        </div>
+      </div>
+      <div class="rounded-xl border border-white/15 bg-white/[0.06] p-6 backdrop-blur-sm sm:p-8">
+        <ul class="space-y-5">
+          {points.map((p) => (
+            <li class="flex items-start gap-3">
+              <CircleCheck aria-hidden="true" class="mt-0.5 size-6 shrink-0 text-on-brand-accent" />
+              <span class="font-display text-lg font-semibold">{w.hero.points[p]}</span>
+            </li>
+          ))}
+        </ul>
+        <p class="mt-6 border-t border-white/15 pt-4 text-sm text-on-brand-muted">{w.hero.note}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Servicios -->
+  <section id="servicios" class="scroll-mt-20 py-20 sm:py-28" aria-labelledby="servicios-title">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6">
+      <div class="max-w-2xl">
+        <h2 id="servicios-title" class="text-3xl font-extrabold sm:text-4xl">
+          {w.services.title}
+        </h2>
+        <p class="mt-4 text-lg text-fg-muted">{w.services.intro}</p>
+      </div>
+      <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {services.map(({ key, icon: Icon }) => (
+          <li class="group rounded-lg border border-border bg-surface p-6 shadow-sm transition-[transform,box-shadow] duration-[var(--duration-base)] ease-standard hover:-translate-y-1 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+            <span class="grid size-12 place-items-center rounded-md bg-surface-alt text-link">
+              <Icon aria-hidden="true" class="size-6" />
+            </span>
+            <h3 class="mt-5 text-xl font-bold">{w.services.items[key].title}</h3>
+            <p class="mt-2 text-fg-muted">{w.services.items[key].text}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- Proceso -->
+  <section class="bg-surface-alt py-20 sm:py-28" aria-labelledby="proceso-title">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6">
+      <h2 id="proceso-title" class="text-3xl font-extrabold sm:text-4xl">
+        {w.process.title}
+      </h2>
+      <ol class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        {steps.map((s, i) => (
+          <li class="relative">
+            <span class="font-display text-5xl font-extrabold text-link" aria-hidden="true">
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <h3 class="mt-2 text-xl font-bold">{w.process.steps[s].title}</h3>
+            <p class="mt-2 text-fg-muted">{w.process.steps[s].text}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <!-- Proyectos (marcador) -->
+  <section id="proyectos" class="scroll-mt-20 py-20 sm:py-28" aria-labelledby="proyectos-title">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6">
+      <div class="max-w-2xl">
+        <h2 id="proyectos-title" class="text-3xl font-extrabold sm:text-4xl">
+          {w.projects.title}
+        </h2>
+        <p class="mt-4 text-lg text-fg-muted">{w.projects.intro}</p>
+      </div>
+      <ul class="mt-12 grid gap-5 md:grid-cols-3">
+        {[1, 2, 3].map((n) => (
+          <li class="overflow-hidden rounded-lg border border-border bg-surface">
+            <div
+              aria-hidden="true"
+              class="grid aspect-[4/3] place-items-center bg-surface-alt text-border-strong"
+            >
+              <ClipboardCheck class="size-12" />
+            </div>
+            <div class="p-5">
+              <p class="font-display text-sm font-bold tracking-wide text-link uppercase">
+                {w.projects.soon}
+              </p>
+              <h3 class="mt-1 text-lg font-bold">
+                {w.projects.placeholder} {n}
+              </h3>
+              <p class="mt-1 text-fg-muted">{w.projects.placeholderText}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- Nosotros -->
+  <section
+    id="nosotros"
+    class="scroll-mt-20 bg-surface-alt py-20 sm:py-28"
+    aria-labelledby="nosotros-title"
+  >
+    <div class="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-2">
+      <div>
+        <h2 id="nosotros-title" class="text-3xl font-extrabold sm:text-4xl">
+          {w.about.title}
+        </h2>
+        <p class="mt-4 text-lg text-fg-muted">{w.about.text}</p>
+      </div>
+      <ul class="grid gap-5">
+        {values.map((v) => (
+          <li class="flex gap-4 rounded-lg border border-border bg-surface p-5">
+            <ShieldCheck aria-hidden="true" class="mt-1 size-6 shrink-0 text-link" />
+            <div>
+              <h3 class="text-lg font-bold">{w.about.values[v].title}</h3>
+              <p class="mt-1 text-fg-muted">{w.about.values[v].text}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- Contacto -->
+  <section
+    id="contacto"
+    class="on-brand scroll-mt-20 bg-surface-brand py-20 text-on-brand sm:py-24"
+    aria-labelledby="contacto-title"
+  >
+    <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
+      <h2 id="contacto-title" class="text-3xl font-extrabold sm:text-4xl">
+        {w.contact.title}
+      </h2>
+      <p class="mt-4 text-lg text-on-brand-muted">{w.contact.text}</p>
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+        <a href="tel:+10000000000" class={btnPrimary}>
+          <Phone aria-hidden="true" class="size-5" />
+          {t.common.examplePhone}
+        </a>
+      </div>
+      <p class="mt-6 text-on-brand-muted">{w.contact.hours}</p>
+    </div>
+  </section>
+</Base>

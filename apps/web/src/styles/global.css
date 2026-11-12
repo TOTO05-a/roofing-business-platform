@@ -1,0 +1,9 @@
+@import '@roofing/ui/styles.css';
+@source '../';
+
+/* Transiciones de página (View Transitions): solo opacidad. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--duration-base);
+  animation-timing-function: var(--ease-standard);
+}
