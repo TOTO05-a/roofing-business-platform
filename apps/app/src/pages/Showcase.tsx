@@ -34,17 +34,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@roofing/ui';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { FolderPlus, HelpCircle } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ContactForm } from './ContactForm';
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  const reduce = useReducedMotion();
   return (
     <motion.section
       aria-labelledby={id}
-      variants={fade}
+      {...(reduce ? {} : { variants: fade })}
       className="rounded-lg border border-border bg-surface p-6 shadow-sm"
     >
       <h2 id={id} className="mb-4 font-display text-2xl font-bold">
@@ -82,10 +83,16 @@ function RetryDemo() {
 
 export function ShowcasePage() {
   const { t } = useTranslation();
+  const reduce = useReducedMotion();
   const s = (k: string) => t(`app.showcase.${k}` as 'app.showcase.title');
 
   return (
-    <motion.div variants={stagger(0.05)} initial="hidden" animate="visible" className="grid gap-6">
+    <motion.div
+      variants={stagger(0.05)}
+      initial={reduce ? false : 'hidden'}
+      animate="visible"
+      className="grid gap-6"
+    >
       <p className="max-w-prose text-lg text-fg-muted">{t('app.showcase.intro')}</p>
 
       <Section id="sec-buttons" title={t('app.showcase.buttons')}>
