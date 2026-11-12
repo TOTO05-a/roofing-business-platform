@@ -6,3 +6,5 @@ pnpm-lock.yaml
 docs
 README.md
 .claude
+# Cliente de Prisma generado (apps/api)
+**/src/generated

@@ -1,5 +1,6 @@
 name: roofing-business-platform
 
+# Todos los puertos se publican solo en 127.0.0.1 (no quedan expuestos a la red local).
 services:
   postgres:
     image: postgres:18-alpine
@@ -9,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-roofing_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-roofing}
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
@@ -22,8 +23,29 @@ services:
     image: axllent/mailpit:v1.33
     restart: unless-stopped
     ports:
-      - '${MAILPIT_SMTP_PORT:-1025}:1025'
-      - '${MAILPIT_UI_PORT:-8025}:8025'
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+
+  # Interfaz visual de PostgreSQL (opcional): docker compose --profile tools up -d pgadmin
+  # Abre http://localhost:5050. Modo escritorio, sin login, solo escucha en 127.0.0.1.
+  pgadmin:
+    image: dpage/pgadmin4:9.19.0
+    profiles: ['tools']
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-dev@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-pgadmin_dev_password}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - '127.0.0.1:${PGADMIN_PORT:-5050}:80'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  pgadmin_data:

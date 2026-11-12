@@ -1,0 +1,255 @@
+// Esquema de identidad, acceso y perfiles (Etapa 2), según docs/arquitectura/modelo-datos.md
+// §2.1 y §4. Las tablas del negocio (leads, presupuestos, proyectos…) llegan en etapas posteriores.
+// Los modelos User, Session, Account, Verification y TwoFactor siguen el esquema que
+// espera Better Auth (núcleo + plugin twoFactor). Los nombres de modelo y campo son los
+// que usa el adaptador de Prisma; las tablas y columnas se mapean a snake_case.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  runtime             = "nodejs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  EMPLOYEE
+  ADMIN
+  SUPERADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum EmployeeJobType {
+  SALES
+  INSPECTOR
+  CREW_LEAD
+}
+
+enum ContactMethod {
+  EMAIL
+  PHONE
+  SMS
+}
+
+model User {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  name             String
+  // Siempre en minúsculas (CHECK en la migración); Better Auth también lo normaliza.
+  email            String     @unique
+  emailVerified    Boolean    @default(false) @map("email_verified")
+  image            String?
+  role             Role       @default(CUSTOMER)
+  status           UserStatus @default(ACTIVE)
+  twoFactorEnabled Boolean    @default(false) @map("two_factor_enabled")
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  // Borrado lógico: un usuario con deleted_at no puede iniciar sesión.
+  deletedAt        DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  sessions           Session[]
+  accounts           Account[]
+  twoFactors         TwoFactor[]
+  invitationsSent    Invitation[]     @relation("InvitationInvitedBy")
+  invitationAccepted Invitation?      @relation("InvitationAcceptedUser")
+  auditLogs          AuditLog[]
+  customerProfile    CustomerProfile?
+  employeeProfile    EmployeeProfile?
+
+  // Listado paginado de usuarios (filtrado opcional por rol, más recientes primero).
+  @@index([role, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(3)
+  scope                 String?
+  // Hash scrypt de la contraseña (solo cuentas con providerId = "credential").
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verifications")
+}
+
+// Plugin twoFactor de Better Auth: el secreto TOTP y los códigos de respaldo se guardan
+// cifrados con BETTER_AUTH_SECRET.
+model TwoFactor {
+  id                      String    @id @default(uuid(7)) @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  secret                  String
+  backupCodes             String    @map("backup_codes")
+  verified                Boolean   @default(true)
+  // Bloqueo por intentos fallidos de verificación (accountLockout del plugin).
+  failedVerificationCount Int       @default(0) @map("failed_verification_count")
+  lockedUntil             DateTime? @map("locked_until") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Sin índice en `secret`: va cifrado y Better Auth busca por userId.
+  @@index([userId])
+  @@map("two_factors")
+}
+
+// Invitaciones: único camino de registro. El token en claro solo viaja en el correo;
+// aquí se guarda su SHA-256.
+// En SQL (migración) además:
+// - CHECK de correo en minúsculas;
+// - índice único parcial `invitations_email_pending_key` (una pendiente por correo);
+// - CHECK por rol: CUSTOMER exige customer_id; EMPLOYEE exige job types y, una vez aceptada,
+//   employee_id (el EmployeeProfile se crea al aceptar porque su user_id es obligatorio).
+model Invitation {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  email            String
+  role             Role
+  tokenHash        String            @unique @map("token_hash")
+  expiresAt        DateTime          @map("expires_at") @db.Timestamptz(3)
+  acceptedAt       DateTime?         @map("accepted_at") @db.Timestamptz(3)
+  revokedAt        DateTime?         @map("revoked_at") @db.Timestamptz(3)
+  invitedById      String?           @map("invited_by_id") @db.Uuid
+  acceptedUserId   String?           @unique @map("accepted_user_id") @db.Uuid
+  // Perfil destino: el cliente ya existe al invitar; el empleado se crea al aceptar.
+  customerId       String?           @map("customer_id") @db.Uuid
+  employeeId       String?           @map("employee_id") @db.Uuid
+  // Tipos de trabajo con los que se creará el EmployeeProfile (solo invitaciones EMPLOYEE).
+  employeeJobTypes EmployeeJobType[] @map("employee_job_types")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  invitedBy    User?            @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedUser User?            @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+  customer     CustomerProfile? @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  employee     EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([invitedById])
+  @@index([customerId])
+  @@index([employeeId])
+  @@map("invitations")
+}
+
+// Registro de auditoría: solo inserción. Un trigger (migración) rechaza UPDATE y DELETE.
+model AuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  // Nulo para acciones del sistema (seed, webhooks) o si el actor se anonimiza.
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  // Copia del correo del actor en el momento de la acción (se conserva aunque cambie).
+  actorEmail  String?  @map("actor_email")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  // Estado anterior y posterior de lo que cambió (nunca contraseñas, tokens ni secretos).
+  before      Json?
+  after       Json?
+  ip          String?
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// Cliente: nace como contacto sin cuenta (user_id nulo) y se enlaza al aceptar su invitación.
+// En SQL además: CHECK de correo en minúsculas, CHECK de teléfono E.164 y el índice único
+// parcial `customer_profiles_email_active_key` sobre lower(email) WHERE deleted_at IS NULL.
+model CustomerProfile {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  userId           String?        @unique @map("user_id") @db.Uuid
+  firstName        String         @map("first_name")
+  lastName         String         @map("last_name")
+  email            String?
+  phone            String?
+  preferredContact ContactMethod? @map("preferred_contact")
+  marketingOptIn   Boolean        @default(false) @map("marketing_opt_in")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  user        User?        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations Invitation[]
+
+  @@index([lastName, firstName])
+  @@map("customer_profiles")
+}
+
+// Empleado: siempre tiene cuenta. Puede tener varios tipos de trabajo (vende e inspecciona).
+// En SQL además: CHECK de al menos un tipo de trabajo y CHECK de teléfono E.164.
+model EmployeeProfile {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  userId    String            @unique @map("user_id") @db.Uuid
+  jobTypes  EmployeeJobType[] @map("job_types")
+  phone     String?
+  isActive  Boolean           @default(true) @map("is_active")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(3)
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations Invitation[]
+
+  @@map("employee_profiles")
+}
+
+// Límite de intentos de login por cuenta (además del de por IP de Better Auth). Clave: correo
+// normalizado, exista o no la cuenta, para no revelar cuáles existen.
+model LoginThrottle {
+  email       String    @id
+  failures    Int       @default(0)
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("login_throttles")
+}
