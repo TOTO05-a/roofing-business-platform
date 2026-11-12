@@ -65,6 +65,13 @@ export function Button({
   const classes = cn(buttonVariants({ variant, size }), className);
 
   if (asChild) {
+    if (process.env.NODE_ENV !== 'production' && (loading || disabled)) {
+      // `loading` y `disabled` no tienen efecto sobre un hijo que no es un <button>.
+      console.warn(
+        '[Button] `loading` y `disabled` se ignoran con `asChild`: el hijo no se bloquea. ' +
+          'Renderiza un <button> o gestiona el estado en el hijo (p. ej. aria-disabled).',
+      );
+    }
     return (
       <Slot.Root className={classes} {...(props as ComponentProps<'span'>)}>
         {children}

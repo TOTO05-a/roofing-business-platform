@@ -71,7 +71,7 @@ export function ContactForm() {
 
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="grid max-w-2xl gap-5">
-      {isSubmitted && hasErrors && <Alert variant="danger">{t('app.form.invalid')}</Alert>}
+      {isSubmitted && hasErrors && <Alert variant="danger" live>{t('app.form.invalid')}</Alert>}
 
       <FormField
         label={t('app.form.name')}

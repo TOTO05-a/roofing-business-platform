@@ -37,3 +37,27 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Ok' })).toHaveAttribute('type', 'button');
   });
 });
+
+describe('Button asChild', () => {
+  it('avisa en desarrollo si recibe loading o disabled', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    render(
+      <Button asChild disabled>
+        <a href="/x">Ir</a>
+      </Button>,
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('no avisa sin loading ni disabled', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    render(
+      <Button asChild>
+        <a href="/x">Ir</a>
+      </Button>,
+    );
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});

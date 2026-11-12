@@ -74,13 +74,25 @@ const alertIcons = {
 export interface AlertProps
   extends Omit<ComponentProps<'div'>, 'title'>, VariantProps<typeof alertVariants> {
   title?: ReactNode;
+  /**
+   * Anuncia el aviso a los lectores de pantalla al aparecer (`role="alert"` o `"status"`).
+   * Por defecto es falso: un aviso estático no debe interrumpir.
+   */
+  live?: boolean;
 }
-export function Alert({ className, variant = 'info', title, children, ...props }: AlertProps) {
+export function Alert({
+  className,
+  variant = 'info',
+  title,
+  live = false,
+  children,
+  ...props
+}: AlertProps) {
   const key = variant ?? 'info';
   const { Icon, color } = alertIcons[key];
   return (
     <div
-      role={key === 'danger' || key === 'warning' ? 'alert' : 'status'}
+      role={live ? (key === 'danger' || key === 'warning' ? 'alert' : 'status') : undefined}
       className={cn(alertVariants({ variant }), className)}
       {...props}
     >
@@ -176,6 +188,8 @@ export interface ErrorStateProps extends Omit<ComponentProps<'div'>, 'title'> {
   retryLabel: string;
   onRetry: () => void;
   retrying?: boolean;
+  /** Anuncia el error con `role="alert"` al aparecer. Por defecto es falso. */
+  live?: boolean;
 }
 export function ErrorState({
   title,
@@ -183,12 +197,13 @@ export function ErrorState({
   retryLabel,
   onRetry,
   retrying = false,
+  live = false,
   className,
   ...props
 }: ErrorStateProps) {
   return (
     <div
-      role="alert"
+      role={live ? 'alert' : undefined}
       className={cn(
         'flex flex-col items-center gap-3 rounded-lg border border-danger bg-danger-soft p-10 text-center',
         className,

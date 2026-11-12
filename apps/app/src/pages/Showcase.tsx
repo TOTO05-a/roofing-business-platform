@@ -65,7 +65,7 @@ function RetryDemo() {
   };
   if (state === 'ok') {
     return (
-      <Alert variant="success" title={t('app.showcase.alertSuccessTitle')}>
+      <Alert variant="success" live title={t('app.showcase.alertSuccessTitle')}>
         {t('app.showcase.retryDone')}
       </Alert>
     );
