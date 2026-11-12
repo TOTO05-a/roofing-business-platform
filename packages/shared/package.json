@@ -21,7 +21,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "zod": "^4.6.7"
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@roofing/config": "workspace:*",
     "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "5.1.0",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0"
   }
