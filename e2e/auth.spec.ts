@@ -274,14 +274,14 @@ test('si la API no responde al cargar la sesión, ofrece reintentar', async ({ p
 
 test('al cambiar de pantalla el foco pasa al título', async ({ page }) => {
   await mockApi(page, {});
-  await page.goto();
+  await page.goto(`${APP}/iniciar-sesion`);
   await page.getByRole('link', { name: '¿Olvidó su contraseña?' }).click();
-  await expect(page).toHaveURL();
+  await expect(page).toHaveURL(`${APP}/recuperar`);
   await expect(page.getByRole('heading', { level: 1, name: 'Recuperar contraseña' })).toBeFocused();
 });
 
 test('cuenta desactivada (403 en /api/me): vuelve al acceso', async ({ page }) => {
   await mockApi(page, { 'GET /api/me': accountDisabled });
-  await page.goto();
-  await expect(page).toHaveURL();
+  await page.goto(`${APP}/`);
+  await expect(page).toHaveURL(`${APP}/iniciar-sesion`);
 });
