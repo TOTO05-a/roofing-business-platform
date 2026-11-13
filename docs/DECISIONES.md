@@ -103,3 +103,4 @@ Aprobadas junto con el modelo de datos.
 | W11 | **Modelo y esfuerzo según la tarea:** Haiku para búsquedas; Sonnet bajo para correcciones mecánicas y segundas revisiones; Sonnet medio para implementar y revisar código rutinario; Opus alto solo para seguridad, pagos, datos y autenticación. Instrucciones cortas que remiten a `docs/`. Ver C31. | Aprovechar el límite de uso sin perder calidad donde importa. | 13-11-2026 | ✅ |
 | W12 | **La calidad visual no se sacrifica por peso:** si una optimización empeora el aspecto, se mantiene la versión anterior y se consulta. | Petición del cliente. | 13-11-2026 | ✅ |
 | W13 | **La app no se lanzará a producción por ahora:** es una demostración. | Petición del cliente; no hay datos ni fotos reales todavía. | 13-11-2026 | ✅ |
+| W14 | El ruleset de `main` y `dev` exige los checks **`verify` y `e2e`** para fusionar. Ver C34. | Evitar fusiones con pruebas de navegador o accesibilidad en rojo (como el PR #10). | 13-11-2026 | ✅ |

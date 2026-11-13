@@ -308,3 +308,15 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 **Por qué:** el realismo y el costo cero pesan más que tener fotos propias; se indica siempre que son fotos de demostración. Fuentes y autores en [`fotos-demo.md`](fotos-demo.md).
 
+
+## Calidad de las fusiones (13-11-2026)
+
+### C34. ¿El check `e2e` es obligatorio para fusionar? → W14
+
+| Opción                        | A favor                                                         | En contra                                                       |
+| ----------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| ✅ **Obligatorio en `main` y `dev`** | Ningún PR entra con accesibilidad o pantallas rotas         | Cada PR espera unos minutos más; una prueba inestable bloquea   |
+| Solo en `main`                | `dev` más ágil                                                  | Los fallos se acumulan en `dev` y aparecen tarde                |
+| Solo `verify` (como antes)    | Sin esperas                                                     | Puede repetirse lo del PR #10, fusionado con el e2e en rojo     |
+
+**Por qué:** el repositorio es público (CI gratis) y el e2e protege la accesibilidad WCAG 2.2 AA (D2). El ruleset «Proteger main y dev» exige ahora `verify` y `e2e`.
