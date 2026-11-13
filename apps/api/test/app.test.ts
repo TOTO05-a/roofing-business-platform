@@ -7,7 +7,8 @@ import { createServices } from '../src/services.js';
 // Estas pruebas no tocan la base de datos: Prisma solo conecta en la primera consulta.
 const env = parseEnv({
   NODE_ENV: 'test',
-  DATABASE_URL: 'postgresql://user:pass@127.0.0.1:1/unused',
+  APP_DATABASE_URL: 'postgresql://user:pass@127.0.0.1:1/unused',
+  SYSTEM_DATABASE_URL: 'postgresql://user:pass@127.0.0.1:1/unused',
   BETTER_AUTH_SECRET: 'unit-test-secret-unit-test-secret-1234',
 });
 const app = createApp(createServices(env, { mailer: { send: async () => {} } }));
@@ -85,7 +86,8 @@ describe('protección CSRF de las rutas propias', () => {
 describe('parseEnv', () => {
   const required = {
     NODE_ENV: 'development',
-    DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+    APP_DATABASE_URL: 'postgresql://app_user:p@localhost:5432/db',
+    SYSTEM_DATABASE_URL: 'postgresql://app_system:p@localhost:5432/db',
     BETTER_AUTH_SECRET: 'x'.repeat(32),
   };
 
@@ -113,8 +115,8 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...required, PORT: 'abc' })).toThrow(/PORT/);
   });
 
-  it('exige NODE_ENV, DATABASE_URL y un secreto de al menos 32 caracteres', () => {
-    expect(() => parseEnv({})).toThrow(/NODE_ENV[\s\S]*DATABASE_URL/);
+  it('exige NODE_ENV, las dos conexiones y un secreto de al menos 32 caracteres', () => {
+    expect(() => parseEnv({})).toThrow(/NODE_ENV[\s\S]*APP_DATABASE_URL[\s\S]*SYSTEM_DATABASE_URL/);
     expect(() => parseEnv({ ...required, BETTER_AUTH_SECRET: 'corto' })).toThrow(
       /BETTER_AUTH_SECRET/,
     );

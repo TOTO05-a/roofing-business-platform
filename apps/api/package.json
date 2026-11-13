@@ -13,6 +13,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:roles": "tsx --env-file-if-exists=.env prisma/setup-db-roles.ts",
     "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "db:studio": "prisma studio"
   },
@@ -32,7 +33,9 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
     "@types/nodemailer": "^8.0.2",
+    "@types/pg": "8.23.1",
     "@types/supertest": "^7.2.1",
+    "pg": "8.23.1",
     "prisma": "7.10.1",
     "supertest": "^7.3.2",
     "tsx": "^4.23.15",

@@ -4,6 +4,7 @@ import { authContext, currentUser, requireAuth, requireRole } from '../auth/midd
 import { CONTACT_METHODS } from '../auth/roles.js';
 import { scopedWhere, visibleOr404 } from '../auth/scope.js';
 import { recordAudit, requestMeta } from '../lib/audit.js';
+import { rlsTransaction, withRls } from '../lib/rls.js';
 import { emailSchema, parseInput } from '../lib/validation.js';
 import type { AppServices } from '../services.js';
 
@@ -64,7 +65,7 @@ export function profilesRouter(services: AppServices): Router {
   router.post('/customers', authed, requireRole('ADMIN', 'SUPERADMIN'), async (req, res) => {
     const actor = currentUser(req);
     const input = parseInput(createCustomerSchema, req.body);
-    const customer = await db.$transaction(async (tx) => {
+    const customer = await rlsTransaction(db, authContext(req), async (tx) => {
       const created = await tx.customerProfile.create({
         data: {
           firstName: input.firstName,
@@ -92,24 +93,26 @@ export function profilesRouter(services: AppServices): Router {
 
   router.get('/customers', authed, async (req, res) => {
     const query = parseInput(listQuerySchema, req.query);
-    const where = scopedWhere('customerProfile', authContext(req));
-    const [customers, total] = await db.$transaction([
-      db.customerProfile.findMany({
+    const context = authContext(req);
+    const where = scopedWhere('customerProfile', context);
+    const { customers, total } = await rlsTransaction(db, context, async (tx) => ({
+      customers: await tx.customerProfile.findMany({
         where,
         select: customerSelect,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
-      db.customerProfile.count({ where }),
-    ]);
+      total: await tx.customerProfile.count({ where }),
+    }));
     res.json({ customers, page: query.page, pageSize: query.pageSize, total });
   });
 
   router.get('/customers/:id', authed, async (req, res) => {
     const { id } = parseInput(idParamsSchema, req.params);
-    const customer = await db.customerProfile.findFirst({
-      where: scopedWhere('customerProfile', authContext(req), { id }),
+    const context = authContext(req);
+    const customer = await withRls(db, context).customerProfile.findFirst({
+      where: scopedWhere('customerProfile', context, { id }),
       select: customerSelect,
     });
     res.json({ customer: visibleOr404(customer) });
@@ -117,8 +120,9 @@ export function profilesRouter(services: AppServices): Router {
 
   router.get('/employees/:id', authed, async (req, res) => {
     const { id } = parseInput(idParamsSchema, req.params);
-    const employee = await db.employeeProfile.findFirst({
-      where: scopedWhere('employeeProfile', authContext(req), { id }),
+    const context = authContext(req);
+    const employee = await withRls(db, context).employeeProfile.findFirst({
+      where: scopedWhere('employeeProfile', context, { id }),
       select: employeeSelect,
     });
     res.json({ employee: visibleOr404(employee) });

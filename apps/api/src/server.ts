@@ -1,9 +1,13 @@
 import { createApp } from './app.js';
 import { parseEnv } from './env.js';
+import { assertRlsEnforced } from './lib/rls.js';
 import { createServices } from './services.js';
 
 const env = parseEnv();
 const services = createServices(env);
+// Falla al arrancar si alguna conexión saltara la seguridad por fila (p. ej. el superusuario).
+await assertRlsEnforced(services.db, 'APP_DATABASE_URL');
+await assertRlsEnforced(services.systemDb, 'SYSTEM_DATABASE_URL');
 const app = createApp(services);
 
 const server = app.listen(env.PORT, () => {
@@ -12,7 +16,9 @@ const server = app.listen(env.PORT, () => {
 
 function shutdown(): void {
   server.close(() => {
-    void services.db.$disconnect().finally(() => process.exit(0));
+    void Promise.all([services.db.$disconnect(), services.systemDb.$disconnect()]).finally(() =>
+      process.exit(0),
+    );
   });
 }
 process.on('SIGTERM', shutdown);

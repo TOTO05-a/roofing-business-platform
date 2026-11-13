@@ -9,13 +9,14 @@ import { parseEnv, type Env } from '../../src/env.js';
 import { createDb, type Db } from '../../src/lib/db.js';
 import type { MailMessage } from '../../src/lib/mailer.js';
 import { createServices } from '../../src/services.js';
-import { testDatabaseUrl } from './database-url.js';
+import { appTestDatabaseUrl, systemTestDatabaseUrl, testDatabaseUrl } from './database-url.js';
 
 export const APP_ORIGIN = 'http://localhost:5173';
 export const DEFAULT_PASSWORD = 'contraseña-de-prueba-123';
 
 export interface TestContext {
   app: Express;
+  /** Conexión del dueño (salta la RLS): solo para preparar datos y comprobar resultados. */
   db: Db;
   env: Env;
   /** Correos "enviados" durante la prueba (el mailer de pruebas los guarda aquí). */
@@ -25,7 +26,8 @@ export interface TestContext {
 export function createTestContext(db: Db, overrides: Record<string, string> = {}): TestContext {
   const env = parseEnv({
     NODE_ENV: 'test',
-    DATABASE_URL: testDatabaseUrl(),
+    APP_DATABASE_URL: appTestDatabaseUrl(),
+    SYSTEM_DATABASE_URL: systemTestDatabaseUrl(),
     BETTER_AUTH_SECRET: 'integration-test-secret-0123456789abcdef',
     BETTER_AUTH_URL: APP_ORIGIN,
     APP_URL: APP_ORIGIN,
@@ -34,8 +36,11 @@ export function createTestContext(db: Db, overrides: Record<string, string> = {}
     ...overrides,
   });
   const mail: MailMessage[] = [];
+  // La API usa los roles reales (app_user / app_system), como en producción; `db` (dueño) solo
+  // prepara y comprueba datos.
   const services = createServices(env, {
-    db,
+    db: appTestDb(),
+    systemDb: systemTestDb(),
     mailer: {
       send: async (message) => {
         mail.push(message);
@@ -49,6 +54,22 @@ export function createTestDb(): Db {
   return createDb(testDatabaseUrl());
 }
 
+// Una sola conexión por rol para toda la suite (se cierran al terminar el proceso de Vitest).
+let appDb: Db | undefined;
+let systemDb: Db | undefined;
+
+/** Cliente con el rol app_user (sin contexto RLS no ve nada). */
+export function appTestDb(): Db {
+  appDb ??= createDb(appTestDatabaseUrl());
+  return appDb;
+}
+
+/** Cliente con el rol app_system. */
+export function systemTestDb(): Db {
+  systemDb ??= createDb(systemTestDatabaseUrl());
+  return systemDb;
+}
+
 /**
  * Vacía la base de pruebas. audit_logs bloquea TRUNCATE con un trigger; solo aquí (base
  * desechable de pruebas) se desactiva un instante, dentro de la misma transacción.
@@ -57,7 +78,7 @@ export async function resetDatabase(db: Db): Promise<void> {
   await db.$transaction([
     db.$executeRawUnsafe('ALTER TABLE audit_logs DISABLE TRIGGER audit_logs_no_truncate'),
     db.$executeRawUnsafe(
-      'TRUNCATE TABLE audit_logs, login_throttles, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
+      'TRUNCATE TABLE inspection_photos, inspection_sections, inspections, files, appointments, leads, properties, audit_logs, login_throttles, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
     ),
     db.$executeRawUnsafe('ALTER TABLE audit_logs ENABLE TRIGGER audit_logs_no_truncate'),
   ]);

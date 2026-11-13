@@ -65,7 +65,7 @@ function assertUsable<T extends InvitationState>(
 }
 
 /** Rutas públicas de invitación: el único camino para crear una cuenta. */
-export function invitationsRouter({ db, env }: AppServices): Router {
+export function invitationsRouter({ systemDb: db, env }: AppServices): Router {
   const router = Router();
 
   // Ruta pública y costosa (scrypt): límite propio por IP (req.ip respeta TRUST_PROXY).

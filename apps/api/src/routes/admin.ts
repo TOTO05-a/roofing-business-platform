@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { currentUser, requireAuth, requireRole } from '../auth/middleware.js';
+import { authContext, currentUser, requireAuth, requireRole } from '../auth/middleware.js';
 import { EMPLOYEE_JOB_TYPES, requiresTwoFactor, ROLES, USER_STATUSES } from '../auth/roles.js';
 import { recordAudit, requestMeta } from '../lib/audit.js';
 import { HttpError } from '../lib/http-error.js';
 import { actionEmail } from '../lib/mailer.js';
+import { rlsTransaction, withRls } from '../lib/rls.js';
 import { generateToken, hashToken } from '../lib/tokens.js';
 import { emailSchema, parseInput } from '../lib/validation.js';
 import type { AppServices } from '../services.js';
@@ -61,15 +62,17 @@ const userSelect = {
 } as const;
 
 /** Administración de usuarios e invitaciones: solo SUPERADMIN (con 2FA activo). */
-export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
+export function adminRouter(services: AppServices): Router {
+  const { env, mailer, db } = services;
   const router = Router();
-  router.use(requireAuth({ auth, db }), requireRole('SUPERADMIN'));
+  router.use(requireAuth(services), requireRole('SUPERADMIN'));
 
   router.post('/invitations', async (req, res) => {
     const actor = currentUser(req);
     const input = parseInput(createInvitationSchema, req.body);
 
-    const existingUser = await db.user.findUnique({
+    const rls = withRls(db, authContext(req));
+    const existingUser = await rls.user.findUnique({
       where: { email: input.email },
       select: { id: true },
     });
@@ -78,7 +81,7 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
     }
 
     if (input.role === 'CUSTOMER') {
-      const customer = await db.customerProfile.findFirst({
+      const customer = await rls.customerProfile.findFirst({
         where: { id: input.customerId, deletedAt: null },
         select: { userId: true, email: true },
       });
@@ -101,7 +104,7 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + env.INVITATION_TTL_HOURS * 60 * 60 * 1000);
 
-    const invitation = await db.$transaction(async (tx) => {
+    const invitation = await rlsTransaction(db, authContext(req), async (tx) => {
       // Una invitación nueva anula las pendientes para el mismo correo.
       const revoked = await tx.invitation.updateMany({
         where: { email: input.email, acceptedAt: null, revokedAt: null },
@@ -169,16 +172,16 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
       ...(query.role ? { role: query.role } : {}),
       ...(query.status ? { status: query.status } : {}),
     };
-    const [users, total] = await db.$transaction([
-      db.user.findMany({
+    const { users, total } = await rlsTransaction(db, authContext(req), async (tx) => ({
+      users: await tx.user.findMany({
         where,
         select: userSelect,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
-      db.user.count({ where }),
-    ]);
+      total: await tx.user.count({ where }),
+    }));
     res.json({ users, page: query.page, pageSize: query.pageSize, total });
   });
 
@@ -192,7 +195,7 @@ export function adminRouter({ env, db, mailer, auth }: AppServices): Router {
       throw new HttpError(409, 'CANNOT_MODIFY_SELF', 'No puedes cambiar tu propio rol o estado');
     }
 
-    const user = await db.$transaction(async (tx) => {
+    const user = await rlsTransaction(db, authContext(req), async (tx) => {
       const target = await tx.user.findFirst({
         where: { id, deletedAt: null },
         select: { ...userSelect, employeeProfile: { select: { isActive: true, deletedAt: true } } },

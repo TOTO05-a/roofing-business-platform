@@ -1,5 +1,7 @@
-// Esquema de identidad, acceso y perfiles (Etapa 2), según docs/arquitectura/modelo-datos.md
-// §2.1 y §4. Las tablas del negocio (leads, presupuestos, proyectos…) llegan en etapas posteriores.
+// Esquema de identidad, acceso y perfiles (Etapa 2) y del CRM (propiedades, leads, citas,
+// inspecciones y archivos), según docs/arquitectura/modelo-datos.md §2.1–2.3 y §4.
+// La seguridad por fila (RLS), los roles de base de datos y las restricciones que Prisma no
+// expresa viven en las migraciones (ver prisma/sql/).
 // Los modelos User, Session, Account, Verification y TwoFactor siguen el esquema que
 // espera Better Auth (núcleo + plugin twoFactor). Los nombres de modelo y campo son los
 // que usa el adaptador de Prisma; las tablas y columnas se mapean a snake_case.
@@ -63,6 +65,7 @@ model User {
   auditLogs          AuditLog[]
   customerProfile    CustomerProfile?
   employeeProfile    EmployeeProfile?
+  filesUploaded      File[]
 
   // Listado paginado de usuarios (filtrado opcional por rol, más recientes primero).
   @@index([role, createdAt(sort: Desc), id(sort: Desc)])
@@ -218,8 +221,11 @@ model CustomerProfile {
   updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime?      @map("deleted_at") @db.Timestamptz(3)
 
-  user        User?        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  invitations Invitation[]
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations  Invitation[]
+  properties   Property[]
+  leads        Lead[]
+  appointments Appointment[]
 
   @@index([lastName, firstName])
   @@map("customer_profiles")
@@ -237,8 +243,11 @@ model EmployeeProfile {
   updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(3)
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
-  invitations Invitation[]
+  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations   Invitation[]
+  leadsAssigned Lead[]
+  appointments  Appointment[]
+  inspections   Inspection[]
 
   @@map("employee_profiles")
 }
@@ -252,4 +261,275 @@ model LoginThrottle {
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("login_throttles")
+}
+
+// ---------------------------------------------------------------------------------------
+// CRM: propiedades, leads, citas, inspecciones y archivos (modelo de datos §2.2, §2.3 y §3).
+// Las máquinas de estados viven en los servicios de la API; aquí solo los valores posibles.
+// ---------------------------------------------------------------------------------------
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  APPOINTMENT_SET
+  INSPECTED
+  QUOTED
+  WON
+  LOST
+  SPAM
+  DUPLICATE
+}
+
+enum LeadSource {
+  WEB_FORM
+  PHONE
+  REFERRAL
+  DOOR_KNOCK
+  OTHER
+}
+
+enum AppointmentType {
+  INSPECTION
+  FOLLOW_UP
+  ESTIMATE_PRESENTATION
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum InspectionStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum RoofType {
+  ASPHALT_SHINGLE
+  METAL
+  CLAY_TILE
+  CONCRETE_TILE
+  FLAT
+  OTHER
+}
+
+enum FileStatus {
+  PENDING
+  READY
+  DELETED
+}
+
+// Propiedad (vivienda) de un cliente. En SQL además: CHECK de estado de EE. UU., ZIP, año de
+// construcción y coordenadas.
+model Property {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  customerId   String    @map("customer_id") @db.Uuid
+  addressLine1 String    @map("address_line1")
+  addressLine2 String?   @map("address_line2")
+  city         String
+  state        String    @db.Char(2)
+  zip          String
+  lat          Decimal?  @db.Decimal(9, 6)
+  lng          Decimal?  @db.Decimal(9, 6)
+  yearBuilt    Int?      @map("year_built")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  customer     CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  leads        Lead[]
+  appointments Appointment[]
+  inspections  Inspection[]
+
+  // Destino de las claves compuestas (propiedad, cliente): una cita o un lead solo pueden
+  // apuntar a una propiedad del mismo cliente.
+  @@unique([id, customerId])
+  @@index([customerId])
+  @@map("properties")
+}
+
+// Lead: contacto en bruto. Al convertirse se enlaza (o crea) un CustomerProfile y una Property.
+// En SQL además: CHECK de contacto (correo o teléfono), correo en minúsculas, teléfono E.164,
+// motivo obligatorio en LOST y cliente y propiedad obligatorios desde APPOINTMENT_SET.
+model Lead {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  status       LeadStatus @default(NEW)
+  source       LeadSource
+  sourceDetail String?    @map("source_detail")
+  firstName    String     @map("first_name")
+  lastName     String?    @map("last_name")
+  email        String?
+  phone        String?
+  addressLine1 String?    @map("address_line1")
+  addressLine2 String?    @map("address_line2")
+  city         String?
+  state        String?    @db.Char(2)
+  zip          String?
+  message      String?
+  utm          Json?
+  // Motivo por el que el filtro anti-spam marcó el envío (campo trampa, tiempo, límite…).
+  spamReason   String?    @map("spam_reason")
+  assignedToId String?    @map("assigned_to_id") @db.Uuid
+  customerId   String?    @map("customer_id") @db.Uuid
+  propertyId   String?    @map("property_id") @db.Uuid
+  lostReason   String?    @map("lost_reason")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  assignedTo   EmployeeProfile? @relation(fields: [assignedToId], references: [id], onDelete: Restrict)
+  customer     CustomerProfile? @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  property     Property?        @relation(fields: [propertyId, customerId], references: [id, customerId], onDelete: Restrict)
+  appointments Appointment[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([assignedToId, status])
+  @@index([customerId])
+  @@index([propertyId, customerId])
+  // Límite de envíos del formulario por correo y búsqueda de duplicados.
+  @@index([email, createdAt(sort: Desc)])
+  @@map("leads")
+}
+
+// Cita con un empleado asignado. En SQL además: CHECK ends_at > starts_at (máx. 12 h) y la
+// restricción EXCLUDE appointments_no_overlap (btree_gist), que impide citas solapadas del
+// mismo empleado en estados activos (SCHEDULED, CONFIRMED, IN_PROGRESS).
+model Appointment {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  propertyId        String            @map("property_id") @db.Uuid
+  customerId        String            @map("customer_id") @db.Uuid
+  leadId            String?           @map("lead_id") @db.Uuid
+  assigneeId        String            @map("assignee_id") @db.Uuid
+  type              AppointmentType
+  startsAt          DateTime          @map("starts_at") @db.Timestamptz(3)
+  endsAt            DateTime          @map("ends_at") @db.Timestamptz(3)
+  status            AppointmentStatus @default(SCHEDULED)
+  cancelReason      String?           @map("cancel_reason")
+  notes             String?
+  // Al reprogramar se crea una cita nueva que apunta a la anterior (que queda RESCHEDULED).
+  rescheduledFromId String?           @unique @map("rescheduled_from_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?         @map("deleted_at") @db.Timestamptz(3)
+
+  property        Property        @relation(fields: [propertyId, customerId], references: [id, customerId], onDelete: Restrict)
+  customer        CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lead            Lead?           @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  assignee        EmployeeProfile @relation(fields: [assigneeId], references: [id], onDelete: Restrict)
+  rescheduledFrom Appointment?    @relation("AppointmentReschedule", fields: [rescheduledFromId], references: [id], onDelete: Restrict)
+  rescheduledTo   Appointment?    @relation("AppointmentReschedule")
+  inspection      Inspection?
+
+  // Destino de la clave compuesta (cita, propiedad) de Inspection.
+  @@unique([id, propertyId])
+  @@index([assigneeId, startsAt])
+  @@index([status, startsAt])
+  @@index([customerId, startsAt])
+  @@index([propertyId, customerId])
+  @@index([leadId])
+  @@map("appointments")
+}
+
+// Inspección de una cita (una por cita). En SQL además: CHECK completed_at ⇔ COMPLETED y edad
+// del techo.
+model Inspection {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  appointmentId String           @unique @map("appointment_id") @db.Uuid
+  propertyId    String           @map("property_id") @db.Uuid
+  inspectorId   String           @map("inspector_id") @db.Uuid
+  status        InspectionStatus @default(DRAFT)
+  completedAt   DateTime?        @map("completed_at") @db.Timestamptz(3)
+  roofType      RoofType?        @map("roof_type")
+  roofAgeYears  Int?             @map("roof_age_years")
+  findings      String?
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?        @map("deleted_at") @db.Timestamptz(3)
+
+  appointment Appointment         @relation(fields: [appointmentId, propertyId], references: [id, propertyId], onDelete: Restrict)
+  property    Property            @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  inspector   EmployeeProfile     @relation(fields: [inspectorId], references: [id], onDelete: Restrict)
+  sections    InspectionSection[]
+  photos      InspectionPhoto[]
+
+  @@unique([appointmentId, propertyId])
+  @@index([inspectorId, status])
+  @@index([propertyId])
+  @@map("inspections")
+}
+
+// Medidas por sección del techo (área en planta en ft², pendiente rise/12 y longitudes en ft).
+// En SQL además: CHECK de área > 0, pendiente 0..24 y longitudes >= 0.
+model InspectionSection {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  inspectionId String   @map("inspection_id") @db.Uuid
+  name         String
+  areaSqft     Decimal  @map("area_sqft") @db.Decimal(10, 2)
+  pitchRise    Decimal  @map("pitch_rise") @db.Decimal(4, 1)
+  ridgeFt      Decimal  @default(0) @map("ridge_ft") @db.Decimal(8, 2)
+  eaveFt       Decimal  @default(0) @map("eave_ft") @db.Decimal(8, 2)
+  hipFt        Decimal  @default(0) @map("hip_ft") @db.Decimal(8, 2)
+  valleyFt     Decimal  @default(0) @map("valley_ft") @db.Decimal(8, 2)
+  gutterFt     Decimal  @default(0) @map("gutter_ft") @db.Decimal(8, 2)
+  sortOrder    Int      @default(0) @map("sort_order")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  inspection Inspection        @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  photos     InspectionPhoto[]
+
+  @@index([inspectionId, sortOrder])
+  @@map("inspection_sections")
+}
+
+// Puente tipado entre una inspección (y opcionalmente una de sus secciones) y su archivo.
+// En SQL además: un trigger exige que la sección pertenezca a la misma inspección.
+model InspectionPhoto {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  inspectionId String    @map("inspection_id") @db.Uuid
+  sectionId    String?   @map("section_id") @db.Uuid
+  fileId       String    @unique @map("file_id") @db.Uuid
+  caption      String?
+  takenAt      DateTime? @map("taken_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  inspection Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  section    InspectionSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  file       File               @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([inspectionId])
+  @@index([sectionId])
+  @@map("inspection_photos")
+}
+
+// Metadatos de un objeto del almacenamiento S3 (bucket privado). Los bytes nunca pasan por aquí.
+// En SQL además: CHECK de sha256 en hex, tamaño (1 B a 25 MB) y tipos MIME permitidos.
+model File {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  bucket       String
+  objectKey    String     @map("object_key")
+  mimeType     String     @map("mime_type")
+  sizeBytes    BigInt     @map("size_bytes")
+  sha256       String     @db.Char(64)
+  originalName String?    @map("original_name")
+  uploadedById String?    @map("uploaded_by_id") @db.Uuid
+  status       FileStatus @default(PENDING)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  uploadedBy      User?            @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  inspectionPhoto InspectionPhoto?
+
+  @@unique([bucket, objectKey])
+  @@index([uploadedById, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("files")
 }

@@ -16,9 +16,13 @@ export interface AuditEntry {
 
 type AuditClient = Pick<Db, 'auditLog'>;
 
-/** Inserta una entrada en el registro de auditoría. Acepta el cliente o una transacción. */
+/**
+ * Inserta una entrada en el registro de auditoría. Acepta el cliente o una transacción.
+ * Usa `createMany` (INSERT sin RETURNING): con RLS, quien audita no siempre puede leer el
+ * registro (solo la oficina lee audit_logs).
+ */
 export async function recordAudit(db: AuditClient, entry: AuditEntry): Promise<void> {
-  await db.auditLog.create({
+  await db.auditLog.createMany({
     data: {
       actorUserId: entry.actorUserId ?? null,
       actorEmail: entry.actorEmail ?? null,

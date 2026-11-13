@@ -30,7 +30,12 @@ const envSchema = z
     // Sin valor por defecto: si faltara en producción, todo fallaría "en abierto" (cookies sin Secure…).
     NODE_ENV: z.enum(['development', 'test', 'production']),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-    DATABASE_URL: z.url(),
+    // Conexiones de la API (seguridad por fila, decisión T10). Nunca el dueño de las tablas:
+    // APP_DATABASE_URL usa el rol app_user (peticiones de personas autenticadas) y
+    // SYSTEM_DATABASE_URL el rol app_system (Better Auth, invitaciones, formulario público).
+    // DATABASE_URL (dueño) solo lo usan las migraciones y el seed.
+    APP_DATABASE_URL: z.url(),
+    SYSTEM_DATABASE_URL: z.url(),
 
     // Better Auth. Genera el secreto con: openssl rand -base64 32
     BETTER_AUTH_SECRET: z.string().min(32, 'Debe tener al menos 32 caracteres'),

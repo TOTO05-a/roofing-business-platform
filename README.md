@@ -26,8 +26,14 @@ pnpm install
 cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 docker compose up -d      # PostgreSQL y Mailpit
+pnpm --filter @roofing/api db:deploy   # migraciones (con el dueño, DATABASE_URL)
+pnpm --filter @roofing/api db:roles    # da LOGIN a app_user y app_system (seguridad por fila)
+pnpm --filter @roofing/api db:seed     # opcional: superadmin y datos demo (SEED_DEMO=true)
 pnpm dev                  # web, app y API en paralelo
 ```
+
+La API se conecta con los roles `app_user` y `app_system`, que no saltan la seguridad por fila
+(RLS); si se le da el usuario dueño o un superusuario, se niega a arrancar.
 
 | Servicio            | URL                                      |
 | ------------------- | ---------------------------------------- |
@@ -45,6 +51,12 @@ export PUBLIC_SITE_URL=https://example.com VITE_ENABLE_SHOWCASE=true
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 pnpm exec playwright install chromium   # solo la primera vez
 pnpm test:e2e                           # accesibilidad y capturas en 390/834/1512 px
+```
+
+Pruebas de integración de la API (incluida la matriz de RLS), contra PostgreSQL:
+
+```bash
+pnpm --filter @roofing/api test:integration   # usa TEST_DATABASE_URL (nombre con "test")
 ```
 
 La CI ejecuta lo mismo en cada PR hacia `dev` y `main`.

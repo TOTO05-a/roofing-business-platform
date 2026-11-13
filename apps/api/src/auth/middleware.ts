@@ -58,7 +58,10 @@ function toAuthUser(session: AuthSession): AuthUser {
   };
 }
 
-/** Resuelve los perfiles de la cuenta para construir el AuthContext. */
+/**
+ * Resuelve los perfiles de la cuenta para construir el AuthContext. Recibe la conexión
+ * `app_system`: todavía no hay contexto RLS con el que consultar como la persona.
+ */
 export async function loadAuthContext(
   db: Pick<Db, 'user'>,
   user: Pick<AuthUser, 'id' | 'role'>,
@@ -88,7 +91,7 @@ export interface RequireAuthOptions {
 
 /** Exige una sesión válida de Better Auth y una cuenta activa, y construye el AuthContext. */
 export function requireAuth(
-  { auth, db }: { auth: Auth; db: Db },
+  { auth, systemDb }: { auth: Auth; systemDb: Db },
   options: RequireAuthOptions = {},
 ): RequestHandler {
   return async (req, res, next) => {
@@ -114,7 +117,11 @@ export function requireAuth(
         'Activa la verificación en dos pasos para continuar',
       );
     }
-    req.auth = { user, sessionId: session.session.id, context: await loadAuthContext(db, user) };
+    req.auth = {
+      user,
+      sessionId: session.session.id,
+      context: await loadAuthContext(systemDb, user),
+    };
     next();
   };
 }
