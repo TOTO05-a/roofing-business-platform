@@ -9,3 +9,4 @@ export * from './components/spinner';
 export * from './components/theme-toggle';
 export * from './hooks/use-theme';
 export * from './motion/presets';
+export * from './visualizer';
