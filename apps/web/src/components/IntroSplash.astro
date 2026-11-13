@@ -1,0 +1,162 @@
+---
+import { getDict, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const t = getDict(Astro.props.locale);
+---
+
+<!--
+  Animación de entrada (1,3 s, solo CSS). Está oculta por defecto: un script mínimo en el <head>
+  la activa (`html[data-intro="play"]`) solo la primera vez de la sesión y sin "reducir movimiento".
+  El contenido de la página no se oculta a los lectores de pantalla; solo el botón "Saltar"
+  es operable mientras dura.
+-->
+<div class="intro" data-intro-overlay>
+  <svg
+    class="intro-mark"
+    viewBox="0 0 48 48"
+    fill="none"
+    stroke-width="3.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path d="M5 27 24 10l19 17" pathLength="1" class="intro-draw intro-draw-1"></path>
+    <path d="M13 38l11-10 11 10" pathLength="1" class="intro-draw intro-draw-2"></path>
+  </svg>
+  <p class="intro-word" aria-hidden="true">
+    <span>Cresta</span>
+    <span>Roofing</span>
+  </p>
+  <button type="button" class="intro-skip" data-intro-skip aria-label={t.intro.skipLabel}>
+    {t.intro.skip}
+  </button>
+</div>
+
+<style is:global>
+  .intro {
+    display: none;
+  }
+  html[data-intro='play'] .intro {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 1rem;
+    background: var(--brand-slate);
+    color: #fff;
+    /* Se desvanece al final y deja de ser interactivo (visibility) sin necesidad de JavaScript. */
+    animation: intro-out 280ms var(--ease-standard) 1020ms forwards;
+  }
+  .intro-mark {
+    width: clamp(6rem, 22vw, 9rem);
+    height: auto;
+  }
+  .intro-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .intro-draw-1 {
+    stroke: currentColor;
+  }
+  .intro-draw-2 {
+    stroke: var(--on-brand-accent);
+  }
+  html[data-intro='play'] .intro-draw-1 {
+    animation: intro-draw 560ms var(--ease-emphasized) 80ms forwards;
+  }
+  html[data-intro='play'] .intro-draw-2 {
+    animation: intro-draw 520ms var(--ease-emphasized) 360ms forwards;
+  }
+  .intro-word {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    font-family: var(--ff-display);
+    opacity: 0;
+  }
+  .intro-word span:first-child {
+    font-size: clamp(1.75rem, 6vw, 2.5rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .intro-word span:last-child {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--on-brand-muted);
+  }
+  html[data-intro='play'] .intro-word {
+    animation: intro-word 380ms var(--ease-standard) 560ms forwards;
+  }
+  .intro-skip {
+    position: absolute;
+    inset-block-end: 1.5rem;
+    inset-inline-end: 1.5rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0 1.25rem;
+    border: 2px solid rgb(255 255 255 / 0.6);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: #fff;
+    font-family: var(--ff-display);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .intro-skip:hover {
+    background: rgb(255 255 255 / 0.12);
+  }
+  .intro-skip:focus-visible {
+    outline: 3px solid var(--ring-on-brand);
+    outline-offset: 2px;
+  }
+  html[data-intro='done'] .intro {
+    display: none;
+  }
+  @keyframes intro-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes intro-word {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes intro-out {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .intro {
+      display: none !important;
+    }
+  }
+</style>
+
+<script is:inline>
+  // Botón "Saltar": cierra la animación al instante.
+  const skip = document.querySelector('[data-intro-skip]');
+  if (skip) {
+    skip.addEventListener('click', () => {
+      document.documentElement.setAttribute('data-intro', 'done');
+    });
+  }
+</script>
