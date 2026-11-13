@@ -2,6 +2,7 @@ import { createAuth, type Auth } from './auth/better-auth.js';
 import type { Env } from './env.js';
 import { createDb, type Db } from './lib/db.js';
 import { createSmtpMailer, type Mailer } from './lib/mailer.js';
+import { createS3Storage, type Storage } from './lib/storage.js';
 
 export interface AppServices {
   env: Env;
@@ -17,15 +18,18 @@ export interface AppServices {
   systemDb: Db;
   mailer: Mailer;
   auth: Auth;
+  /** Almacenamiento S3 de las fotos; null si no está configurado (las rutas responden 503). */
+  storage: Storage | null;
 }
 
 export function createServices(
   env: Env,
-  overrides: { db?: Db; systemDb?: Db; mailer?: Mailer } = {},
+  overrides: { db?: Db; systemDb?: Db; mailer?: Mailer; storage?: Storage | null } = {},
 ): AppServices {
   const db = overrides.db ?? createDb(env.APP_DATABASE_URL);
   const systemDb = overrides.systemDb ?? createDb(env.SYSTEM_DATABASE_URL);
   const mailer = overrides.mailer ?? createSmtpMailer(env);
   const auth = createAuth({ env, db: systemDb, mailer });
-  return { env, db, systemDb, mailer, auth };
+  const storage = overrides.storage === undefined ? createS3Storage(env) : overrides.storage;
+  return { env, db, systemDb, mailer, auth, storage };
 }

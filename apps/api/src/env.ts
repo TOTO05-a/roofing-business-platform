@@ -65,6 +65,23 @@ const envSchema = z
       .min(1)
       .max(24 * 30)
       .default(72),
+
+    // Almacenamiento de fotos compatible con S3 (decisiones T13 y T14: Garage en desarrollo).
+    // Sin endpoint y claves, las rutas de archivos responden 503 STORAGE_NOT_CONFIGURED.
+    S3_ENDPOINT: optionalString.pipe(z.url().optional()),
+    S3_REGION: z.string().min(1).default('garage'),
+    S3_BUCKET: z.string().min(3).default('roofing-files'),
+    S3_ACCESS_KEY_ID: optionalString,
+    S3_SECRET_ACCESS_KEY: optionalString,
+    // Garage (y la mayoría de S3 propios) exigen direcciones con el bucket en la ruta.
+    S3_FORCE_PATH_STYLE: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+
+    // Orígenes del sitio público que pueden enviar el formulario de contacto (p. ej. el sitio
+    // Astro). Se comprueban aparte del CSRF global, que solo admite la app autenticada.
+    PUBLIC_FORM_ORIGINS: originList,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
@@ -79,6 +96,15 @@ const envSchema = z
         path: ['BETTER_AUTH_SECRET'],
         message: 'Usa un secreto propio, no el de .env.example',
       });
+    }
+    for (const origin of env.PUBLIC_FORM_ORIGINS) {
+      if (!origin.startsWith('https://')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['PUBLIC_FORM_ORIGINS'],
+          message: 'Los orígenes del formulario público deben usar https en producción',
+        });
+      }
     }
     if (env.SMTP_HOST === 'localhost') {
       ctx.addIssue({

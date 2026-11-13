@@ -26,6 +26,23 @@ services:
       - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
       - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
 
+  # Almacenamiento compatible con S3 para las fotos en desarrollo (decisiones T13 y T14). Un solo
+  # nodo, bucket privado. Primera vez: `pnpm --filter @roofing/api storage:init` (ver README).
+  garage:
+    image: dxflrs/garage:v2.1.0
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${GARAGE_S3_PORT:-3900}:3900'
+    volumes:
+      - ./docker/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+    healthcheck:
+      test: ['CMD', '/garage', 'status']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   # Interfaz visual de PostgreSQL (opcional): docker compose --profile tools up -d pgadmin
   # Abre http://localhost:5050. Modo escritorio, sin login, solo escucha en 127.0.0.1.
   pgadmin:
@@ -49,3 +66,5 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  garage_meta:
+  garage_data:
