@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Alert, Button, FormField, Input } from '@roofing/ui';
+import { Button, FormField, Input } from '@roofing/ui';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,15 @@ import { signIn } from '../../api/auth';
 import { authErrorKey, type AuthErrorKey } from '../../api/errors';
 import { signInSchema, type SignInValues } from '../../auth/schemas';
 import { SessionLoading, useSession } from '../../session';
-import { AuthCard, FormError, linkClass, readState, safeFrom, sessionHome } from './shared';
+import {
+  AuthCard,
+  FormError,
+  LiveNotice,
+  linkClass,
+  readState,
+  safeFrom,
+  sessionHome,
+} from './shared';
 
 export function SignInPage() {
   const { t } = useTranslation();
@@ -43,7 +51,10 @@ export function SignInPage() {
         return;
       }
       // Al leer la sesión, esta pantalla redirige sola (a `from` o al alta de 2FA).
-      await refresh();
+      const next = await refresh();
+      if (next.status !== 'authenticated') {
+        setErrorKey(next.status === 'error' ? 'network' : 'server');
+      }
     } catch (error) {
       setErrorKey(authErrorKey(error));
     }
@@ -52,9 +63,9 @@ export function SignInPage() {
   return (
     <AuthCard title={t('app.auth.signIn.title')} intro={t('app.auth.signIn.intro')}>
       {state.notice ? (
-        <Alert variant="success" live>
+        <LiveNotice variant={state.notice === 'twoFactorExpired' ? 'warning' : 'success'}>
           {t(`app.auth.signIn.${state.notice}`)}
-        </Alert>
+        </LiveNotice>
       ) : null}
       <form noValidate onSubmit={handleSubmit(onSubmit)} className="grid gap-5">
         <FormError errorKey={errorKey} />

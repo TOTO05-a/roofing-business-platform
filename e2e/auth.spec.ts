@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { seriousViolations } from './support/a11y';
-import { me, mockApi, unauthenticated } from './support/api';
+import { accountDisabled, me, mockApi, unauthenticated } from './support/api';
 
 const APP = 'http://localhost:4173';
 const PASSWORD = 'una-contraseña-larga-123';
@@ -181,12 +181,14 @@ test('administrador sin 2FA: alta con QR y códigos de respaldo', async ({ page 
 
   await page.getByLabel('Contraseña').fill(PASSWORD);
   await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByRole('heading', { name: '1. Escanee el código QR' })).toBeFocused();
   await expect(page.getByRole('img', { name: /código QR/i })).toBeVisible();
   await expect(page.getByText('JBSWY3DPEHPK3PXP')).toBeVisible();
   await expectAccessible(page);
 
   await page.getByLabel('Código de verificación').fill('123456');
   await page.getByRole('button', { name: 'Activar' }).click();
+  await expect(page.getByRole('heading', { name: 'Guarde sus códigos de respaldo' })).toBeFocused();
   await expect(page.getByText('aaaaa-11111')).toBeVisible();
   await expectAccessible(page);
 
@@ -268,4 +270,18 @@ test('si la API no responde al cargar la sesión, ofrece reintentar', async ({ p
   down = false;
   await page.getByRole('button', { name: 'Reintentar' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Inicio');
+});
+
+test('al cambiar de pantalla el foco pasa al título', async ({ page }) => {
+  await mockApi(page, {});
+  await page.goto();
+  await page.getByRole('link', { name: '¿Olvidó su contraseña?' }).click();
+  await expect(page).toHaveURL();
+  await expect(page.getByRole('heading', { level: 1, name: 'Recuperar contraseña' })).toBeFocused();
+});
+
+test('cuenta desactivada (403 en /api/me): vuelve al acceso', async ({ page }) => {
+  await mockApi(page, { 'GET /api/me': accountDisabled });
+  await page.goto();
+  await expect(page).toHaveURL();
 });

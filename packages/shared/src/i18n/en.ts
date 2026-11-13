@@ -226,6 +226,8 @@ export const en: Dictionary = {
         accountCreated: 'Your account is ready. Sign in to continue.',
         passwordReset: 'Password updated. Sign in with the new one.',
         signedOut: 'You signed out successfully.',
+        twoFactorExpired:
+          'You need to sign in again: the verification expired or the attempts ran out.',
       },
       invitation: {
         title: 'Accept invitation',
@@ -290,7 +292,6 @@ export const en: Dictionary = {
         accountDisabled: 'Your account is disabled. Contact the administration.',
         invalidCode: 'The code is not correct. Try again.',
         wrongPassword: 'The password is not correct.',
-        twoFactorExpired: 'Verification expired. Sign in again.',
         invitationInvalid: 'The invitation is not valid. Ask the administration for a new one.',
         invitationUsed: 'This invitation was already used. Sign in with your account.',
         invitationExpired:

@@ -66,7 +66,10 @@ function LocationProbe() {
 /** Monta una página dentro de un router en memoria y de la sesión real (con `fetch` simulado). */
 export function renderPage(
   element: ReactElement,
-  { path = '/', initial = path }: { path?: string; initial?: string } = {},
+  {
+    path = '/',
+    initial = path,
+  }: { path?: string; initial?: string | { pathname: string; state?: unknown } } = {},
 ) {
   return render(
     <SessionProvider>

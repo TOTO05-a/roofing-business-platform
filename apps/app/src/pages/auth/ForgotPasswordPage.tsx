@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Alert, Button, FormField, Input } from '@roofing/ui';
+import { Button, FormField, Input } from '@roofing/ui';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,7 @@ import { Link } from 'react-router';
 import { requestPasswordReset } from '../../api/auth';
 import { authErrorKey, type AuthErrorKey } from '../../api/errors';
 import { forgotSchema, type ForgotValues } from '../../auth/schemas';
-import { AuthCard, FormError, linkClass } from './shared';
+import { AuthCard, FormError, LiveNotice, linkClass } from './shared';
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
@@ -37,9 +37,7 @@ export function ForgotPasswordPage() {
   if (sent) {
     return (
       <AuthCard title={t('app.auth.forgot.sentTitle')}>
-        <Alert variant="success" live>
-          {t('app.auth.forgot.sent')}
-        </Alert>
+        <LiveNotice>{t('app.auth.forgot.sent')}</LiveNotice>
         <Link to="/iniciar-sesion" className={linkClass}>
           {t('app.auth.backToSignIn')}
         </Link>

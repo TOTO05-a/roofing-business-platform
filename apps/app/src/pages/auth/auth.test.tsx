@@ -7,6 +7,7 @@ import { InvitationPage } from './InvitationPage';
 import { ResetPasswordPage } from './ResetPasswordPage';
 import { SetupTwoFactorPage } from './SetupTwoFactorPage';
 import { SignInPage } from './SignInPage';
+import { safeFrom } from './shared';
 import { VerifyTwoFactorPage } from './VerifyTwoFactorPage';
 
 afterEach(() => {
@@ -90,15 +91,61 @@ describe('SignInPage', () => {
         return { body: { token: 't' } };
       },
     });
-    renderPage(<SignInPage />, { path: '/iniciar-sesion' });
+    renderPage(<SignInPage />, {
+      path: '/iniciar-sesion',
+      initial: { pathname: '/iniciar-sesion', state: { from: '/agenda' } },
+    });
     await userEvent.type(await screen.findByLabelText(/correo electrónico/i), 'ana@example.com');
     await userEvent.type(screen.getByLabelText(/^contraseña/i), LONG_PASSWORD);
     await userEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/'));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/agenda'));
+  });
+});
+
+describe('safeFrom', () => {
+  it.each([
+    '//evil.com',
+    'https://evil.com',
+    '/\\evil.com',
+    '/\\/evil.com',
+    'evil',
+    '',
+    undefined,
+    42,
+  ])('rechaza %s', (value) => {
+    expect(safeFrom(value)).toBe('/');
+  });
+  it('acepta rutas internas', () => {
+    expect(safeFrom('/agenda')).toBe('/agenda');
+    expect(safeFrom('/clientes?x=1')).toBe('/clientes?x=1');
   });
 });
 
 describe('InvitationPage', () => {
+  it('un token de longitud inválida se trata como enlace incompleto', () => {
+    window.history.replaceState(null, '', '/invitacion#token=corto');
+    mockApi({});
+    renderPage(<InvitationPage />);
+    expect(screen.getByRole('alert')).toHaveTextContent('incompleto');
+  });
+
+  it('VALIDATION_ERROR se muestra como invitación no válida', async () => {
+    window.history.replaceState(null, '', '/invitacion#token=abcdefghijklmnopqrstuvwxyz');
+    mockApi({
+      'POST /api/invitations/accept': {
+        status: 400,
+        body: { error: { code: 'VALIDATION_ERROR', message: 'x' } },
+      },
+    });
+    renderPage(<InvitationPage />);
+    await userEvent.type(screen.getByLabelText(/nombre completo/i), 'Ana');
+    const [password, confirm] = screen.getAllByLabelText(/contraseña/i);
+    await userEvent.type(password!, LONG_PASSWORD);
+    await userEvent.type(confirm!, LONG_PASSWORD);
+    await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('no es válida');
+  });
+
   it('lee el token del fragmento, lo quita de la URL y lo envía a la API', async () => {
     window.history.replaceState(null, '', '/invitacion#token=abcdefghijklmnopqrstuvwxyz');
     const { calls } = mockApi({
@@ -232,18 +279,18 @@ describe('VerifyTwoFactorPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('El código no es correcto');
   });
 
-  it('indica que la verificación caducó si no hay cookie de segundo paso', async () => {
+  it.each([
+    ['INVALID_TWO_FACTOR_COOKIE', 401],
+    ['TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE', 400],
+  ])('%s lleva a iniciar sesión de nuevo', async (code, status) => {
     mockApi({
       [ME]: meUnauthenticated,
-      'POST /api/auth/two-factor/verify-totp': {
-        status: 401,
-        body: { code: 'INVALID_TWO_FACTOR_COOKIE' },
-      },
+      'POST /api/auth/two-factor/verify-totp': { status, body: { code, message: 'x' } },
     });
     renderPage(<VerifyTwoFactorPage />);
     await userEvent.type(await screen.findByLabelText(/código de verificación/i), '123456');
     await userEvent.click(screen.getByRole('button', { name: 'Verificar' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('La verificación caducó');
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/iniciar-sesion'));
   });
 });
 
@@ -274,7 +321,7 @@ describe('SetupTwoFactorPage', () => {
     expect(finish).toBeDisabled(); // hasta confirmar que guardó los códigos
     await userEvent.click(screen.getByRole('checkbox', { name: /ya guardé/i }));
     await userEvent.click(screen.getByRole('button', { name: 'Terminar' }));
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/'));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
   });
 
   it('muestra el error si la contraseña no es correcta', async () => {

@@ -219,6 +219,8 @@ export const es = {
         accountCreated: 'Su cuenta está lista. Inicie sesión para continuar.',
         passwordReset: 'Contraseña actualizada. Inicie sesión con la nueva.',
         signedOut: 'Cerró sesión correctamente.',
+        twoFactorExpired:
+          'Debe volver a iniciar sesión: la verificación caducó o se agotaron los intentos.',
       },
       invitation: {
         title: 'Aceptar invitación',
@@ -284,7 +286,6 @@ export const es = {
         accountDisabled: 'Su cuenta está desactivada. Contacte a la administración.',
         invalidCode: 'El código no es correcto. Inténtelo de nuevo.',
         wrongPassword: 'La contraseña no es correcta.',
-        twoFactorExpired: 'La verificación caducó. Inicie sesión de nuevo.',
         invitationInvalid: 'La invitación no es válida. Pida una nueva a la administración.',
         invitationUsed: 'Esta invitación ya fue utilizada. Inicie sesión con su cuenta.',
         invitationExpired:

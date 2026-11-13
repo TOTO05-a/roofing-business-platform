@@ -19,12 +19,20 @@ export function me(
         email: 'ana@example.com',
         name: 'Ana Pérez',
         role,
+        emailVerified: true,
         twoFactorEnabled: extra.twoFactorEnabled ?? false,
       },
+      customerId: role === 'CUSTOMER' ? 'c1' : null,
+      employeeId: role === 'EMPLOYEE' ? 'e1' : null,
       twoFactorRequired: extra.twoFactorRequired ?? false,
     },
   };
 }
+
+export const accountDisabled: ApiReply = {
+  status: 403,
+  body: { error: { code: 'ACCOUNT_DISABLED', message: 'La cuenta está desactivada' } },
+};
 
 export const unauthenticated: ApiReply = {
   status: 401,

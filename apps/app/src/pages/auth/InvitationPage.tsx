@@ -11,7 +11,9 @@ import { AuthCard, FormError, linkClass } from './shared';
 
 /** El token llega en el fragmento (`#token=…`): no viaja al servidor. Se lee y se quita de la URL. */
 function readToken(): string | null {
-  return new URLSearchParams(window.location.hash.slice(1)).get('token');
+  const token = new URLSearchParams(window.location.hash.slice(1)).get('token');
+  // La API exige 20-200 caracteres: fuera de ese rango el enlace está incompleto o dañado.
+  return token && token.length >= 20 && token.length <= 200 ? token : null;
 }
 
 /** Errores tras los que reintentar no sirve: hace falta otra invitación o iniciar sesión. */
@@ -71,7 +73,7 @@ export function InvitationPage() {
       await acceptInvitation(token, values.name, values.password);
       void navigate('/iniciar-sesion', { replace: true, state: { notice: 'accountCreated' } });
     } catch (error) {
-      setErrorKey(authErrorKey(error));
+      setErrorKey(authErrorKey(error, { VALIDATION_ERROR: 'invitationInvalid' }));
     }
   };
 

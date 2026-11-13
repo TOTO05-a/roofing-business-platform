@@ -6,16 +6,17 @@ import {
   CardHeader,
   LanguageSwitcher,
   Logo,
+  Toaster,
   ThemeToggle,
   useTheme,
 } from '@roofing/ui';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet } from 'react-router';
 import type { AuthErrorKey } from '../../api/errors';
 import type { SessionState } from '../../session';
 
-export type Notice = 'accountCreated' | 'passwordReset' | 'signedOut';
+export type Notice = 'accountCreated' | 'passwordReset' | 'signedOut' | 'twoFactorExpired';
 
 export interface AuthLocationState {
   from?: string;
@@ -24,7 +25,7 @@ export interface AuthLocationState {
 
 /** Solo se vuelve a rutas internas: evita redirecciones abiertas (`//otro.sitio`, `https:`). */
 export function safeFrom(from: unknown): string {
-  return typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : '/';
+  return typeof from === 'string' && /^\/(?![\\/])/.test(from) ? from : '/';
 }
 
 export function readState(state: unknown): AuthLocationState {
@@ -90,6 +91,7 @@ export function AuthLayout() {
       >
         <Outlet />
       </main>
+      <Toaster theme={theme} label={t('common.notifications')} closeLabel={t('common.close')} />
     </div>
   );
 }
@@ -100,20 +102,57 @@ interface AuthCardProps {
   children: ReactNode;
 }
 
+/** Solo la primera pantalla que se pinta no roba el foco (la carga inicial ya lo tiene). */
+let firstCard = true;
+
 export function AuthCard({ title, intro, children }: AuthCardProps) {
   const { t } = useTranslation();
+  const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     document.title = `${title} | ${t('brand.name')}`;
   }, [title, t]);
+  // WCAG 2.4.3: al cambiar de pantalla (o de estado con otro título), el foco va al título.
+  useEffect(() => {
+    if (firstCard) {
+      firstCard = false;
+      return;
+    }
+    heading.current?.focus({ preventScroll: true });
+  }, [title]);
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="gap-2 p-6 pb-2 sm:p-8 sm:pb-3">
-        <h1 className="font-display text-2xl font-extrabold">{title}</h1>
+        <h1
+          ref={heading}
+          tabIndex={-1}
+          className="font-display text-2xl font-extrabold outline-none"
+        >
+          {title}
+        </h1>
         {intro ? <CardDescription>{intro}</CardDescription> : null}
       </CardHeader>
       <CardContent className="grid gap-5 p-6 pt-3 sm:p-8 sm:pt-3">{children}</CardContent>
     </Card>
   );
+}
+
+/**
+ * Aviso informativo que SÍ se anuncia: la región viva existe vacía y el texto se inserta
+ * después de montarse (si el texto ya estuviera al montar, muchos lectores no lo leerían).
+ */
+export function LiveNotice({
+  variant = 'success',
+  children,
+}: {
+  variant?: 'success' | 'warning';
+  children: ReactNode;
+}) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setShown(true), 150);
+    return () => window.clearTimeout(id);
+  }, []);
+  return <div role="status">{shown ? <Alert variant={variant}>{children}</Alert> : null}</div>;
 }
 
 /** Error de formulario: se anuncia a los lectores de pantalla al aparecer. */

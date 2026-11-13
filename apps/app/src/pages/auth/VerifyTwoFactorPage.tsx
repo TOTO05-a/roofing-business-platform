@@ -3,7 +3,8 @@ import { Button, FormField, Input } from '@roofing/ui';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate, useLocation } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router';
+import { ApiError } from '../../api/client';
 import { verifyBackupCode, verifyTotp } from '../../api/auth';
 import { authErrorKey, type AuthErrorKey } from '../../api/errors';
 import {
@@ -16,16 +17,22 @@ import { SessionLoading, useSession } from '../../session';
 import { AuthCard, FormError, linkClass, readState, safeFrom, sessionHome } from './shared';
 
 const verifyErrors = {
-  INVALID_TWO_FACTOR_COOKIE: 'twoFactorExpired',
   INVALID_CODE: 'invalidCode',
   INVALID_BACKUP_CODE: 'invalidCode',
 } as const satisfies Record<string, AuthErrorKey>;
+
+/** Sin cookie de verificación o con demasiados códigos fallidos hay que volver a entrar. */
+const restartCodes: readonly string[] = [
+  'INVALID_TWO_FACTOR_COOKIE',
+  'TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE',
+];
 
 /** Segundo paso del inicio de sesión: código TOTP o, sin el teléfono, uno de respaldo. */
 export function VerifyTwoFactorPage() {
   const { t } = useTranslation();
   const { session, refresh } = useSession();
   const location = useLocation();
+  const navigate = useNavigate();
   const from = safeFrom(readState(location.state).from);
   const [useBackup, setUseBackup] = useState(false);
   const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null);
@@ -51,8 +58,15 @@ export function VerifyTwoFactorPage() {
     setErrorKey(null);
     try {
       await verify(values.code.trim());
-      await refresh();
+      const next = await refresh();
+      if (next.status !== 'authenticated') {
+        setErrorKey(next.status === 'error' ? 'network' : 'server');
+      }
     } catch (error) {
+      if (error instanceof ApiError && error.code && restartCodes.includes(error.code)) {
+        void navigate('/iniciar-sesion', { replace: true, state: { notice: 'twoFactorExpired' } });
+        return;
+      }
       setErrorKey(authErrorKey(error, verifyErrors));
     }
   };

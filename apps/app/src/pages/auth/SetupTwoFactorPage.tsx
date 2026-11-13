@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Checkbox, FormField, Input, Label } from '@roofing/ui';
+import { Button, Checkbox, FormField, Input, Label, toast } from '@roofing/ui';
 import { QRCodeSVG } from 'qrcode.react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate } from 'react-router';
@@ -22,6 +22,15 @@ import { useSession } from '../../session';
 import { AuthCard, FormError } from './shared';
 
 type Step = 'password' | 'scan' | 'backup';
+
+/** Al aparecer un paso nuevo, el foco va a su título (WCAG 2.4.3). */
+function useFocusOnMount() {
+  const ref = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true });
+  }, []);
+  return ref;
+}
 
 function PasswordStep({ onDone }: { onDone: (enrollment: TwoFactorEnrollment) => void }) {
   const { t } = useTranslation();
@@ -75,6 +84,7 @@ function PasswordStep({ onDone }: { onDone: (enrollment: TwoFactorEnrollment) =>
 
 function ScanStep({ enrollment, onDone }: { enrollment: TwoFactorEnrollment; onDone: () => void }) {
   const { t } = useTranslation();
+  const heading = useFocusOnMount();
   const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null);
   const {
     register,
@@ -90,7 +100,12 @@ function ScanStep({ enrollment, onDone }: { enrollment: TwoFactorEnrollment; onD
   return (
     <div className="grid gap-5">
       <section aria-labelledby="scan-title" className="grid gap-3">
-        <h2 id="scan-title" className="font-display text-lg font-bold">
+        <h2
+          id="scan-title"
+          ref={heading}
+          tabIndex={-1}
+          className="font-display text-lg font-bold outline-none"
+        >
           {t('app.auth.twoFactor.scanTitle')}
         </h2>
         <p className="text-fg-muted">{t('app.auth.twoFactor.scanIntro')}</p>
@@ -164,6 +179,7 @@ function ScanStep({ enrollment, onDone }: { enrollment: TwoFactorEnrollment; onD
 
 function BackupStep({ codes, onFinish }: { codes: string[]; onFinish: () => Promise<void> }) {
   const { t } = useTranslation();
+  const heading = useFocusOnMount();
   const savedId = useId();
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -178,7 +194,9 @@ function BackupStep({ codes, onFinish }: { codes: string[]; onFinish: () => Prom
   };
   return (
     <div className="grid gap-5">
-      <h2 className="font-display text-lg font-bold">{t('app.auth.twoFactor.backupTitle')}</h2>
+      <h2 ref={heading} tabIndex={-1} className="font-display text-lg font-bold outline-none">
+        {t('app.auth.twoFactor.backupTitle')}
+      </h2>
       <p className="text-fg-muted">{t('app.auth.twoFactor.backupIntro')}</p>
       <ul
         aria-label={t('app.auth.twoFactor.backupList')}
@@ -256,7 +274,14 @@ export function SetupTwoFactorPage() {
         />
       )}
       {step !== 'backup' && (
-        <Button variant="ghost" onClick={() => void signOut()}>
+        <Button
+          variant="ghost"
+          onClick={() =>
+            void signOut().catch((error: unknown) =>
+              toast.error(t(`app.auth.errors.${authErrorKey(error)}`)),
+            )
+          }
+        >
           {t('app.shell.signOut')}
         </Button>
       )}

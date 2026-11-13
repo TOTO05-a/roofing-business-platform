@@ -172,7 +172,7 @@ export function AppShell() {
 
   const user = session.status === 'authenticated' ? session.user : null;
   const initials = (user?.name ?? '')
-    .split(/s+/)
+    .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase() ?? '')
