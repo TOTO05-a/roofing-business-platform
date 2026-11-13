@@ -299,7 +299,7 @@ export const es = {
     shapeHip: 'Cuatro aguas',
     materialLabel: 'Material',
     colorLabel: 'Color',
-    announce: 'Techo: {{material}}, color {{color}}',
+    announce: 'Techo, {{shape}}: {{material}}, color {{color}}',
     svgTitle: 'Vista previa de su techo',
     svgDescription:
       'Casa residencial de una planta con techo a {{shape}}, en {{material}}, color {{color}}.',

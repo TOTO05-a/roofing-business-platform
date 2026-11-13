@@ -1,4 +1,6 @@
 import type { RoofMaterialId } from '@roofing/shared/visualizer';
+import { useState } from 'react';
+import { dark, light } from './tones';
 
 /** Tamaño (en unidades del SVG) del mosaico de cada material. */
 export const TILE: Record<RoofMaterialId, { w: number; h: number }> = {
@@ -10,12 +12,6 @@ export const TILE: Record<RoofMaterialId, { w: number; h: number }> = {
   'cedar-shake': { w: 72, h: 39 },
 };
 
-/*
- * Los tonos derivan del color elegido (`--roof`) con `color-mix`; no hay colores fijos
- * salvo negro/blanco como mezcla neutra de luz y sombra.
- */
-const dark = (pct: number) => `color-mix(in srgb, var(--roof) ${100 - pct}%, black)`;
-const light = (pct: number) => `color-mix(in srgb, var(--roof) ${100 - pct}%, white)`;
 const ROOF = 'var(--roof)';
 /** Escala del mosaico sobre la casa (más chico = hiladas más finas). */
 const SCALE = 'scale(0.62)';
@@ -30,28 +26,40 @@ interface Props {
   textureUrl?: string | undefined;
 }
 
+/** Lado (unidades del SVG) de la celda cuadrada de una textura fotográfica repetible. */
+export const TEXTURE_CELL = 96;
+
+/** Texturas cuya imagen no cargó: se evita reintentarlas y se usa el patrón procedural. */
+const failedTextures = new Set<string>();
+
 /** Definiciones SVG (patrón) de un material. Debe renderizarse dentro de un elemento con `--roof`. */
 export function RoofPaint({ id, material, textureUrl }: Props) {
+  const [, setFailures] = useState(0);
   const { w, h } = TILE[material];
-  if (textureUrl) {
+  if (textureUrl && !failedTextures.has(textureUrl)) {
     return (
       <pattern
         id={id}
         patternUnits="userSpaceOnUse"
-        width={w * 2}
-        height={h * 2}
+        width={TEXTURE_CELL}
+        height={TEXTURE_CELL}
         patternTransform={SCALE}
+        data-texture={material}
       >
         <image
           href={textureUrl}
-          width={w * 2}
-          height={h * 2}
+          width={TEXTURE_CELL}
+          height={TEXTURE_CELL}
           preserveAspectRatio="xMidYMid slice"
           style={{ filter: 'grayscale(1) brightness(1.35) contrast(1.05)' }}
+          onError={() => {
+            failedTextures.add(textureUrl);
+            setFailures((n) => n + 1);
+          }}
         />
         <rect
-          width={w * 2}
-          height={h * 2}
+          width={TEXTURE_CELL}
+          height={TEXTURE_CELL}
           style={{ fill: ROOF, mixBlendMode: 'multiply' }}
           data-testid="texture-tint"
         />

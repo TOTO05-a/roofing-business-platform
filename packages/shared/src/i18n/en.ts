@@ -306,7 +306,7 @@ export const en: Dictionary = {
     shapeHip: 'Hip',
     materialLabel: 'Material',
     colorLabel: 'Color',
-    announce: 'Roof: {{material}}, color {{color}}',
+    announce: 'Roof, {{shape}}: {{material}}, color {{color}}',
     svgTitle: 'Preview of your roof',
     svgDescription:
       'One-story residential home with a {{shape}} roof, in {{material}}, color {{color}}.',

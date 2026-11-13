@@ -46,8 +46,9 @@ export function pathOf(...pts: Point[]): string {
 
 const { w, d, h, overhang: o, rake, rise } = HOUSE;
 const slope = rise / (d / 2);
-/** Altura del borde del alero y del cumbrero. */
-const yEave = h - slope * o;
+/** Altura del borde del alero (y de la fascia). */
+export const Y_EAVE = h - slope * o;
+const yEave = Y_EAVE;
 const yRidge = h + rise;
 const zMid = d / 2;
 const halfSpan = d / 2 + o;
@@ -57,18 +58,17 @@ export interface RoofGeometry {
   front: string;
   /** Plano lateral derecho (solo en cuatro aguas). */
   side: string | null;
-  /** Hastial (muro triangular del extremo, solo en dos aguas). */
-  gableEnd: string | null;
+  /** Hastial: muro triangular sobre el costado derecho (solo en dos aguas). */
+  gableWall: string | null;
+  /** Banda de sofito entre el hastial y el borde del techo (solo en dos aguas). */
+  gableSoffit: string | null;
   /** Líneas de cumbrera y limatesas (se dibujan como remate). */
   ridgeLines: string[];
-  /** Borde del alero frontal (fascia), de punta a punta. */
-  fascia: string;
   /** Contorno de los bordes inclinados de la cubierta (a dos aguas). */
   rakeEdges: string[];
 }
 
 export function roofGeometry(shape: RoofShape): RoofGeometry {
-  const fasciaLine = pathOf(project(-o, yEave, -o), project(w + o, yEave, -o));
   if (shape === 'gable') {
     const x0 = -rake;
     const x1 = w + rake;
@@ -77,12 +77,16 @@ export function roofGeometry(shape: RoofShape): RoofGeometry {
     const ridgeR = project(x1, yRidge, zMid);
     const ridgeL = project(x0, yRidge, zMid);
     const eaveBR = project(x1, yEave, d + o);
+    // El hastial se apoya sobre el muro lateral (x = w) y continúa su plano.
+    const wallFront = project(w, h, 0);
+    const wallApex = project(w, h + rise, zMid);
+    const wallBack = project(w, h, d);
     return {
       front: points(eaveFL, eaveFR, ridgeR, ridgeL),
       side: null,
-      gableEnd: points(eaveFR, ridgeR, eaveBR),
+      gableWall: points(wallFront, wallApex, wallBack),
+      gableSoffit: points(eaveFR, ridgeR, eaveBR, wallBack, wallApex, wallFront),
       ridgeLines: [pathOf(ridgeL, ridgeR)],
-      fascia: pathOf(eaveFL, eaveFR),
       rakeEdges: [pathOf(eaveFR, ridgeR, eaveBR)],
     };
   }
@@ -96,14 +100,9 @@ export function roofGeometry(shape: RoofShape): RoofGeometry {
   return {
     front: points(eaveFL, eaveFR, ridgeR, ridgeL),
     side: points(eaveFR, ridgeR, eaveBR),
-    gableEnd: null,
+    gableWall: null,
+    gableSoffit: null,
     ridgeLines: [pathOf(ridgeL, ridgeR), pathOf(eaveFR, ridgeR), pathOf(eaveFL, ridgeL)],
-    fascia: fasciaLine,
     rakeEdges: [],
   };
 }
-
-/** Caja envolvente aproximada del techo, útil para pruebas. */
-export const ROOF_TOP = project(0, yRidge, zMid)[1];
-export const WALL_TOP = project(0, h, 0)[1];
-export const GROUND_FRONT = Y0;

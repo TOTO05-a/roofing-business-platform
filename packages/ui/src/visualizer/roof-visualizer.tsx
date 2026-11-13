@@ -7,15 +7,14 @@ import {
   type RoofMaterialId,
   type RoofShape,
 } from '@roofing/shared/visualizer';
-import { LazyMotion, domAnimation, m, useReducedMotion } from 'motion/react';
 import { Check } from 'lucide-react';
-import { RadioGroup } from 'radix-ui';
-import { useCallback, useId, useRef, useState, type CSSProperties } from 'react';
-import { cn } from '../lib/cn';
-import { Button } from '../components/button';
+import { clsx } from 'clsx';
+import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { buttonVariants } from '../components/button-variants';
 import { VIEWBOX } from './geometry';
-import { HouseBackdrop, SCENE_VARS } from './house-scene';
+import { HouseBackdrop, SCENE_VARS, sidingId } from './house-scene';
 import { Downspouts, RoofLayer, type RoofSpec } from './roof-layer';
+import { TransitionLayer, usePrefersReducedMotion, type TransitionMode } from './roof-transitions';
 import { textureRegistry } from './textures';
 
 type Locale = keyof LocalizedText;
@@ -44,8 +43,10 @@ interface Selection {
 interface Layer {
   id: number;
   spec: RoofSpec;
-  /** `wipe`: aparece de abajo hacia arriba (cambio de material); `fade`: se funde; `none`: instantáneo. */
-  mode: 'wipe' | 'fade' | 'none';
+  /** `wipe` en el cambio de material, `fade` en color y forma, `none` sin animación. */
+  mode: TransitionMode;
+  /** La capa va a ser reemplazada por otra de distinta silueta: se funde a opacidad 0. */
+  leaving: boolean;
 }
 
 const fill = (template: string, values: Record<string, string>) =>
@@ -64,9 +65,62 @@ function specOf(sel: Selection, materials: readonly RoofMaterial[]): RoofSpec {
 }
 
 const itemBase =
-  'relative flex min-h-11 items-center gap-3 rounded-md border-2 bg-surface px-3 py-2 text-start text-fg ' +
-  'transition-[border-color,background-color] duration-[var(--duration-base)] ease-standard motion-reduce:transition-none ' +
-  'hover:bg-surface-alt data-[state=checked]:border-primary data-[state=checked]:bg-surface-alt border-border-strong';
+  'relative flex min-h-11 items-center gap-3 rounded-md border-2 border-border-strong bg-surface px-3 py-2 text-start text-fg ' +
+  'transition-[border-color,background-color] duration-[var(--duration-base)] ease-standard motion-reduce:transition-none hover:bg-surface-alt';
+/** Opción elegida: borde del color primario más grueso (anillo interior) y fondo; además lleva ✓. */
+const itemChecked = 'border-primary bg-surface-alt shadow-[inset_0_0_0_2px_var(--primary)]';
+
+/** Grupo de radios nativos: `fieldset` + `legend`, con navegación por flechas del propio navegador. */
+function OptionGroup({
+  legend,
+  className,
+  children,
+}: {
+  legend: string;
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <fieldset role="radiogroup" className="m-0 grid min-w-0 gap-2 border-0 p-0">
+      <legend className="mb-3 p-0 font-display text-base font-bold">{legend}</legend>
+      <div className={clsx('grid gap-2', className)}>{children}</div>
+    </fieldset>
+  );
+}
+
+/** Opción: etiqueta de al menos 44 px con el radio nativo (transparente) cubriéndola entera. */
+function Option({
+  name,
+  value,
+  checked,
+  onSelect,
+  className,
+  markClassName,
+  children,
+}: {
+  name: string;
+  value: string;
+  checked: boolean;
+  onSelect: (value: string) => void;
+  className?: string;
+  markClassName: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className={clsx(itemBase, checked && itemChecked, className)}>
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        onChange={() => onSelect(value)}
+        className="absolute -inset-0.5 m-0 h-[calc(100%+4px)] w-[calc(100%+4px)] cursor-pointer appearance-none rounded-md opacity-0"
+      />
+      {children}
+      {checked && <Check aria-hidden="true" className={clsx('text-primary', markClassName)} />}
+    </label>
+  );
+}
 
 function ShapeIcon({ shape }: { shape: RoofShape }) {
   return (
@@ -105,7 +159,7 @@ export function RoofVisualizer({
   defaultMaterial,
   className,
 }: RoofVisualizerProps) {
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const firstMaterial = materials[0];
   const initialMaterial = defaultMaterial ?? firstMaterial?.id ?? 'architectural-shingle';
@@ -119,23 +173,32 @@ export function RoofVisualizer({
   }));
   const counter = useRef(0);
   const [layers, setLayers] = useState<Layer[]>(() => [
-    { id: 0, spec: specOf(sel, materials), mode: 'none' },
+    { id: 0, spec: specOf(sel, materials), mode: 'none', leaving: false },
   ]);
 
   const commit = useCallback(
     (next: Selection) => {
-      const prevMaterial = sel.materialId;
       setSel(next);
       const id = ++counter.current;
       const spec = specOf(next, materials);
       if (reduce) {
-        setLayers([{ id, spec, mode: 'none' }]);
-      } else {
-        const mode = next.materialId !== prevMaterial ? 'wipe' : 'fade';
-        setLayers((current) => [...current, { id, spec, mode }]);
+        setLayers([{ id, spec, mode: 'none', leaving: false }]);
+        return;
       }
+      const mode = next.materialId !== sel.materialId ? 'wipe' : 'fade';
+      // Si cambia la silueta, la capa saliente se funde a 0 mientras entra la nueva.
+      const leaving = next.shape !== sel.shape;
+      setLayers((current) => [
+        ...current.map((l) => (leaving ? { ...l, leaving } : l)),
+        { id, spec, mode, leaving: false },
+      ]);
     },
-    [sel.materialId, materials, reduce],
+    [sel.materialId, sel.shape, materials, reduce],
+  );
+
+  const removeBefore = useCallback(
+    (id: number) => setLayers((current) => current.filter((l) => l.id >= id)),
+    [],
   );
 
   const material =
@@ -145,7 +208,11 @@ export function RoofVisualizer({
   const colorName = color?.name[locale] ?? '';
   const shapeName = sel.shape === 'gable' ? labels.shapeGable : labels.shapeHip;
 
-  const announce = fill(labels.announce, { material: materialName, color: colorName });
+  const announce = fill(labels.announce, {
+    shape: shapeName.toLowerCase(),
+    material: materialName,
+    color: colorName,
+  });
   const description = fill(labels.svgDescription, {
     shape: shapeName.toLowerCase(),
     material: materialName.toLowerCase(),
@@ -160,53 +227,41 @@ export function RoofVisualizer({
     col: `${uid}-col`,
   };
 
+  const ctaClass = buttonVariants({ size: 'lg', className: 'w-full sm:w-auto' });
+
   return (
     <div
-      className={cn(
+      className={clsx(
         'grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start',
         className,
       )}
     >
       <figure className="m-0 grid gap-3">
         <div className="overflow-hidden rounded-xl border border-border shadow-md">
-          <LazyMotion features={domAnimation} strict>
-            <svg
-              viewBox={VIEWBOX}
-              role="img"
-              aria-labelledby={ids.title}
-              aria-describedby={ids.desc}
-              className="block h-auto w-full"
-              style={SCENE_VARS as CSSProperties}
-              data-shape={sel.shape}
-            >
-              <title id={ids.title}>{labels.svgTitle}</title>
-              <desc id={ids.desc}>{description}</desc>
-              <HouseBackdrop />
-              {layers.map((layer) => (
-                <m.g
-                  key={layer.id}
-                  initial={
-                    layer.mode === 'wipe'
-                      ? { clipPath: 'inset(100% 0% 0% 0%)', opacity: 0.35 }
-                      : layer.mode === 'fade'
-                        ? { opacity: 0 }
-                        : false
-                  }
-                  animate={{ clipPath: 'inset(0% 0% 0% 0%)', opacity: 1 }}
-                  transition={{
-                    duration: layer.mode === 'wipe' ? 0.7 : 0.45,
-                    ease: [0.05, 0.7, 0.1, 1],
-                  }}
-                  onAnimationComplete={() =>
-                    setLayers((current) => current.filter((l) => l.id >= layer.id))
-                  }
-                >
-                  <RoofLayer spec={layer.spec} uid={`${uid}${layer.id}`} />
-                </m.g>
-              ))}
-              <Downspouts />
-            </svg>
-          </LazyMotion>
+          <svg
+            viewBox={VIEWBOX}
+            role="img"
+            aria-labelledby={ids.title}
+            aria-describedby={ids.desc}
+            className="block h-auto w-full"
+            style={SCENE_VARS as CSSProperties}
+            data-shape={sel.shape}
+          >
+            <title id={ids.title}>{labels.svgTitle}</title>
+            <desc id={ids.desc}>{description}</desc>
+            <HouseBackdrop uid={uid} />
+            {layers.map((layer) => (
+              <TransitionLayer
+                key={layer.id}
+                mode={layer.mode}
+                leaving={layer.leaving}
+                onEntered={() => removeBefore(layer.id)}
+              >
+                <RoofLayer spec={layer.spec} uid={`${uid}-${layer.id}`} sidingId={sidingId(uid)} />
+              </TransitionLayer>
+            ))}
+            <Downspouts />
+          </svg>
         </div>
         <figcaption>
           <p role="status" aria-live="polite" className="font-display text-lg font-semibold">
@@ -217,85 +272,69 @@ export function RoofVisualizer({
       </figure>
 
       <div className="grid gap-6">
-        <div className="grid min-w-0 gap-2">
-          <p id={ids.shape} className="mb-1 font-display text-base font-bold">
-            {labels.shapeLabel}
-          </p>
-          <RadioGroup.Root
-            aria-labelledby={ids.shape}
-            value={sel.shape}
-            onValueChange={(v) => commit({ ...sel, shape: v as RoofShape })}
-            className="grid grid-cols-2 gap-2"
-          >
-            {(['gable', 'hip'] as const).map((shape) => (
-              <RadioGroup.Item key={shape} value={shape} className={itemBase}>
-                <ShapeIcon shape={shape} />
-                <span className="font-semibold">
-                  {shape === 'gable' ? labels.shapeGable : labels.shapeHip}
-                </span>
-              </RadioGroup.Item>
-            ))}
-          </RadioGroup.Root>
-        </div>
+        <OptionGroup legend={labels.shapeLabel} className="grid-cols-2">
+          {(['gable', 'hip'] as const).map((shape) => (
+            <Option
+              key={shape}
+              name={ids.shape}
+              value={shape}
+              checked={sel.shape === shape}
+              onSelect={(v) => commit({ ...sel, shape: v as RoofShape })}
+              markClassName="ms-auto size-5 shrink-0"
+            >
+              <ShapeIcon shape={shape} />
+              <span className="font-semibold">
+                {shape === 'gable' ? labels.shapeGable : labels.shapeHip}
+              </span>
+            </Option>
+          ))}
+        </OptionGroup>
 
-        <div className="grid min-w-0 gap-2">
-          <p id={ids.mat} className="mb-1 font-display text-base font-bold">
-            {labels.materialLabel}
-          </p>
-          <RadioGroup.Root
-            aria-labelledby={ids.mat}
-            value={sel.materialId}
-            onValueChange={(v) => {
-              const next = materials.find((x) => x.id === v);
-              if (!next) return;
-              commit({ ...sel, materialId: next.id, colorId: next.colors[0]?.id ?? '' });
-            }}
-            className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
-          >
-            {materials.map((mat) => (
-              <RadioGroup.Item
-                key={mat.id}
-                value={mat.id}
-                className={cn(itemBase, 'font-semibold')}
-              >
-                <span className="grow leading-snug">{mat.name[locale]}</span>
-                <RadioGroup.Indicator>
-                  <Check aria-hidden="true" className="size-5 text-primary" />
-                </RadioGroup.Indicator>
-              </RadioGroup.Item>
-            ))}
-          </RadioGroup.Root>
-        </div>
+        <OptionGroup
+          legend={labels.materialLabel}
+          className="sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
+        >
+          {materials.map((mat) => (
+            <Option
+              key={mat.id}
+              name={ids.mat}
+              value={mat.id}
+              checked={sel.materialId === mat.id}
+              onSelect={() =>
+                commit({ ...sel, materialId: mat.id, colorId: mat.colors[0]?.id ?? '' })
+              }
+              className="font-semibold"
+              markClassName="size-5 shrink-0"
+            >
+              <span className="grow leading-snug">{mat.name[locale]}</span>
+            </Option>
+          ))}
+        </OptionGroup>
 
-        <div className="grid min-w-0 gap-2">
-          <p id={ids.col} className="mb-1 font-display text-base font-bold">
-            {labels.colorLabel}
-          </p>
-          <RadioGroup.Root
-            aria-labelledby={ids.col}
-            value={sel.colorId}
-            onValueChange={(v) => commit({ ...sel, colorId: v })}
-            className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-          >
-            {material.colors.map((c) => (
-              <RadioGroup.Item key={c.id} value={c.id} className={cn(itemBase, 'min-h-12')}>
-                <span
-                  aria-hidden="true"
-                  className="size-7 shrink-0 rounded-full border border-border-strong shadow-sm"
-                  style={{ backgroundColor: c.hex }}
-                />
-                <span className="text-sm leading-tight font-semibold">{c.name[locale]}</span>
-                <RadioGroup.Indicator className="absolute end-1 top-1">
-                  <Check aria-hidden="true" className="size-4 text-primary" />
-                </RadioGroup.Indicator>
-              </RadioGroup.Item>
-            ))}
-          </RadioGroup.Root>
-        </div>
+        <OptionGroup legend={labels.colorLabel} className="grid-cols-2 sm:grid-cols-3">
+          {material.colors.map((c) => (
+            <Option
+              key={c.id}
+              name={ids.col}
+              value={c.id}
+              checked={sel.colorId === c.id}
+              onSelect={(v) => commit({ ...sel, colorId: v })}
+              className="min-h-12"
+              markClassName="absolute end-1 top-1 size-4"
+            >
+              <span
+                aria-hidden="true"
+                className="size-7 shrink-0 rounded-full border border-border-strong shadow-sm"
+                style={{ backgroundColor: c.hex }}
+              />
+              <span className="text-sm leading-tight font-semibold">{c.name[locale]}</span>
+            </Option>
+          ))}
+        </OptionGroup>
 
-        <Button asChild size="lg" className="w-full sm:w-auto">
-          <a href={ctaHref}>{labels.cta}</a>
-        </Button>
+        <a href={ctaHref} className={ctaClass}>
+          {labels.cta}
+        </a>
       </div>
     </div>
   );

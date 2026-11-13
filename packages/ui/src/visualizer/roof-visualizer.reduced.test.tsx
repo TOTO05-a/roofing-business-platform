@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 
-// Motion lee `prefers-reduced-motion` al cargarse: el stub debe existir antes de importarlo.
+// El visualizador lee `prefers-reduced-motion` con matchMedia: se simula antes de importarlo.
 vi.hoisted(() => {
   globalThis.matchMedia = ((query: string) => ({
     matches: query.includes('prefers-reduced-motion'),

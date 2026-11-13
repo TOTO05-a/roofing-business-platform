@@ -27,4 +27,6 @@ Cada material del visualizador tiene un **patrón SVG procedural** de respaldo
 
 Con foto, el techo usa un `<pattern>` con la imagen y, encima, un relleno del color
 elegido con `mix-blend-mode: multiply`. Sin foto, se usa el patrón procedural del material.
-El tamaño del mosaico sobre la casa es fijo (`TILE` en `roof-paint.tsx`).
+La foto se coloca en una celda **cuadrada** (`TEXTURE_CELL` en `roof-paint.tsx`), así que una
+textura cuadrada y repetible no se recorta ni muestra costuras. Si la imagen no carga, se vuelve
+al patrón procedural.

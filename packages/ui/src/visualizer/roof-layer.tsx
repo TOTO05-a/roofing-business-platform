@@ -1,7 +1,8 @@
 import type { RoofMaterialId, RoofShape } from '@roofing/shared/visualizer';
 import type { CSSProperties } from 'react';
-import { HOUSE, pathOf, project, roofGeometry } from './geometry';
+import { HOUSE, Y_EAVE, pathOf, project, roofGeometry } from './geometry';
 import { RoofPaint } from './roof-paint';
+import { dark, light } from './tones';
 
 export interface RoofSpec {
   shape: RoofShape;
@@ -10,12 +11,8 @@ export interface RoofSpec {
   textureUrl?: string | undefined;
 }
 
-const dark = (pct: number) => `color-mix(in srgb, var(--roof) ${100 - pct}%, black)`;
-const light = (pct: number) => `color-mix(in srgb, var(--roof) ${100 - pct}%, white)`;
-
-const { w, h, overhang: o, rise } = HOUSE;
-const slope = rise / (HOUSE.d / 2);
-const yEave = h - slope * o;
+const { w, h, overhang: o } = HOUSE;
+const yEave = Y_EAVE;
 
 /** Alero: fascia y canaleta (se anima junto con el techo). */
 function Eave({ shape }: { shape: RoofShape }) {
@@ -88,7 +85,16 @@ export function Downspouts() {
  * Una capa de techo completa (planos, remates, alero) para una combinación forma + material + color.
  * `uid` hace únicos los ids de patrón y degradado entre capas superpuestas.
  */
-export function RoofLayer({ spec, uid }: { spec: RoofSpec; uid: string }) {
+export function RoofLayer({
+  spec,
+  uid,
+  sidingId,
+}: {
+  spec: RoofSpec;
+  uid: string;
+  /** Id del patrón de revestimiento de la escena (para el hastial). */
+  sidingId: string;
+}) {
   const g = roofGeometry(spec.shape);
   const pat = `${uid}-pat`;
   const lit = `${uid}-lit`;
@@ -104,16 +110,21 @@ export function RoofLayer({ spec, uid }: { spec: RoofSpec; uid: string }) {
         </linearGradient>
       </defs>
 
-      {g.gableEnd && (
+      {g.gableSoffit && (
         <polygon
-          points={g.gableEnd}
-          strokeWidth="3"
-          strokeLinejoin="round"
-          style={{
-            fill: 'color-mix(in srgb, var(--wall-side) 88%, var(--brand-slate))',
-            stroke: 'var(--trim)',
-          }}
+          points={g.gableSoffit}
+          style={{ fill: 'color-mix(in srgb, var(--wall-side) 57%, var(--brand-slate))' }}
         />
+      )}
+      {g.gableWall && (
+        <>
+          <polygon
+            points={g.gableWall}
+            strokeWidth="0.8"
+            style={{ fill: 'var(--wall-side)', stroke: 'var(--wall-side)' }}
+          />
+          <polygon points={g.gableWall} fill={`url(#${sidingId})`} />
+        </>
       )}
       {g.side && (
         <>
@@ -132,10 +143,10 @@ export function RoofLayer({ spec, uid }: { spec: RoofSpec; uid: string }) {
           key={d}
           d={d}
           fill="none"
-          strokeWidth="3.2"
+          strokeWidth="5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          style={{ stroke: 'var(--trim)' }}
+          style={{ stroke: dark(42) }}
         />
       ))}
       {g.ridgeLines.map((d, i) => (

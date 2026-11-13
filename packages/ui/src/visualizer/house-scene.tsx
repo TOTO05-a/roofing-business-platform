@@ -26,11 +26,13 @@ const slateA = (pct: number) => `color-mix(in srgb, var(--brand-slate) ${pct}%, 
 
 /** Ventana de la fachada con marco, postigos, parteluz y reflejo. */
 function Window({
+  uid,
   x,
   y = 24,
   width = 88,
   height = 52,
 }: {
+  uid: string;
   x: number;
   y?: number;
   width?: number;
@@ -76,7 +78,7 @@ function Window({
         rx="2"
         style={{ fill: 'var(--trim)' }}
       />
-      <rect x={x0} y={yTop} width={pw} height={ph} style={{ fill: 'url(#scene-glass)' }} />
+      <rect x={x0} y={yTop} width={pw} height={ph} style={{ fill: `url(#${uid}-glass)` }} />
       <path
         d={`M${x0 + 8} ${yBot} L${x0 + pw * 0.42} ${yTop} L${x0 + pw * 0.58} ${yTop} L${x0 + 8 + pw * 0.16} ${yBot}Z`}
         style={{ fill: 'color-mix(in srgb, white 16%, transparent)' }}
@@ -176,8 +178,14 @@ function Tree({ x, y }: { x: number; y: number }) {
   );
 }
 
-/** Fondo y casa sin techo (cielo, césped, paredes, puerta, ventanas, arbustos). */
-export function HouseBackdrop() {
+/** Id del patrón de revestimiento de una escena (también lo usa el hastial del techo). */
+export const sidingId = (uid: string) => `${uid}-siding`;
+
+/**
+ * Fondo y casa sin techo (cielo, césped, paredes, puerta, ventanas, arbustos).
+ * `uid` prefija los ids de degradados y patrones para que varias escenas no choquen.
+ */
+export function HouseBackdrop({ uid }: { uid: string }) {
   const wallFront = points(P(0, 0, 0), P(w, 0, 0), P(w, h, 0), P(0, h, 0));
   const wallSide = points(P(w, 0, 0), P(w, 0, d), P(w, h, d), P(w, h, 0));
   const foundation = points(P(0, 0, 0), P(w, 0, 0), P(w, 11, 0), P(0, 11, 0));
@@ -193,31 +201,31 @@ export function HouseBackdrop() {
   return (
     <g>
       <defs>
-        <linearGradient id="scene-sky" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`${uid}-sky`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" style={{ stopColor: 'var(--sky-top)' }} />
           <stop offset="1" style={{ stopColor: 'var(--sky-low)' }} />
         </linearGradient>
-        <radialGradient id="scene-sun" cx="0.5" cy="0.5" r="0.5">
+        <radialGradient id={`${uid}-sun`} cx="0.5" cy="0.5" r="0.5">
           <stop offset="0" stopColor="white" stopOpacity="0.85" />
           <stop offset="1" stopColor="white" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id="scene-lawn" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`${uid}-lawn`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" style={{ stopColor: 'var(--lawn-far)' }} />
           <stop offset="1" style={{ stopColor: 'var(--lawn-near)' }} />
         </linearGradient>
-        <linearGradient id="scene-glass" x1="0" x2="1" y1="0" y2="1">
+        <linearGradient id={`${uid}-glass`} x1="0" x2="1" y1="0" y2="1">
           <stop offset="0" style={{ stopColor: 'var(--glass-a)' }} />
           <stop offset="1" style={{ stopColor: 'var(--glass-b)' }} />
         </linearGradient>
-        <linearGradient id="scene-eave-shadow" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`${uid}-eave-shadow`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" style={{ stopColor: 'var(--brand-slate)' }} stopOpacity="0.42" />
           <stop offset="1" style={{ stopColor: 'var(--brand-slate)' }} stopOpacity="0" />
         </linearGradient>
-        <linearGradient id="scene-wall-light" x1="0" x2="1" y1="0" y2="0">
+        <linearGradient id={`${uid}-wall-light`} x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="white" stopOpacity="0.14" />
           <stop offset="1" stopColor="white" stopOpacity="0" />
         </linearGradient>
-        <pattern id="scene-siding" patternUnits="userSpaceOnUse" width="10" height="11">
+        <pattern id={`${uid}-siding`} patternUnits="userSpaceOnUse" width="10" height="11">
           <rect y="9.2" width="10" height="1.8" style={{ fill: slateA(9) }} />
           <rect
             y="8.6"
@@ -226,14 +234,14 @@ export function HouseBackdrop() {
             style={{ fill: 'color-mix(in srgb, white 30%, transparent)' }}
           />
         </pattern>
-        <filter id="scene-blur" x="-20%" y="-20%" width="140%" height="140%">
+        <filter id={`${uid}-blur`} x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="5" />
         </filter>
       </defs>
 
       {/* Cielo, sol y nubes */}
-      <rect x="0" y="0" width="800" height="430" fill="url(#scene-sky)" />
-      <circle cx="640" cy="150" r="150" fill="url(#scene-sun)" />
+      <rect x="0" y="0" width="800" height="430" fill={`url(#${uid}-sky)`} />
+      <circle cx="640" cy="150" r="150" fill={`url(#${uid}-sun)`} />
       <g style={{ fill: 'var(--trim)' }} opacity="0.75">
         <ellipse cx="150" cy="160" rx="58" ry="12" />
         <ellipse cx="190" cy="152" rx="38" ry="12" />
@@ -242,7 +250,7 @@ export function HouseBackdrop() {
       </g>
 
       {/* Césped */}
-      <rect x="0" y="300" width="800" height="130" fill="url(#scene-lawn)" />
+      <rect x="0" y="300" width="800" height="130" fill={`url(#${uid}-lawn)`} />
       <path
         d="M0 304 Q200 292 400 302 T800 298 L800 310 L0 312Z"
         style={{ fill: 'var(--lawn-far)' }}
@@ -262,7 +270,7 @@ export function HouseBackdrop() {
         style={{ fill: 'var(--path)' }}
       />
       {/* Sombra del edificio en el suelo */}
-      <polygon points={shadowGround} style={{ fill: slateA(34) }} filter="url(#scene-blur)" />
+      <polygon points={shadowGround} style={{ fill: slateA(34) }} filter={`url(#${uid}-blur)`} />
       <polygon
         points={points(P(-6, 0, -8), P(w + 6, 0, -8), P(w, 0, 0), P(0, 0, 0))}
         style={{ fill: slateA(22) }}
@@ -270,7 +278,7 @@ export function HouseBackdrop() {
 
       {/* Costado derecho */}
       <polygon points={wallSide} style={{ fill: 'var(--wall-side)' }} />
-      <polygon points={wallSide} fill="url(#scene-siding)" />
+      <polygon points={wallSide} fill={`url(#${uid}-siding)`} />
       <polygon points={foundationSide} style={{ fill: slateA(30) }} />
       <polygon
         points={points(P(w, 50, 70), P(w, 50, 130), P(w, 92, 130), P(w, 92, 70))}
@@ -278,13 +286,13 @@ export function HouseBackdrop() {
       />
       <polygon
         points={points(P(w, 53, 73), P(w, 53, 127), P(w, 89, 127), P(w, 89, 73))}
-        fill="url(#scene-glass)"
+        fill={`url(#${uid}-glass)`}
       />
 
       {/* Fachada */}
       <polygon points={wallFront} style={{ fill: 'var(--wall)' }} />
-      <polygon points={wallFront} fill="url(#scene-siding)" />
-      <polygon points={wallFront} fill="url(#scene-wall-light)" />
+      <polygon points={wallFront} fill={`url(#${uid}-siding)`} />
+      <polygon points={wallFront} fill={`url(#${uid}-wall-light)`} />
       <polygon
         points={foundation}
         style={{ fill: 'color-mix(in srgb, var(--wall) 65%, var(--brand-slate))' }}
@@ -294,11 +302,11 @@ export function HouseBackdrop() {
         y={P(0, h, 0)[1]}
         width={P(w, 0, 0)[0] - P(0, 0, 0)[0]}
         height="24"
-        fill="url(#scene-eave-shadow)"
+        fill={`url(#${uid}-eave-shadow)`}
       />
 
-      <Window x={40} />
-      <Window x={330} />
+      <Window uid={uid} x={40} />
+      <Window uid={uid} x={330} />
 
       {/* Puerta principal */}
       <rect
