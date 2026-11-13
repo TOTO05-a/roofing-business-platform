@@ -17,13 +17,24 @@ vi.hoisted(() => {
   })) as typeof globalThis.matchMedia;
 });
 
-it('con "reducir movimiento" el cambio de material es instantáneo (una sola capa)', async () => {
+const last = vi.hoisted(() => ({ props: null as null | Record<string, unknown> }));
+vi.mock('./3d/webgl', () => ({ hasWebGL: () => true }));
+vi.mock('./3d/scene-canvas', () => ({
+  default: (props: Record<string, unknown>) => {
+    last.props = props;
+    return <canvas data-testid="scene" />;
+  },
+}));
+
+it('con "reducir movimiento" la escena recibe reduced=true y el cambio es inmediato', async () => {
   const { RoofVisualizer } = await import('./roof-visualizer');
   const user = userEvent.setup();
   const { container } = render(
     <RoofVisualizer locale="es" labels={dictionaries.es.visualizer} ctaHref="/es/#contacto" />,
   );
+  await screen.findByTestId('scene');
+  expect(last.props).toMatchObject({ reduced: true });
   await user.click(screen.getByRole('radio', { name: 'Pizarra' }));
-  expect(container.querySelectorAll('[data-roof-shape]')).toHaveLength(1);
-  expect(container.querySelector('pattern[data-procedural="slate"]')).not.toBeNull();
+  expect(container.querySelector('[data-shape]')).toHaveAttribute('data-material', 'slate');
+  expect(last.props).toMatchObject({ materialId: 'slate', reduced: true });
 });

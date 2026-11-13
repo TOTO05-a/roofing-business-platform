@@ -3,6 +3,9 @@ import { expect, test } from '@playwright/test';
 import { APP, WEB, locales, openVisualizer, seriousViolations } from './helpers';
 import { me, mockApi } from './support/api';
 
+// La escena 3D tarda en cargar con WebGL por software (CI y equipos sin GPU): más margen que 30 s.
+test.describe.configure({ timeout: 90_000 });
+
 for (const l of locales) {
   for (const scheme of ['light', 'dark'] as const) {
     test(`visualizador ${l.code} (${scheme}): sin violaciones serious/critical, también tras cambiar`, async ({
@@ -33,7 +36,7 @@ for (const l of locales) {
     // Los radios nativos se mueven y marcan con las flechas.
     await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('radio', { name: l.hip, exact: true })).toBeChecked();
-    await expect(page.locator('svg[data-shape]')).toHaveAttribute('data-shape', 'hip');
+    await expect(page.locator('[data-shape]')).toHaveAttribute('data-shape', 'hip');
 
     await page.getByRole('radio', { name: l.slate, exact: true }).click();
     const live = page.getByRole('status').filter({ hasText: l.slate });
@@ -54,6 +57,37 @@ for (const l of locales) {
       'href',
       `/${l.code}/#contacto`,
     );
+  });
+
+  test(`visualizador ${l.code}: botones de vista accesibles (aria-pressed, 44 px, teclado)`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`${WEB}/${l.code}/`);
+    const section = await openVisualizer(page);
+    const names =
+      l.code === 'es' ? ['Frente', 'Esquina', 'Desde arriba'] : ['Front', 'Corner', 'Top view'];
+    const buttons = names.map((n) => section.getByRole('button', { name: n, exact: true }));
+    // Empieza en «Esquina».
+    await expect(buttons[1]!).toHaveAttribute('aria-pressed', 'true');
+    for (const b of buttons) {
+      const box = await b.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+    }
+    await buttons[2]!.focus();
+    await page.keyboard.press('Enter');
+    await expect(buttons[2]!).toHaveAttribute('aria-pressed', 'true');
+    await expect(buttons[1]!).toHaveAttribute('aria-pressed', 'false');
+    await buttons[0]!.click();
+    await expect(buttons[0]!).toHaveAttribute('aria-pressed', 'true');
+    // El lienzo 3D se monta y es decorativo.
+    const canvas = section.locator('[data-shape] canvas');
+    await expect(canvas).toBeAttached({ timeout: 30_000 });
+    await expect(section.locator('[data-shape][data-webgl="ok"]')).toBeAttached();
+    await expect(
+      section.locator('[data-shape] [aria-hidden="true"] canvas').first(),
+    ).toBeAttached();
   });
 }
 
@@ -132,7 +166,7 @@ test('catálogo /componentes: demostración del visualizador', async ({ page }) 
   const section = page.locator('section', { has: page.locator('#sec-visualizer') });
   await section.scrollIntoViewIfNeeded();
   await section.getByRole('radio', { name: 'Cuatro aguas', exact: true }).click();
-  await expect(section.locator('svg[data-shape]')).toHaveAttribute('data-shape', 'hip');
+  await expect(section.locator('[data-shape]')).toHaveAttribute('data-shape', 'hip');
   await expect(section.getByRole('status')).toContainText(
     'Techo, cuatro aguas: Teja asfáltica arquitectónica',
   );

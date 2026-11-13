@@ -10,7 +10,7 @@ export const roofShapes = ['gable', 'hip'] as const;
 /** Forma del techo: dos aguas (`gable`) o cuatro aguas (`hip`). */
 export type RoofShape = (typeof roofShapes)[number];
 
-/** Clave del patrón con que se dibuja el material (y de su ranura de textura). */
+/** Clave del material del visualizador 3D (define su textura o su geometría). */
 export type RoofMaterialId =
   | 'architectural-shingle'
   | 'three-tab-shingle'
@@ -37,11 +37,6 @@ export interface RoofMaterial {
   id: RoofMaterialId;
   name: LocalizedText;
   colors: readonly RoofColor[];
-  /**
-   * Foto CC0 opcional (en escala de grises neutra) que sustituye al patrón
-   * procedural. Se tiñe con el color elegido. Ver `packages/ui/src/visualizer/textures/README.md`.
-   */
-  textureUrl?: string;
 }
 
 const c = (id: string, hex: string, es: string, en: string): RoofColor => ({

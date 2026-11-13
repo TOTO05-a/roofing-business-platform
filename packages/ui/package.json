@@ -28,6 +28,7 @@
     "@types/node": "^26.6.6",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.187.0",
     "jsdom": "^31.0.0",
     "motion": "^14.13.0",
     "react": "^19.3.1",
@@ -39,13 +40,17 @@
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
     "@fontsource-variable/source-sans-3": "^5.3.1",
+    "@react-three/drei": "10.7.9",
+    "@react-three/fiber": "9.8.2",
+    "@react-three/postprocessing": "3.2.2",
     "@roofing/shared": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.72.0",
     "radix-ui": "^1.8.1",
     "tailwind-merge": "^3.7.0",
-    "tailwindcss": "^4.3.5"
+    "tailwindcss": "^4.3.5",
+    "three": "0.187.0"
   },
   "sideEffects": [
     "**/*.css"

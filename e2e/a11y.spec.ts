@@ -4,6 +4,9 @@ import { resolve } from 'node:path';
 import { me, mockApi } from './support/api';
 import { seriousViolations, settle } from './support/a11y';
 
+// Las páginas con el visualizador 3D tardan en cargar con WebGL por software: más margen que 30 s.
+test.describe.configure({ timeout: 90_000 });
+
 const WEB = 'http://localhost:4321';
 const APP = 'http://localhost:4173';
 const SHOTS = resolve(import.meta.dirname, 'screenshots');

@@ -1,4 +1,4 @@
-import type { Dictionary } from '@roofing/shared/i18n';
+import { dictionaries, type Dictionary } from '@roofing/shared/i18n';
 import {
   getRoofMaterial,
   roofMaterials,
@@ -9,13 +9,24 @@ import {
 } from '@roofing/shared/visualizer';
 import { Check } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  Component,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useId,
+  useState,
+  type ReactNode,
+} from 'react';
 import { buttonVariants } from '../components/button-variants';
-import { VIEWBOX } from './geometry';
-import { HouseBackdrop, SCENE_VARS, sidingId } from './house-scene';
-import { Downspouts, RoofLayer, type RoofSpec } from './roof-layer';
-import { TransitionLayer, usePrefersReducedMotion, type TransitionMode } from './roof-transitions';
-import { textureRegistry } from './textures';
+import { LoadingSkeleton } from './3d/loading-skeleton';
+import type { ViewId } from './3d/types';
+import { usePrefersReducedMotion } from './3d/use-prefers-reduced-motion';
+import { hasWebGL } from './3d/webgl';
+
+// La escena 3D (three, R3F, texturas) va en un chunk aparte: no pesa hasta que se muestra.
+const RoofScene3D = lazy(() => import('./3d/scene-canvas'));
 
 type Locale = keyof LocalizedText;
 
@@ -40,29 +51,27 @@ interface Selection {
   colorId: string;
 }
 
-interface Layer {
-  id: number;
-  spec: RoofSpec;
-  /** `wipe` en el cambio de material, `fade` en color y forma, `none` sin animación. */
-  mode: TransitionMode;
-  /** La capa va a ser reemplazada por otra de distinta silueta: se funde a opacidad 0. */
-  leaving: boolean;
-}
-
 const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key] ?? '');
 
-function specOf(sel: Selection, materials: readonly RoofMaterial[]): RoofSpec {
-  const material =
-    materials.find((x) => x.id === sel.materialId) ?? getRoofMaterial(sel.materialId);
-  const color = material.colors.find((c) => c.id === sel.colorId) ?? material.colors[0];
-  return {
-    shape: sel.shape,
-    material: material.id,
-    hex: color?.hex ?? '#555555',
-    textureUrl: material.textureUrl ?? textureRegistry[material.id],
-  };
+/** Un error del canvas (WebGL, contexto perdido, chunk) cae al aviso de texto en vez de romper la página. */
+class SceneBoundary extends Component<
+  { onError: () => void; children: ReactNode },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  override componentDidCatch() {
+    this.props.onError();
+  }
+  override render() {
+    return this.state.failed ? null : this.props.children;
+  }
 }
+
+const viewIds: readonly ViewId[] = ['front', 'corner', 'top'];
 
 const itemBase =
   'relative flex min-h-11 items-center gap-3 rounded-md border-2 border-border-strong bg-surface px-3 py-2 text-start text-fg ' +
@@ -107,7 +116,14 @@ function Option({
   children: ReactNode;
 }) {
   return (
-    <label className={clsx(itemBase, checked && itemChecked, className)}>
+    <label
+      className={clsx(
+        itemBase,
+        'has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--ring)]',
+        checked && itemChecked,
+        className,
+      )}
+    >
       <input
         type="radio"
         name={name}
@@ -147,8 +163,9 @@ function ShapeIcon({ shape }: { shape: RoofShape }) {
 }
 
 /**
- * Visualizador de techos: casa vectorial con forma (dos / cuatro aguas), material y color
- * intercambiables. Accesible con teclado y lectores de pantalla; respeta "reducir movimiento".
+ * Visualizador de techos 3D: casa a escala real con forma (dos / cuatro aguas), material y color
+ * intercambiables y cámara con tres vistas. Los controles, el anuncio y el aviso sin WebGL son HTML
+ * accesible; el lienzo es decorativo (`aria-hidden`). Respeta "reducir movimiento".
  */
 export function RoofVisualizer({
   locale,
@@ -171,35 +188,18 @@ export function RoofVisualizer({
       (materials.find((x) => x.id === initialMaterial) ?? getRoofMaterial(initialMaterial))
         .colors[0]?.id ?? '',
   }));
-  const counter = useRef(0);
-  const [layers, setLayers] = useState<Layer[]>(() => [
-    { id: 0, spec: specOf(sel, materials), mode: 'none', leaving: false },
-  ]);
+  const [view, setView] = useState<ViewId | null>('corner');
+  const [webgl, setWebgl] = useState<'checking' | 'ok' | 'none'>('checking');
+  const [ready, setReady] = useState(false);
+  const [progress, setProgress] = useState<number | undefined>(undefined);
 
-  const commit = useCallback(
-    (next: Selection) => {
-      setSel(next);
-      const id = ++counter.current;
-      const spec = specOf(next, materials);
-      if (reduce) {
-        setLayers([{ id, spec, mode: 'none', leaving: false }]);
-        return;
-      }
-      const mode = next.materialId !== sel.materialId ? 'wipe' : 'fade';
-      // Si cambia la silueta, la capa saliente se funde a 0 mientras entra la nueva.
-      const leaving = next.shape !== sel.shape;
-      setLayers((current) => [
-        ...current.map((l) => (leaving ? { ...l, leaving } : l)),
-        { id, spec, mode, leaving: false },
-      ]);
-    },
-    [sel.materialId, sel.shape, materials, reduce],
-  );
-
-  const removeBefore = useCallback(
-    (id: number) => setLayers((current) => current.filter((l) => l.id >= id)),
-    [],
-  );
+  // La detección de WebGL se hace antes de montar el Canvas (y solo en el navegador).
+  useEffect(() => {
+    setWebgl(hasWebGL() ? 'ok' : 'none');
+  }, []);
+  const onSceneError = useCallback(() => setWebgl('none'), []);
+  const onUserRotate = useCallback(() => setView(null), []);
+  const onReady = useCallback(() => setReady(true), []);
 
   const material =
     materials.find((x) => x.id === sel.materialId) ?? getRoofMaterial(sel.materialId);
@@ -220,14 +220,25 @@ export function RoofVisualizer({
   });
 
   const ids = {
-    title: `${uid}-t`,
     desc: `${uid}-d`,
     shape: `${uid}-shape`,
     mat: `${uid}-mat`,
     col: `${uid}-col`,
   };
 
+  const viewNames: Record<ViewId, string> = {
+    front: labels.viewFront,
+    corner: labels.viewCorner,
+    top: labels.viewTop,
+  };
+
   const ctaClass = buttonVariants({ size: 'lg', className: 'w-full sm:w-auto' });
+  const viewClass = buttonVariants({
+    variant: 'secondary',
+    size: 'sm',
+    className:
+      'flex-1 sm:flex-none aria-pressed:border-primary aria-pressed:bg-surface-alt aria-pressed:shadow-[inset_0_0_0_2px_var(--primary)]',
+  });
 
   return (
     <div
@@ -237,32 +248,72 @@ export function RoofVisualizer({
       )}
     >
       <figure className="m-0 grid gap-3">
-        <div className="overflow-hidden rounded-xl border border-border shadow-md">
-          <svg
-            viewBox={VIEWBOX}
+        <div className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-surface-alt shadow-md sm:aspect-[16/10]">
+          <div
             role="img"
-            aria-labelledby={ids.title}
+            aria-label={labels.svgTitle}
             aria-describedby={ids.desc}
-            className="block h-auto w-full"
-            style={SCENE_VARS as CSSProperties}
             data-shape={sel.shape}
+            data-material={sel.materialId}
+            data-color={sel.colorId}
+            data-webgl={webgl}
+            className="absolute inset-0"
           >
-            <title id={ids.title}>{labels.svgTitle}</title>
-            <desc id={ids.desc}>{description}</desc>
-            <HouseBackdrop uid={uid} />
-            {layers.map((layer) => (
-              <TransitionLayer
-                key={layer.id}
-                mode={layer.mode}
-                leaving={layer.leaving}
-                onEntered={() => removeBefore(layer.id)}
-              >
-                <RoofLayer spec={layer.spec} uid={`${uid}-${layer.id}`} sidingId={sidingId(uid)} />
-              </TransitionLayer>
-            ))}
-            <Downspouts />
-          </svg>
+            <div aria-hidden="true" className="absolute inset-0">
+              {webgl === 'ok' && (
+                <SceneBoundary onError={onSceneError}>
+                  <Suspense fallback={null}>
+                    <RoofScene3D
+                      shape={sel.shape}
+                      materialId={sel.materialId}
+                      colorId={sel.colorId}
+                      hex={color?.hex ?? '#555555'}
+                      reduced={reduce}
+                      view={view}
+                      onUserRotate={onUserRotate}
+                      onError={onSceneError}
+                      onProgress={setProgress}
+                      onReady={onReady}
+                    />
+                  </Suspense>
+                </SceneBoundary>
+              )}
+            </div>
+          </div>
+          {webgl === 'none' ? (
+            <div className="absolute inset-0 grid place-items-center p-6 text-center">
+              <p className="max-w-md text-fg">{labels.noWebgl}</p>
+            </div>
+          ) : (
+            // Sin JavaScript (o mientras se detecta WebGL) no hay barra de carga eterna.
+            webgl === 'ok' &&
+            !ready && <LoadingSkeleton label={labels.loading} progress={progress} />
+          )}
+          <noscript>
+            <div className="absolute inset-0 grid place-items-center gap-2 p-6 text-center text-fg">
+              <p lang="es">{dictionaries.es.visualizer.noWebgl}</p>
+              <p lang="en">{dictionaries.en.visualizer.noWebgl}</p>
+            </div>
+          </noscript>
         </div>
+        <p id={ids.desc} className="sr-only">
+          {description}
+        </p>
+        {webgl !== 'none' && (
+          <div role="group" aria-label={labels.viewLabel} className="flex flex-wrap gap-2">
+            {viewIds.map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+                className={viewClass}
+              >
+                {viewNames[v]}
+              </button>
+            ))}
+          </div>
+        )}
         <figcaption>
           <p role="status" aria-live="polite" className="font-display text-lg font-semibold">
             {announce}
@@ -279,7 +330,7 @@ export function RoofVisualizer({
               name={ids.shape}
               value={shape}
               checked={sel.shape === shape}
-              onSelect={(v) => commit({ ...sel, shape: v as RoofShape })}
+              onSelect={(v) => setSel({ ...sel, shape: v as RoofShape })}
               markClassName="ms-auto size-5 shrink-0"
             >
               <ShapeIcon shape={shape} />
@@ -301,7 +352,7 @@ export function RoofVisualizer({
               value={mat.id}
               checked={sel.materialId === mat.id}
               onSelect={() =>
-                commit({ ...sel, materialId: mat.id, colorId: mat.colors[0]?.id ?? '' })
+                setSel({ ...sel, materialId: mat.id, colorId: mat.colors[0]?.id ?? '' })
               }
               className="font-semibold"
               markClassName="size-5 shrink-0"
@@ -318,7 +369,7 @@ export function RoofVisualizer({
               name={ids.col}
               value={c.id}
               checked={sel.colorId === c.id}
-              onSelect={(v) => commit({ ...sel, colorId: v })}
+              onSelect={(v) => setSel({ ...sel, colorId: v })}
               className="min-h-12"
               markClassName="absolute end-1 top-1 size-4"
             >
