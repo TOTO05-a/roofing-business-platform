@@ -39,8 +39,16 @@ QUALITY_ORM = 80
 GRAY_TARGET = 0.78
 
 
+#: Filas útiles por superficie (inicio, fin) en el original de 2048 px: se descartan las que no repiten
+#: (la pizarra trae una hilera de caballete arriba) y se toma un número entero de hileras.
+CROP_ROWS: dict[str, tuple[int, int]] = {'roof_slates_03': (213, 213 + 25 * 71)}
+
+
 def load(path: Path, mode: str = 'RGB', size: tuple[int, int] | None = None) -> np.ndarray:
     im = Image.open(path)
+    for key, (top, bottom) in CROP_ROWS.items():
+        if key in path.name:
+            im = im.crop((0, top, im.width, bottom))
     if im.mode == 'I;16':
         arr = np.asarray(im, dtype=np.float32) / 65535.0
         im = Image.fromarray((arr * 255).astype(np.uint8), 'L')
@@ -61,9 +69,16 @@ def srgb_to_linear(c: np.ndarray | float) -> np.ndarray | float:
     return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
 
 
-def to_gray(rgb: np.ndarray, contrast: float = 1.0) -> tuple[np.ndarray, float]:
-    """Gris con media `GRAY_TARGET`, conservando la variación entre piezas."""
+def to_gray(rgb: np.ndarray, contrast: float = 1.0, flatten: float = 0.0) -> tuple[np.ndarray, float]:
+    """Gris con media `GRAY_TARGET`, conservando la variación entre piezas.
+
+    `flatten` (radio en px) elimina las variaciones de tono muy amplias del original (manchas,
+    degradados de la foto), que al repetir el mosaico se ven como bandas.
+    """
     g = rgb @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    if flatten:
+        low = blur(g, flatten)
+        g = g / np.maximum(low, 1e-3) * float(low.mean())
     mean = float(g.mean())
     g = (g - mean) * contrast / max(mean, 1e-3) * GRAY_TARGET + GRAY_TARGET
     g = np.clip(g, 0, 1)
@@ -194,12 +209,13 @@ def standard(
     tint: bool,
     contrast: float = 1.0,
     rough_default: float = 0.8,
+    flatten: float = 0.0,
     size: tuple[int, int] = (SIZE, SIZE),
     displacement: Path | None = None,
 ) -> float:
     color = load(color_path, size=size)
     if tint:
-        col, gain = to_gray(color, contrast)
+        col, gain = to_gray(color, contrast, flatten)
     else:
         col, gain = color, 1.0
     normal = load(normal_path, size=size)
@@ -215,6 +231,10 @@ def standard(
         ao = np.clip(1 - np.clip(blur(d, 8) - d, 0, 1) * 2.5, 0, 1)
     else:
         ao = np.ones(rough.shape, np.float32)
+    if flatten:
+        # Igual que el color: sin manchas amplias de oclusión que formen bandas al repetir.
+        low = blur(ao, flatten)
+        ao = np.clip(ao / np.maximum(low, 1e-3) * float(low.mean()), 0, 1)
     save(col, f'{out_id}-color.webp', QUALITY_COLOR)
     save(normal, f'{out_id}-normal.webp', QUALITY_NORMAL)
     save(orm(ao, rough), f'{out_id}-orm.webp', QUALITY_ORM)
@@ -237,7 +257,8 @@ def main() -> None:
         r10 / 'rooftop_0010_roughness_2k.jpg',
         r10 / 'rooftop_0010_ao_2k.jpg',
         tint=True,
-        contrast=0.8,
+        contrast=0.9,
+        flatten=160,
     )
     gains['architectural-shingle'] = architectural(src, rng)
     rt = src / 'RoofingTiles014A/x/RoofingTiles014A_2K-JPG'
@@ -248,6 +269,8 @@ def main() -> None:
         Path(f'{rt}_Roughness.jpg'),
         Path(f'{rt}_AmbientOcclusion.jpg'),
         tint=True,
+        contrast=1.5,
+        flatten=160,
     )
     sl = src / 'roof_slates_03/roof_slates_03'
     gains['slate'] = standard(
@@ -257,6 +280,8 @@ def main() -> None:
         Path(f'{sl}_rough_2k.jpg'),
         Path(f'{sl}_ao_2k.jpg'),
         tint=True,
+        contrast=1.0,
+        flatten=120,
     )
     ws11 = src / 'WoodSiding011/x/WoodSiding011_2K-JPG'
     gains['cedar-shake'] = standard(
@@ -266,6 +291,8 @@ def main() -> None:
         None,
         None,
         tint=True,
+        contrast=1.4,
+        flatten=160,
         rough_default=0.82,
         displacement=Path(f'{ws11}_Displacement.jpg'),
     )

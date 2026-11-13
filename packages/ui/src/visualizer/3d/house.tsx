@@ -287,8 +287,8 @@ function Bushes({ m }: { m: HouseMaterials }) {
   );
 }
 
-const GRASS_INNER = 40;
-const GRASS_OUTER = 130;
+const GRASS_INNER = 90;
+const GRASS_OUTER = 320;
 
 function circleGeometry(): CircleGeometry {
   const g = new CircleGeometry(GRASS_INNER, 72);

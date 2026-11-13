@@ -13,7 +13,8 @@ export const TILE_SIZE: Record<SurfaceId, readonly [number, number]> = {
   'three-tab-shingle': [3.07, 2.03],
   'architectural-shingle': [3.0, 2.29],
   'clay-tile': [2.9, 2.9],
-  slate: [2.0, 2.0],
+  // 25 hileras de pizarra (≈ 18 cm de exposición) en el alto del mosaico.
+  slate: [4.5, 4.5],
   'cedar-shake': [1.4, 1.4],
   siding: [2.4, 1.2],
   grass: [1.4, 1.4],

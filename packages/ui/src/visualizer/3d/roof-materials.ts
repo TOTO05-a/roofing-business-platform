@@ -143,6 +143,14 @@ export function getOilCanningTexture(): DataTexture {
   return tex;
 }
 
+/**
+ * Reflectancia de las cubiertas texturizadas respecto al color de muestra del catálogo: a pleno sol,
+ * el hex de la muestra se veía demasiado claro y saturado (p. ej. terracota casi naranja neón).
+ */
+const ROOF_ALBEDO = 0.7;
+/** Desaturación leve hacia la luminancia (los gránulos y la intemperie apagan el color real). */
+const ROOF_DESATURATE = 0.18;
+
 /** Aspecto objetivo para un color del catálogo (el tinte se aplica en lineal × ganancia). */
 export function appearanceFor(id: RoofMaterialId, colorId: string, hex: string): Appearance {
   const color = new Color(hex); // ColorManagement convierte el hex sRGB a lineal
@@ -155,7 +163,9 @@ export function appearanceFor(id: RoofMaterialId, colorId: string, hex: string):
       clearcoat: bare ? 0 : 1,
     };
   }
-  color.multiplyScalar(albedoGain[id as SurfaceId] ?? 1);
+  const lum = color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+  color.lerp(new Color(lum, lum, lum), ROOF_DESATURATE);
+  color.multiplyScalar((albedoGain[id as SurfaceId] ?? 1) * ROOF_ALBEDO);
   return { color, metalness: 1, roughness: 1, clearcoat: 0 };
 }
 

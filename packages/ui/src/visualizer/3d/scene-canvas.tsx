@@ -2,7 +2,7 @@ import { CameraControls, CameraControlsImpl, Environment, useProgress } from '@r
 import { Canvas, useThree } from '@react-three/fiber';
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing';
 import { Suspense, useCallback, type ComponentProps, useEffect, useMemo, useRef } from 'react';
-import { AgXToneMapping, Euler, MathUtils, Vector3 } from 'three';
+import { AgXToneMapping, MathUtils, Vector3 } from 'three';
 import { hdrUrl } from './assets';
 import { House, Ground, useHouseMaterials } from './house';
 import { RoofRig } from './roof-rig';
@@ -15,13 +15,21 @@ const TONE_MAPPING_AGX = 8 as NonNullable<ComponentProps<typeof ToneMapping>['mo
 const FOV = 28;
 const TARGET: [number, number, number] = [0, 2.0, 0];
 
-/** Posición del sol en el HDRI (elevación ≈ 48°, azimut ≈ 34° en el mapa equirrectangular). */
-const HDRI_SUN = new Vector3(0.554, 0.743, 0.376);
-/** Se gira el HDRI para que el sol caiga delante-derecha de la fachada (cámara «Esquina»). */
-const HDRI_YAW = MathUtils.degToRad(-26);
-const SUN_DIR = HDRI_SUN.clone()
-  .applyEuler(new Euler(0, HDRI_YAW, 0))
-  .normalize();
+/** Sol del HDRI (elevación ≈ 48°, azimut ≈ 56° medido desde +z hacia +x). */
+const HDRI_SUN_AZIMUTH = Math.atan2(0.554, 0.376);
+/**
+ * Sol delante-izquierda de la fachada: la sombra de la casa cae hacia atrás-derecha, visible desde
+ * la vista «Esquina», y el costado derecho queda en sombra (más volumen).
+ */
+const SUN_AZIMUTH = MathUtils.degToRad(-48);
+const SUN_ELEVATION = MathUtils.degToRad(42);
+/** Giro del HDRI para que su sol coincida con la luz direccional (rotar en Y suma al azimut). */
+const HDRI_YAW = SUN_AZIMUTH - HDRI_SUN_AZIMUTH;
+const SUN_DIR = new Vector3(
+  Math.cos(SUN_ELEVATION) * Math.sin(SUN_AZIMUTH),
+  Math.sin(SUN_ELEVATION),
+  Math.cos(SUN_ELEVATION) * Math.cos(SUN_AZIMUTH),
+);
 
 interface Quality {
   mobile: boolean;
@@ -43,7 +51,7 @@ function detectQuality(): Quality {
 /** Distancia de la cámara para que quepa la casa (≈ 17 m) también en pantallas estrechas. */
 function fitDistance(aspect: number) {
   const tanHalf = Math.tan(MathUtils.degToRad(FOV) / 2) * aspect;
-  return MathUtils.clamp(11.5 / tanHalf, 28, 62);
+  return MathUtils.clamp(9.6 / tanHalf, 24, 58);
 }
 
 function viewPosition(view: ViewId, dist: number): [number, number, number] {
@@ -167,14 +175,14 @@ function Contents({
       <Environment
         files={hdrUrl}
         background
-        backgroundIntensity={1.5}
+        backgroundIntensity={1.05}
         environmentRotation={[0, HDRI_YAW, 0]}
         backgroundRotation={[0, HDRI_YAW, 0]}
-        environmentIntensity={1}
+        environmentIntensity={0.65}
       />
       <directionalLight
         position={sunPos}
-        intensity={2.8}
+        intensity={3.2}
         color="#fff4e2"
         castShadow
         shadow-mapSize={[quality.shadowSize, quality.shadowSize]}
@@ -209,7 +217,7 @@ function Contents({
           distanceFalloff={1.2}
           intensity={2.4}
           quality={quality.mobile ? 'low' : 'medium'}
-          halfRes={quality.mobile}
+          // `halfRes` deja el lienzo en blanco con MSAA (probado a 390 px): calidad baja sin media resolución.
           screenSpaceRadius={false}
         />
         <ToneMapping mode={TONE_MAPPING_AGX} />
