@@ -252,3 +252,33 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 | ✅ **general-purpose (Sonnet) + code-reviewer** | Funciona en el monorepo; costo moderado; revisión independiente | —                        |
 | fullstack-web-engineer                          | Especialista                              | No arranca en este monorepo (skill shadcn)   |
 | Opus                                            | Máxima capacidad                          | Más caro sin necesidad                       |
+
+### C29. Peso del visualizador: ¿aligerar o mantener? (13-11-2026)
+
+| Opción                                                        | A favor                                                                                | En contra                                                    |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| ✅ **Aligerar: radios nativos + animación CSS / Web Animations** | ≈ 80 kB en lugar de ≈ 126 kB (−37 %); los radios nativos funcionan mejor con tecnologías de asistencia | El visualizador no usa el mismo sistema de animación que la plataforma |
+| Mantener Radix y Motion                                       | Ya hecho; mismo sistema que la plataforma                                              | Más peso en la página que ven todos los clientes             |
+
+**Condición del cliente:** sin perder calidad visual. Si algún efecto no queda igual, esa parte se mantiene como estaba y se consulta.
+
+### C30. Detalles del visualizador confirmados (13-11-2026)
+
+| Decisión | Elegida ✅ | Alternativa | Por qué |
+| --- | --- | --- | --- |
+| Dependencias del sitio | `react` y `react-dom` en `apps/web` | Ninguna real | Obligatorias para `@astrojs/react` |
+| Vista de la casa | Perspectiva oblicua (fachada + costado) | Fachada plana | Se aprecia la forma del techo y se ve más real |
+| Colores de la casa | Paleta de marca + negro/blanco para luces y sombras | Solo paleta | Sombras más naturales |
+
+### C31. Modelo y esfuerzo de los agentes (13-11-2026)
+
+| Tarea | Antes | Elegida ✅ | Por qué |
+| --- | --- | --- | --- |
+| Búsquedas web y consultas | Sonnet bajo/medio | Haiku bajo | Tarea simple; mucho más barato |
+| Correcciones mecánicas | Sonnet medio | Sonnet bajo | Instrucciones ya detalladas por la revisión |
+| Implementación | Sonnet medio | Sonnet medio | Equilibrio entre calidad y costo |
+| Revisión de código rutinaria | Opus alto | Sonnet medio | Detecta los mismos fallos habituales por mucho menos |
+| Segunda revisión | Opus alto | Sonnet bajo o la sesión principal | Solo comprueba una lista |
+| Seguridad, pagos, datos, autenticación | Opus alto | Opus alto | Un error aquí cuesta más que los tokens |
+
+**Alternativa descartada:** usar siempre el modelo más capaz (más caro y agota antes el límite de uso) o siempre el más barato (riesgo en seguridad y pagos).
