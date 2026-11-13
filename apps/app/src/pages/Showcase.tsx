@@ -30,6 +30,7 @@ import {
   TabsList,
   TabsTrigger,
   toast,
+  RoofVisualizer,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -37,6 +38,7 @@ import {
 import { motion, useReducedMotion } from 'motion/react';
 import { FolderPlus, HelpCircle } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { dictionaries } from '@roofing/shared/i18n';
 import { useTranslation } from 'react-i18next';
 import { ContactForm } from './ContactForm';
 
@@ -82,8 +84,9 @@ function RetryDemo() {
 }
 
 export function ShowcasePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const reduce = useReducedMotion();
+  const locale = i18n.resolvedLanguage === 'en' ? 'en' : 'es';
   const s = (k: string) => t(`app.showcase.${k}` as 'app.showcase.title');
 
   return (
@@ -233,6 +236,15 @@ export function ShowcasePage() {
             <RetryDemo />
           </div>
         </div>
+      </Section>
+
+      <Section id="sec-visualizer" title={t('visualizer.title')}>
+        <p className="mb-5 max-w-prose text-fg-muted">{t('visualizer.intro')}</p>
+        <RoofVisualizer
+          locale={locale}
+          labels={dictionaries[locale].visualizer}
+          ctaHref="#sec-form"
+        />
       </Section>
 
       <Section id="sec-form" title={t('app.showcase.form')}>

@@ -7,6 +7,12 @@
     -webkit-text-size-adjust: 100%;
     scroll-padding-top: 5rem;
   }
+  /* La barra móvil fija (65 px + zona segura) no debe tapar un control con foco (WCAG 2.4.11). */
+  @media (max-width: 639.98px) {
+    html {
+      scroll-padding-bottom: calc(4.0625rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
   body {
     margin: 0;
     background: var(--bg);

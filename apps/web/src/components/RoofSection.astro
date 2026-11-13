@@ -1,0 +1,33 @@
+---
+import { RoofVisualizer } from '@roofing/ui/visualizer';
+import { getDict, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const v = getDict(locale).visualizer;
+---
+
+<section
+  id="techos"
+  class="scroll-mt-20 bg-surface-alt py-20 sm:py-28"
+  aria-labelledby="techos-title"
+>
+  <div class="mx-auto max-w-6xl px-4 sm:px-6">
+    <div class="max-w-2xl">
+      <h2 id="techos-title" class="text-3xl font-extrabold sm:text-4xl">
+        {v.title}
+      </h2>
+      <p class="mt-4 text-lg text-fg-muted">{v.intro}</p>
+    </div>
+    <div class="mt-10 sm:mt-12">
+      <RoofVisualizer
+        client:visible={{ rootMargin: '300px' }}
+        locale={locale}
+        labels={v}
+        ctaHref={`/${locale}/#contacto`}
+      />
+    </div>
+  </div>
+</section>

@@ -388,6 +388,26 @@ export const es = {
     passwordMatch: 'Las contraseñas no coinciden.',
     code6: 'Escriba los 6 dígitos del código.',
   },
+  visualizer: {
+    title: 'Elige tu techo',
+    intro:
+      'Pruebe formas, materiales y colores sobre una casa de ejemplo. Es una vista previa aproximada para imaginar el resultado.',
+    shapeLabel: 'Forma del techo',
+    shapeGable: 'Dos aguas',
+    shapeHip: 'Cuatro aguas',
+    materialLabel: 'Material',
+    colorLabel: 'Color',
+    announce: 'Techo, {{shape}}: {{material}}, color {{color}}',
+    svgTitle: 'Vista previa de su techo',
+    svgDescription:
+      'Casa residencial de una planta con techo a {{shape}}, en {{material}}, color {{color}}.',
+    cta: 'Solicitar inspección',
+    note: 'Los colores de la pantalla son aproximados; el tono final depende del fabricante y de la luz.',
+  },
+  intro: {
+    skip: 'Saltar',
+    skipLabel: 'Saltar la animación de entrada',
+  },
 };
 
 /** Forma del diccionario: la misma para todos los idiomas. */

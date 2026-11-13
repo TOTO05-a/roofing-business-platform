@@ -2,6 +2,7 @@
 import { ClientRouter } from 'astro:transitions';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
+import IntroSplash from '../components/IntroSplash.astro';
 import MobileBar from '../components/MobileBar.astro';
 import { alternatePath, getDict, locales, type Locale } from '../i18n/ui';
 import '../styles/global.css';
@@ -54,9 +55,24 @@ const canonical = abs(pathname);
         applyStoredTheme(e.newDocument);
       });
     </script>
+    <script is:inline>
+      // Animación de entrada: una sola vez por sesión y nunca con "reducir movimiento".
+      try {
+        if (
+          !sessionStorage.getItem('intro-seen') &&
+          !matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+          sessionStorage.setItem('intro-seen', '1');
+          document.documentElement.setAttribute('data-intro', 'play');
+        }
+      } catch {
+        /* sin almacenamiento: no se muestra */
+      }
+    </script>
     <ClientRouter />
   </head>
   <body class="min-h-dvh">
+    <IntroSplash locale={locale} />
     <a
       href="#contenido"
       class="fixed start-3 top-3 z-[60] -translate-y-20 rounded-md bg-primary px-4 py-3 font-display font-semibold text-primary-fg no-underline focus:translate-y-0"
