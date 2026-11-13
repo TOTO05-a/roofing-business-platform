@@ -24,6 +24,7 @@ import flatModern from '../assets/proyectos/techo-plano-casa-moderna.jpg';
 import flatBuilding from '../assets/proyectos/techo-plano-edificio.jpg';
 import crew from '../assets/proyectos/cuadrilla-instalando-teja.jpg';
 import Base from '../layouts/Base.astro';
+import ContactForm from './ContactForm.astro';
 import RoofSection from './RoofSection.astro';
 import { getDict, type Locale } from '../i18n/ui';
 
@@ -252,6 +253,7 @@ const btnPrimary =
         </a>
       </div>
       <p class="mt-6 text-on-brand-muted">{w.contact.hours}</p>
+      <ContactForm locale={locale} />
     </div>
   </section>
 </Base>
