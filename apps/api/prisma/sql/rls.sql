@@ -96,7 +96,9 @@ GRANT SELECT, INSERT, UPDATE (revoked_at) ON invitations TO app_user;
 GRANT SELECT, INSERT ON audit_logs TO app_user;
 GRANT SELECT, INSERT, UPDATE ON customer_profiles TO app_user;
 GRANT SELECT ON employee_profiles TO app_user;
-GRANT SELECT, INSERT, UPDATE ON properties, leads, appointments, inspections, files TO app_user;
+GRANT SELECT, INSERT, UPDATE ON properties, leads, appointments, inspections TO app_user;
+-- Archivos: bucket y clave no cambian nunca (si no, la descarga firmaría cualquier objeto).
+GRANT SELECT, INSERT, UPDATE (status, deleted_at, updated_at) ON files TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON inspection_sections, inspection_photos TO app_user;
 
 -- app_system: lo que necesitan Better Auth, las invitaciones y el formulario público.
@@ -323,3 +325,56 @@ CREATE POLICY user_insert ON files FOR INSERT TO app_user WITH CHECK (
 CREATE POLICY user_update ON files FOR UPDATE TO app_user
   USING ((SELECT app.is_staff()) OR uploaded_by_id = (SELECT app.current_user_id()))
   WITH CHECK ((SELECT app.is_staff()) OR uploaded_by_id = (SELECT app.current_user_id()));
+
+-- Columnas de enlace que solo cambia la oficina ----------------------------------------
+-- Las políticas dan visibilidad según estas columnas (cliente, propiedad, cita, asignado):
+-- si un empleado pudiera cambiarlas en sus filas, «adoptaría» clientes ajenos. Un GRANT por
+-- columna no sirve porque oficina y empleados comparten el rol app_user; de ahí el trigger.
+-- Solo actúa sobre app_user: el dueño (migraciones, seed) y app_system no pasan por aquí.
+CREATE OR REPLACE FUNCTION app.guard_staff_only_columns() RETURNS trigger
+  LANGUAGE plpgsql SECURITY INVOKER AS $$
+DECLARE
+  col text;
+BEGIN
+  IF current_user = 'app_user' AND NOT app.is_staff() THEN
+    FOREACH col IN ARRAY TG_ARGV LOOP
+      IF to_jsonb(NEW) -> col IS DISTINCT FROM to_jsonb(OLD) -> col THEN
+        RAISE EXCEPTION 'Solo la oficina puede cambiar %.%', TG_TABLE_NAME, col
+          USING ERRCODE = 'insufficient_privilege';
+      END IF;
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION app.guard_staff_only_columns() FROM PUBLIC;
+
+CREATE TRIGGER leads_staff_only_columns BEFORE UPDATE ON leads FOR EACH ROW
+  EXECUTE FUNCTION app.guard_staff_only_columns('customer_id', 'property_id', 'assigned_to_id', 'source');
+CREATE TRIGGER appointments_staff_only_columns BEFORE UPDATE ON appointments FOR EACH ROW
+  EXECUTE FUNCTION app.guard_staff_only_columns(
+    'customer_id', 'property_id', 'lead_id', 'assignee_id', 'starts_at', 'ends_at', 'rescheduled_from_id'
+  );
+CREATE TRIGGER inspections_staff_only_columns BEFORE UPDATE ON inspections FOR EACH ROW
+  EXECUTE FUNCTION app.guard_staff_only_columns('appointment_id', 'property_id', 'inspector_id');
+
+-- Al enlazar una foto, el archivo debe ser de quien lo enlaza (o de la oficina): enlazar el
+-- archivo de otra persona lo haría visible a través de la foto. Va en un trigger y no en el
+-- WITH CHECK porque la política de files ya consulta inspection_photos (sería recursiva).
+CREATE OR REPLACE FUNCTION app.guard_photo_file_owner() RETURNS trigger
+  LANGUAGE plpgsql SECURITY INVOKER AS $$
+BEGIN
+  IF current_user = 'app_user' AND NOT app.is_staff() AND NOT EXISTS (
+    SELECT 1 FROM files f
+    WHERE f.id = NEW.file_id AND f.uploaded_by_id = app.current_user_id()
+  ) THEN
+    RAISE EXCEPTION 'Solo puedes enlazar archivos que subiste tú'
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION app.guard_photo_file_owner() FROM PUBLIC;
+
+CREATE TRIGGER inspection_photos_file_owner BEFORE INSERT OR UPDATE OF file_id ON inspection_photos
+  FOR EACH ROW EXECUTE FUNCTION app.guard_photo_file_owner();

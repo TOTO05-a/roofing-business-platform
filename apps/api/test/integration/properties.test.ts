@@ -94,7 +94,11 @@ describe('propiedades', () => {
     const bobProperty = await createProperty(db, bob.customerId as string);
     const agent = await loginAs(ctx, alice);
 
-    expect((await agent.get(`/api/properties/${aliceProperty}`)).status).toBe(200);
+    await db.property.update({ where: { id: aliceProperty }, data: { notes: 'Nota interna' } });
+    const own = await agent.get(`/api/properties/${aliceProperty}`);
+    expect(own.status).toBe(200);
+    expect(own.body.property).not.toHaveProperty('notes'); // notas internas (modelo §4.4)
+    expect((await agent.get('/api/properties')).body.properties[0]).not.toHaveProperty('notes');
     expect((await agent.get(`/api/properties/${bobProperty}`)).status).toBe(404);
     expect((await agent.get('/api/properties')).body.total).toBe(1);
 

@@ -179,24 +179,35 @@ describe('formulario público: envío', () => {
     expect((await db.lead.findFirstOrThrow()).spamReason).toBe('token_too_fast');
   });
 
-  it('límite por correo: pasado el máximo en 24 h se descarta, con la misma respuesta', async () => {
+  it('límite por correo: pasado el máximo en 24 h se guarda como SPAM, con la misma respuesta', async () => {
     for (let i = 0; i < 2; i += 1) {
       expect((await post(body({ phone: undefined }))).status).toBe(201);
     }
     const third = await post(body({ phone: undefined }));
     expect(third.status).toBe(201);
     expect(third.body).toEqual({ ok: true });
-    expect(await db.lead.count()).toBe(2);
+    const countNew = () => db.lead.count({ where: { status: 'NEW' } });
+    expect(await countNew()).toBe(2);
+    expect(await db.lead.count({ where: { spamReason: 'contact_limit' } })).toBe(1);
     // Otro correo sigue pudiendo enviar.
     expect((await post(body({ email: 'otra@example.com', phone: undefined }))).status).toBe(201);
-    expect(await db.lead.count()).toBe(3);
+    expect(await countNew()).toBe(3);
     // Los envíos de hace más de 24 h no cuentan.
     await db.lead.updateMany({
       where: { email: 'lucia.fernandez@example.com' },
       data: { createdAt: new Date(Date.now() - 25 * 3_600_000) },
     });
     expect((await post(body({ phone: undefined }))).status).toBe(201);
-    expect(await db.lead.count()).toBe(4);
+    expect(await countNew()).toBe(4);
+  });
+
+  it('los envíos falsos (SPAM) con el correo de alguien no bloquean sus envíos reales', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      expect((await post(body({ phone: undefined, token: 'falso' }))).status).toBe(201);
+    }
+    expect(await db.lead.count({ where: { status: 'SPAM' } })).toBe(3);
+    expect((await post(body({ phone: undefined }))).status).toBe(201);
+    expect(await db.lead.count({ where: { status: 'NEW' } })).toBe(1);
   });
 
   it('límite por IP: 429 al pasar el máximo', async () => {

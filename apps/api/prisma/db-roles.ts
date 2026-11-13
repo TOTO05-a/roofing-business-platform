@@ -1,3 +1,4 @@
+import { createHash, createHmac, pbkdf2Sync, randomBytes } from 'node:crypto';
 import type { PrismaClient } from '../src/generated/prisma/client.js';
 
 /**
@@ -11,8 +12,22 @@ export interface DbRolePasswords {
   appSystem: string;
 }
 
-// Solo caracteres seguros: ALTER ROLE no admite parámetros y así no hay nada que escapar.
+// Solo caracteres seguros: ALTER ROLE no admite parámetros y así no hay nada que escapar
+// (y SASLprep deja la contraseña igual, así que el verificador coincide con el de PostgreSQL).
 const SAFE_PASSWORD = /^[A-Za-z0-9_-]{16,128}$/;
+const SCRAM_ITERATIONS = 4096;
+
+/**
+ * Verificador SCRAM-SHA-256 en el formato de PostgreSQL (RFC 5802/7677). Se envía en lugar de
+ * la contraseña en claro para que esta no quede en el log del servidor (log_statement = ddl).
+ */
+export function scramSha256Verifier(password: string, salt: Buffer = randomBytes(16)): string {
+  const salted = pbkdf2Sync(password, salt, SCRAM_ITERATIONS, 32, 'sha256');
+  const clientKey = createHmac('sha256', salted).update('Client Key').digest();
+  const storedKey = createHash('sha256').update(clientKey).digest();
+  const serverKey = createHmac('sha256', salted).update('Server Key').digest();
+  return `SCRAM-SHA-256$${SCRAM_ITERATIONS}:${salt.toString('base64')}$${storedKey.toString('base64')}:${serverKey.toString('base64')}`;
+}
 
 export async function setupDbRoles(owner: PrismaClient, passwords: DbRolePasswords): Promise<void> {
   for (const [role, password] of [
@@ -29,6 +44,9 @@ export async function setupDbRoles(owner: PrismaClient, passwords: DbRolePasswor
     if (!exists[0]?.exists) {
       throw new Error(`El rol ${role} no existe: aplica antes las migraciones (db:deploy)`);
     }
-    await owner.$executeRawUnsafe(`ALTER ROLE ${role} WITH LOGIN PASSWORD '${password}'`);
+    // El verificador solo contiene [A-Za-z0-9+/=$:-]: no hay comillas que escapar.
+    await owner.$executeRawUnsafe(
+      `ALTER ROLE ${role} WITH LOGIN PASSWORD '${scramSha256Verifier(password)}'`,
+    );
   }
 }

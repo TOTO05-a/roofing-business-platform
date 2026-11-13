@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authContext, currentUser, requireAuth, requireRole } from '../auth/middleware.js';
+import type { Role } from '../auth/roles.js';
 import { scopedWhere, visibleOr404 } from '../auth/scope.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { recordAudit, requestMeta } from '../lib/audit.js';
@@ -72,8 +73,15 @@ const propertySelect = {
 
 type PropertyRow = Prisma.PropertyGetPayload<{ select: typeof propertySelect }>;
 
-export function serializeProperty(row: PropertyRow) {
-  return { ...row, lat: decimalToNumber(row.lat), lng: decimalToNumber(row.lng) };
+/** Las notas son internas (modelo §4.4): el cliente nunca las recibe. */
+export function serializeProperty(row: PropertyRow, role: Role) {
+  const { notes, ...rest } = row;
+  return {
+    ...rest,
+    ...(role === 'CUSTOMER' ? {} : { notes }),
+    lat: decimalToNumber(row.lat),
+    lng: decimalToNumber(row.lng),
+  };
 }
 
 /** Propiedades (inmuebles) de los clientes. Alta, edición y borrado lógico: solo oficina. */
@@ -109,7 +117,7 @@ export function propertiesRouter(services: AppServices): Router {
       });
       return created;
     });
-    res.status(201).json({ property: serializeProperty(property) });
+    res.status(201).json({ property: serializeProperty(property, context.role) });
   });
 
   router.get('/properties', authed, async (req, res) => {
@@ -139,7 +147,7 @@ export function propertiesRouter(services: AppServices): Router {
       total: await tx.property.count({ where }),
     }));
     res.json({
-      properties: rows.map(serializeProperty),
+      properties: rows.map((row) => serializeProperty(row, context.role)),
       page: query.page,
       pageSize: query.pageSize,
       total,
@@ -155,7 +163,7 @@ export function propertiesRouter(services: AppServices): Router {
         select: propertySelect,
       }),
     );
-    res.json({ property: serializeProperty(visibleOr404(property)) });
+    res.json({ property: serializeProperty(visibleOr404(property), context.role) });
   });
 
   router.patch('/properties/:id', authed, office, async (req, res) => {
@@ -186,7 +194,7 @@ export function propertiesRouter(services: AppServices): Router {
       });
       return updated;
     });
-    res.json({ property: serializeProperty(property) });
+    res.json({ property: serializeProperty(property, context.role) });
   });
 
   // Borrado lógico: la propiedad deja de verse pero sus citas e inspecciones se conservan.

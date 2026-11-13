@@ -446,10 +446,69 @@ describe('app_user: escritura', () => {
     expect((await run(appUser, ctx.admin, insertFile(u.admin))).rowCount).toBe(1);
     await rejectsWith(run(appUser, ctx.employee, insertFile(u.admin)), PERMISSION_DENIED);
     await rejectsWith(run(appUser, ctx.customer, insertFile(u.cust1)), PERMISSION_DENIED);
+    const markReady = (file: string) =>
+      `UPDATE files SET status = 'READY', updated_at = now() WHERE id = '${file}'`;
+    expect((await run(appUser, ctx.employee, markReady(f1))).rowCount).toBe(1);
+    expect((await run(appUser, ctx.employee, markReady(f2))).rowCount).toBe(0);
+    // Bucket y clave son inmutables, incluso para la oficina (la descarga firma esa clave).
+    for (const set of [`object_key = 'inspections/b/2.jpg'`, `bucket = 'otro'`]) {
+      await rejectsWith(
+        run(appUser, ctx.employee, `UPDATE files SET ${set} WHERE id = '${f1}'`),
+        PERMISSION_DENIED,
+      );
+      await rejectsWith(
+        run(appUser, ctx.superadmin, `UPDATE files SET ${set} WHERE id = '${f1}'`),
+        PERMISSION_DENIED,
+      );
+    }
+  });
+
+  it('el inspector no puede enlazar a su foto el archivo de otra persona', async () => {
+    const link = (file: string) =>
+      `INSERT INTO inspection_photos (id, inspection_id, file_id) VALUES (gen_random_uuid(), '${i1}', '${file}')`;
+    await rejectsWith(run(appUser, ctx.employee, link(f3)), PERMISSION_DENIED); // de la oficina
+    const own = await run(
+      appUser,
+      ctx.employee,
+      `WITH f AS (
+         INSERT INTO files (id, bucket, object_key, mime_type, size_bytes, sha256, uploaded_by_id, updated_at)
+         VALUES (gen_random_uuid(), 'fotos', 'inspections/y/' || gen_random_uuid() || '.jpg', 'image/jpeg', 10, '${SHA}', '${u.emp1}', now())
+         RETURNING id)
+       INSERT INTO inspection_photos (id, inspection_id, file_id) SELECT gen_random_uuid(), '${i1}', id FROM f`,
+    );
+    expect(own.rowCount).toBe(1);
+  });
+
+  it('solo la oficina cambia las columnas de enlace (cliente, propiedad, cita, asignado, horario)', async () => {
+    const attempts = [
+      `UPDATE leads SET customer_id = '${c2}', property_id = '${p2}' WHERE id = '${l1}'`,
+      `UPDATE leads SET source = 'WEB_FORM' WHERE id = '${l1}'`,
+      `UPDATE appointments SET starts_at = starts_at + interval '1 day', ends_at = ends_at + interval '1 day' WHERE id = '${a1}'`,
+      `UPDATE appointments SET lead_id = '${l3}' WHERE id = '${a1}'`,
+      `UPDATE inspections SET appointment_id = '${a3}' WHERE id = '${i1}'`,
+    ];
+    for (const sql of attempts) {
+      await rejectsWith(run(appUser, ctx.employee, sql), PERMISSION_DENIED);
+    }
     expect(
-      (await run(appUser, ctx.employee, `UPDATE files SET original_name = 'x' WHERE id = '${f2}'`))
-        .rowCount,
-    ).toBe(0);
+      (
+        await run(
+          appUser,
+          ctx.admin,
+          `UPDATE appointments SET lead_id = '${l3}' WHERE id = '${a1}'`,
+        )
+      ).rowCount,
+    ).toBe(1);
+    // Lo que sí le toca al empleado sigue funcionando.
+    expect(
+      (
+        await run(
+          appUser,
+          ctx.employee,
+          `UPDATE appointments SET status = 'IN_PROGRESS' WHERE id = '${a1}'`,
+        )
+      ).rowCount,
+    ).toBe(1);
   });
 
   it('auditoría: cada quien inserta a su nombre; nadie modifica ni borra', async () => {

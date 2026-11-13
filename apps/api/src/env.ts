@@ -22,6 +22,11 @@ const booleanString = z
   .default('false')
   .transform((value) => value === 'true');
 
+/** Clave S3 de ejemplo de .env.example (solo para el Garage local; no debe llegar a producción). */
+export const EXAMPLE_S3_SECRET = '5e1d7c3b9a2f4e6d8c0b1a3f5e7d9c2b4a6f8e0d1c3b5a7f9e2d4c6b8a0f1e3d';
+/** Marca de las contraseñas de ejemplo de .env.example. */
+export const EXAMPLE_PASSWORD_MARK = '_dev_password';
+
 /** Prefijo del secreto de ejemplo de .env.example (no debe llegar a producción). */
 export const EXAMPLE_SECRET_PREFIX = 'cambia-esto';
 
@@ -98,6 +103,23 @@ const envSchema = z
         code: 'custom',
         path: ['BETTER_AUTH_SECRET'],
         message: 'Usa un secreto propio, no el de .env.example',
+      });
+    }
+    // Credenciales versionadas en .env.example: públicas, nunca válidas en producción.
+    for (const key of ['APP_DATABASE_URL', 'SYSTEM_DATABASE_URL'] as const) {
+      if (env[key].includes(EXAMPLE_PASSWORD_MARK)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'Usa una contraseña propia, no la de .env.example',
+        });
+      }
+    }
+    if (env.S3_SECRET_ACCESS_KEY === EXAMPLE_S3_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_SECRET_ACCESS_KEY'],
+        message: 'Usa una clave propia, no la de .env.example',
       });
     }
     for (const origin of env.PUBLIC_FORM_ORIGINS) {

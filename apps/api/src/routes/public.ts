@@ -106,19 +106,20 @@ export function publicRouter({ systemDb: db, env }: AppServices): Router {
         if (token !== 'ok') spamReason = `token_${token}`;
       }
 
-      // Límite por correo o teléfono: los envíos WEB_FORM de las últimas 24 h (la RLS de
-      // app_system solo le deja ver esos). Pasado el límite, se descarta sin guardar.
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const contacts = [
-        ...(input.email ? [{ email: input.email }] : []),
-        ...(input.phone ? [{ phone: input.phone }] : []),
-      ];
-      const recent = await db.lead.count({
-        where: { source: 'WEB_FORM', createdAt: { gt: since }, OR: contacts },
-      });
-      if (recent >= env.PUBLIC_FORM_CONTACT_LIMIT) {
-        res.status(201).json(GENERIC_OK);
-        return;
+      // Límite por correo o teléfono: solo cuentan los envíos válidos (NEW) de las últimas 24 h
+      // (la RLS de app_system solo le deja ver los WEB_FORM recientes). Así nadie puede bloquear
+      // a una persona mandando envíos falsos con su correo. Pasado el límite, el envío se guarda
+      // como SPAM (la oficina lo puede revisar); el límite por IP pone techo a las filas.
+      if (!spamReason) {
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const contacts = [
+          ...(input.email ? [{ email: input.email }] : []),
+          ...(input.phone ? [{ phone: input.phone }] : []),
+        ];
+        const recent = await db.lead.count({
+          where: { source: 'WEB_FORM', status: 'NEW', createdAt: { gt: since }, OR: contacts },
+        });
+        if (recent >= env.PUBLIC_FORM_CONTACT_LIMIT) spamReason = 'contact_limit';
       }
 
       const utm = input.utm && Object.keys(input.utm).length > 0 ? input.utm : undefined;
