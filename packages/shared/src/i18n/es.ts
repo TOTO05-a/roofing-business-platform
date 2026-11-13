@@ -1,7 +1,8 @@
 /**
  * Diccionario en español: es la FUENTE de las claves.
  * `en.ts` debe tener exactamente las mismas claves (lo verifican los tipos y una prueba).
- * Los datos del negocio son marcadores de ejemplo y se reemplazarán por los reales.
+ * Los datos del negocio son de una empresa FICTICIA de demostración (Sur de Florida) y se
+ * reemplazarán por los reales cuando existan.
  */
 export const es = {
   brand: {
@@ -24,13 +25,15 @@ export const es = {
     required: 'obligatorio',
     skipToContent: 'Saltar al contenido',
     notifications: 'Notificaciones',
-    examplePhone: '(000) 000-0000',
+    phone: '(305) 555-0142',
+    phoneHref: '+13055550142',
+    email: 'hola@cresta-roofing.example',
   },
   web: {
     meta: {
-      title: 'Cresta Roofing | Techos residenciales con garantía',
+      title: 'Cresta Roofing | Techos residenciales en el Sur de Florida',
       description:
-        'Reparación, reemplazo e instalación de techos residenciales. Inspección gratuita y presupuesto claro, por escrito.',
+        'Reemplazo y reparación de techos en Miami-Dade, Broward y Palm Beach: teja asfáltica, metal, teja de barro o concreto y techo plano. Empresa ficticia de demostración.',
     },
     nav: {
       label: 'Navegación principal',
@@ -48,7 +51,7 @@ export const es = {
       callUs: 'Llámenos',
     },
     hero: {
-      eyebrow: 'Roofing residencial en EE. UU.',
+      eyebrow: 'Roofing residencial en el Sur de Florida',
       title: 'Un techo firme sobre lo que más quiere.',
       subtitle:
         'Inspeccionamos, reparamos y reemplazamos techos con materiales de calidad y un presupuesto claro, por escrito, antes de empezar.',
@@ -57,37 +60,42 @@ export const es = {
       points: {
         one: 'Inspección sin costo ni compromiso',
         two: 'Presupuesto por escrito, sin sorpresas',
-        three: 'Garantía por escrito en cada trabajo',
+        three: 'Garantía de 10 años en mano de obra',
       },
-      note: 'Datos de ejemplo: serán reemplazados por los del negocio.',
+      note: 'Empresa y datos ficticios de demostración.',
     },
     services: {
       title: 'Servicios para cada etapa de su techo',
-      intro: 'Desde una gotera hasta un techo nuevo: le explicamos las opciones con claridad.',
+      intro:
+        'Techos residenciales en Miami-Dade, Broward y Palm Beach. Le explicamos cada opción con claridad, y la garantía es de 10 años en mano de obra y hasta 50 años del fabricante según el material.',
       items: {
+        shingle: {
+          title: 'Techo de teja asfáltica',
+          text: 'Reemplazo completo con teja asfáltica de alta resistencia al viento.',
+        },
+        metal: {
+          title: 'Techo de metal',
+          text: 'Reemplazo en metal: duradero, reflectante y pensado para tormentas.',
+        },
+        tile: {
+          title: 'Teja de barro o concreto',
+          text: 'El techo clásico del sur de Florida, instalado con fijación reforzada.',
+        },
+        flat: {
+          title: 'Techo plano (TPO)',
+          text: 'Membrana TPO blanca para azoteas y techos planos, con buen sellado.',
+        },
         repair: {
           title: 'Reparaciones',
           text: 'Goteras, tejas dañadas y filtraciones tras una tormenta.',
-        },
-        replacement: {
-          title: 'Reemplazo de techo',
-          text: 'Techo nuevo completo cuando la reparación ya no es suficiente.',
-        },
-        installation: {
-          title: 'Instalación nueva',
-          text: 'Techos para construcciones y ampliaciones, con ventilación adecuada.',
         },
         inspection: {
           title: 'Inspecciones',
           text: 'Revisión del estado real de su techo, con fotos y un informe sencillo.',
         },
-        maintenance: {
-          title: 'Mantenimiento',
-          text: 'Limpieza de canaletas y revisiones periódicas para alargar su vida útil.',
-        },
-        emergency: {
-          title: 'Emergencias',
-          text: 'Protección provisional rápida después de daños por viento o granizo.',
+        windMitigation: {
+          title: 'Mitigación contra viento',
+          text: 'Certificación de wind mitigation que puede reducir la prima de su seguro.',
         },
       },
     },
@@ -105,20 +113,66 @@ export const es = {
     },
     projects: {
       title: 'Proyectos',
-      intro: 'Aquí mostraremos trabajos reales, con fotos de antes y después.',
-      placeholder: 'Proyecto de ejemplo',
-      placeholderText: 'Contenido de marcador: se sustituirá por un proyecto real.',
-      soon: 'Próximamente',
+      intro:
+        'Una muestra del tipo de techos que instalamos en el Sur de Florida. Fotos de stock de demostración: no son obras de la empresa.',
+      stockNote: 'Foto de stock de demostración',
+      items: {
+        clayStucco: {
+          title: 'Teja de barro sobre estuco',
+          text: 'Casa blanca de estuco con techo de teja de barro, un clásico del sur de Florida.',
+          alt: 'Casa blanca de estuco con techo de teja de barro y jardín al frente.',
+        },
+        clayDetail: {
+          title: 'Detalle de teja de barro',
+          text: 'Teja de barro curva en el alero, con remate limpio y buen drenaje.',
+          alt: 'Primer plano del alero de un techo de teja de barro entre hojas de árbol.',
+        },
+        metalHome: {
+          title: 'Techo de metal',
+          text: 'Cubierta de metal con juntas selladas, pensada para lluvia y viento fuertes.',
+          alt: 'Casa blanca de una planta con techo de metal gris bajo un cielo claro.',
+        },
+        palmModern: {
+          title: 'Casa moderna con palmeras',
+          text: 'Vivienda contemporánea de Miami Beach, entre palmeras y con cubierta plana.',
+          alt: 'Fachada de una casa moderna en Miami Beach con palmeras y cerca de madera.',
+        },
+        shingleAerial: {
+          title: 'Teja asfáltica, reemplazo completo',
+          text: 'Vista aérea de una casa con techo nuevo de teja asfáltica gris.',
+          alt: 'Vista aérea de una casa de una planta con techo nuevo de teja asfáltica gris.',
+        },
+        orlandoHome: {
+          title: 'Casa de dos plantas',
+          text: 'Casa familiar de dos plantas con contraventanas y porche, de estilo floridano.',
+          alt: 'Casa de dos plantas azul y beige con contraventanas rojas, porche y césped en Florida.',
+        },
+        flatModern: {
+          title: 'Techo plano residencial',
+          text: 'Casa moderna con cubierta plana y bordes limpios, lista para membrana TPO.',
+          alt: 'Casa moderna blanca de techo plano con ventanales y entrada de concreto.',
+        },
+        flatBuilding: {
+          title: 'Azotea de edificio',
+          text: 'Azotea plana de un edificio de apartamentos, con sellado y desagües.',
+          alt: 'Vista aérea de la azotea plana de un edificio de apartamentos color crema.',
+        },
+        crew: {
+          title: 'Cuadrilla en obra',
+          text: 'Un instalador sube material al techo durante un reemplazo completo.',
+          alt: 'Trabajador subiendo paquetes de teja por un techo en construcción.',
+        },
+      },
     },
     about: {
       title: 'Nosotros',
-      text: 'Somos una empresa familiar de techos residenciales. Cuidamos su casa como si fuera la nuestra y hablamos claro sobre trabajos y costos.',
+      text: 'Somos una empresa familiar de techos residenciales en el Sur de Florida (empresa ficticia de demostración). Cuidamos su casa como si fuera la nuestra y hablamos claro sobre trabajos y costos.',
       values: {
         one: { title: 'Claridad', text: 'Explicamos cada paso y cada costo antes de empezar.' },
         two: { title: 'Cuidado', text: 'Protegemos jardín y fachada, y dejamos todo limpio.' },
         three: {
           title: 'Respaldo',
-          text: 'Cumplimos plazos y respaldamos el trabajo por escrito.',
+          text: 'Garantía de 10 años en mano de obra y hasta 50 años del fabricante, según el material.',
         },
       },
     },
@@ -127,17 +181,20 @@ export const es = {
       text: 'Solicite una inspección gratuita. Le responderemos en un día hábil.',
       cta: 'Solicitar inspección gratuita',
       phoneLabel: 'Teléfono',
-      hours: 'Lunes a sábado, 8:00 a 18:00 (ejemplo)',
+      emailLabel: 'Correo',
+      hours: 'Lunes a sábado, de 8:00 a 18:00',
     },
     footer: {
       label: 'Pie de página',
-      license: 'Licencia n.º [EJEMPLO]',
-      insurance: 'Seguro de responsabilidad n.º [EJEMPLO]',
+      license: 'Licencia n.º CCC-DEMO-0001',
+      insurance: 'Seguro de responsabilidad n.º GL-DEMO-0001',
       legal: 'Información legal',
       privacy: 'Política de privacidad',
       terms: 'Términos de servicio',
       rights: 'Todos los derechos reservados.',
-      placeholderNote: 'Nombre y datos de ejemplo mientras se define la marca final.',
+      placeholderNote: 'Empresa y datos ficticios de demostración.',
+      address: 'Miami, FL',
+      area: 'Miami-Dade, Broward y Palm Beach',
     },
     mobileBar: { label: 'Acciones rápidas' },
   },

@@ -24,7 +24,8 @@ Cada fila dice **qué** se decidió, **por qué** y **cuándo**. Si una decisió
 | N7  | **Firma electrónica propia** y **aviso de cancelación de 3 días** (regla FTC).                                                | Obligación legal en ventas a domicilio; sin costo de servicios externos.  | 12-11-2026 | ✅ (revisión legal ⏳) |
 | N8  | **Empezar de cero:** sin migrar datos; se usan datos de ejemplo para probar.                                                  | No hay datos previos que importar.                                        | 12-11-2026 | ✅     |
 | N9  | **Español principal, inglés secundario** con selector de idioma.                                                              | Requisito del cliente.                                                    | 12-11-2026 | ✅     |
-| N10 | Textos del sitio son **de ejemplo** hasta recibir los datos reales (estado, licencia, servicios, área, garantías).            | No inventar datos del negocio.                                            | 12-11-2026 | ⏳     |
+| N10 | Mientras no haya datos reales, el sitio y la app usan **datos ficticios de demostración** (licencia, seguro, teléfono, correo, servicios, área, garantías), siempre con el aviso «Empresa y datos ficticios de demostración». Los datos **reales** siguen pendientes. | No inventar datos del negocio como si fueran reales, pero probar con datos verosímiles. | 13-11-2026 | ⏳ (datos reales) |
+| N11 | La empresa ficticia se simula en el **Sur de Florida** (Miami-Dade, Broward y Palm Beach). Ver C32. | Licencia estatal única, impuesto solo sobre material y encaje con el sitio en español. | 13-11-2026 | ✅ |
 
 ## 2. Reglas de presupuestos y datos del negocio
 
@@ -56,6 +57,7 @@ Aprobadas junto con el modelo de datos.
 | D4  | **Visualizador de techos** en ilustración 2D (SVG), como **componente React** con materiales y colores reales del catálogo; formas **dos aguas y cuatro aguas**; casa en 3D queda para después. | Atractivo y ligero en celulares; reutilizable en presupuestos y portal. Ver C11 y C12. | 12-11-2026 | ✅     |
 | D6  | **Transiciones 3D** en el visualizador como mejora futura; la capa de animación queda aislada para poder añadirlas. | Petición del cliente. | 13-11-2026 | ⏳ |
 | D5  | Modo claro por defecto y **modo oscuro** opcional; diseño probado en 390, 834 y 1512 px.                                               | Comodidad y uso en cualquier dispositivo.                     | 12-11-2026 | ✅     |
+| D7  | **Fotos de stock libre** (Unsplash) como fotos de demostración de la galería de proyectos, hasta tener fotos reales. Ver C33 y [`fotos-demo.md`](fotos-demo.md). | Realismo sin costo; no son obras de la empresa y así se indica. | 13-11-2026 | ✅ |
 
 ## 4. Tecnología y arquitectura
 
@@ -100,4 +102,5 @@ Aprobadas junto con el modelo de datos.
 | W10 | Los commits y PRs salen **solo con el nombre del dueño**, sin atribución a Claude.                                        | Petición del cliente.                                                 | 12-11-2026 | ✅     |
 | W11 | **Modelo y esfuerzo según la tarea:** Haiku para búsquedas; Sonnet bajo para correcciones mecánicas y segundas revisiones; Sonnet medio para implementar y revisar código rutinario; Opus alto solo para seguridad, pagos, datos y autenticación. Instrucciones cortas que remiten a `docs/`. Ver C31. | Aprovechar el límite de uso sin perder calidad donde importa. | 13-11-2026 | ✅ |
 | W12 | **La calidad visual no se sacrifica por peso:** si una optimización empeora el aspecto, se mantiene la versión anterior y se consulta. | Petición del cliente. | 13-11-2026 | ✅ |
-
+| W13 | **La app no se lanzará a producción por ahora:** es una demostración. | Petición del cliente; no hay datos ni fotos reales todavía. | 13-11-2026 | ✅ |
+| W14 | El ruleset de `main` y `dev` exige los checks **`verify` y `e2e`** para fusionar. Ver C34. | Evitar fusiones con pruebas de navegador o accesibilidad en rojo (como el PR #10). | 13-11-2026 | ✅ |
