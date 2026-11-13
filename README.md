@@ -42,6 +42,21 @@ La API se conecta con los roles `app_user` y `app_system`, que no saltan la segu
 | Catálogo de diseño  | http://localhost:5173/componentes        |
 | API                 | http://localhost:3000/api/health         |
 | Correos de prueba   | http://localhost:8025 (Mailpit)          |
+| Fotos (S3, Garage)  | http://localhost:3900 (solo con la API)  |
+
+### Fotos de inspección (Garage)
+
+Las fotos se guardan en un almacenamiento compatible con S3. En desarrollo es
+[Garage](https://garagehq.deuxfleurs.fr/) (un solo nodo, bucket privado, solo escucha en
+`127.0.0.1`; decisiones T13 y T14). La API nunca recibe los bytes: emite URL firmadas de 5 minutos.
+
+```bash
+docker compose up -d garage               # solo este servicio
+pnpm --filter @roofing/api storage:init   # primera vez: nodo, bucket privado, clave de desarrollo y CORS
+```
+
+Las variables `S3_*` de `apps/api/.env.example` ya apuntan a este Garage. Sin ellas, las rutas de
+fotos responden `503 STORAGE_NOT_CONFIGURED`. Las pruebas usan un almacenamiento falso en memoria.
 
 ## Calidad
 

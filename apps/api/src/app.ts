@@ -10,6 +10,7 @@ import { invitationsRouter } from './routes/invitations.js';
 import { meRouter } from './routes/me.js';
 import { profilesRouter } from './routes/profiles.js';
 import { appointmentsRouter } from './routes/appointments.js';
+import { filesRouter } from './routes/files.js';
 import { inspectionsRouter } from './routes/inspections.js';
 import { leadsRouter } from './routes/leads.js';
 import { propertiesRouter } from './routes/properties.js';
@@ -114,6 +115,7 @@ export function createApp(services: AppServices): Express {
   app.use('/api', leadsRouter(services));
   app.use('/api', appointmentsRouter(services));
   app.use('/api', inspectionsRouter(services));
+  app.use('/api', filesRouter(services));
 
   app.use(notFound);
   app.use(createErrorHandler(env.NODE_ENV === 'production'));

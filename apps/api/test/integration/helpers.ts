@@ -8,6 +8,7 @@ import type { Role, UserStatus } from '../../src/auth/roles.js';
 import { parseEnv, type Env } from '../../src/env.js';
 import { createDb, type Db } from '../../src/lib/db.js';
 import type { MailMessage } from '../../src/lib/mailer.js';
+import type { Storage } from '../../src/lib/storage.js';
 import { createServices } from '../../src/services.js';
 import { appTestDatabaseUrl, systemTestDatabaseUrl, testDatabaseUrl } from './database-url.js';
 
@@ -23,7 +24,11 @@ export interface TestContext {
   mail: MailMessage[];
 }
 
-export function createTestContext(db: Db, overrides: Record<string, string> = {}): TestContext {
+export function createTestContext(
+  db: Db,
+  overrides: Record<string, string> = {},
+  options: { storage?: Storage | null } = {},
+): TestContext {
   const env = parseEnv({
     NODE_ENV: 'test',
     APP_DATABASE_URL: appTestDatabaseUrl(),
@@ -41,6 +46,7 @@ export function createTestContext(db: Db, overrides: Record<string, string> = {}
   const services = createServices(env, {
     db: appTestDb(),
     systemDb: systemTestDb(),
+    storage: options.storage ?? null,
     mailer: {
       send: async (message) => {
         mail.push(message);
