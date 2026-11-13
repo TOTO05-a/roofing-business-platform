@@ -282,3 +282,29 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 | Seguridad, pagos, datos, autenticación | Opus alto | Opus alto | Un error aquí cuesta más que los tokens |
 
 **Alternativa descartada:** usar siempre el modelo más capaz (más caro y agota antes el límite de uso) o siempre el más barato (riesgo en seguridad y pagos).
+
+---
+
+## Datos de demostración (13-11-2026)
+
+### C32. ¿En qué estado se simula la empresa? → N11
+
+| Opción                | A favor                                                                                                                                   | En contra                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| ✅ **Florida (Sur)**  | Licencia estatal única de contratista (no depende del municipio); impuesto de ventas del 6 % que se aplica solo sobre el material; mucha demanda de techos y de certificación de viento; encaja con un sitio en **español** (gran población hispanohablante) | Hay que explicar términos locales (wind mitigation, teja de barro)                     |
+| Texas                 | Mercado grande de techos y granizo                                                                                                         | Sin licencia estatal para techos; menos encaje con el sitio en español que Miami       |
+| Arizona               | Techo plano y teja muy comunes; clima soleado                                                                                              | Reglas y mercado menos conocidos; menos demanda de certificaciones de viento           |
+
+**Por qué:** Florida da una historia coherente (licencia estatal, impuesto solo sobre material, wind mitigation, teja de barro y metal) y un público que encaja con el español como idioma principal. Todos los datos (licencia `CCC-DEMO-0001`, teléfono `(305) 555-0142`, correo `@cresta-roofing.example`) son ficticios y están marcados como demostración.
+
+### C33. Fotos de techos: ¿de dónde salen? → D7
+
+| Opción                                         | A favor                                                              | En contra                                                                 |
+| ---------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| ✅ **Stock libre (Unsplash o Pexels)**         | Realismo fotográfico; costo cero; licencia que permite uso comercial | No son obras de la empresa; algunas no son del Sur de Florida; hay que citar la fuente |
+| Imágenes generadas con IA                      | Se pueden pedir a medida                                             | Consumen créditos; aspecto artificial; riesgo de que parezcan trabajos reales |
+| Capturas del visualizador 3D                   | Sin costo; coherentes con la app                                     | Parecen maquetas, no obras reales; calidad variable                       |
+| Ilustraciones SVG                              | Muy ligeras                                                          | Nada realistas para una galería de proyectos                              |
+
+**Por qué:** el realismo y el costo cero pesan más que tener fotos propias; se indica siempre que son fotos de demostración. Fuentes y autores en [`fotos-demo.md`](fotos-demo.md).
+
