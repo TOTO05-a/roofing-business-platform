@@ -110,7 +110,9 @@ type AppointmentRow = Prisma.AppointmentGetPayload<{ select: typeof appointmentS
 /** El cliente no ve las notas internas ni el motivo de cancelación. */
 function serialize(row: AppointmentRow, role: string) {
   if (role !== 'CUSTOMER') return row;
-  const { notes: _notes, cancelReason: _cancelReason, ...visible } = row;
+  const visible: Partial<AppointmentRow> = { ...row };
+  delete visible.notes;
+  delete visible.cancelReason;
   return visible;
 }
 
