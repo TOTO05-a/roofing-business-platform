@@ -89,6 +89,39 @@ export function optionalText(max: number) {
   );
 }
 
+/**
+ * Normaliza un teléfono a E.164: quita espacios, guiones, puntos y paréntesis; 10 dígitos
+ * (o 11 con un 1 inicial) se toman como EE. UU. (+1). Devuelve null si no parece un teléfono.
+ */
+export function normalizePhone(raw: string): string | null {
+  const trimmed = raw.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  let candidate: string;
+  if (trimmed.startsWith('+')) candidate = `+${digits}`;
+  else if (digits.length === 10) candidate = `+1${digits}`;
+  else if (digits.length === 11 && digits.startsWith('1')) candidate = `+${digits}`;
+  else return null;
+  return /^\+[1-9][0-9]{6,14}$/.test(candidate) ? candidate : null;
+}
+
+/** Teléfono libre (con o sin +1) convertido a E.164; si no es válido, error de validación. */
+export const phoneSchema = z
+  .string()
+  .trim()
+  .max(40)
+  .transform((value, ctx) => {
+    const phone = normalizePhone(value);
+    if (!phone) {
+      ctx.issues.push({
+        code: 'custom',
+        message: 'Teléfono inválido (10 dígitos de EE. UU. o formato internacional +…)',
+        input: value,
+      });
+      return z.NEVER;
+    }
+    return phone;
+  });
+
 /** Convierte un Decimal de Prisma (o null) en número para la respuesta JSON. */
 export function decimalToNumber(value: { toNumber(): number } | null | undefined): number | null {
   return value === null || value === undefined ? null : value.toNumber();
