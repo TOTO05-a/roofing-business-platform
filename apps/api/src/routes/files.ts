@@ -62,7 +62,7 @@ function requireStorage(storage: Storage | null): Storage {
 }
 
 /**
- * Fotos de inspección con URL firmadas (T13): la API nunca recibe los bytes. Flujo:
+ * Fotos de inspección con URL firmadas (T28): la API nunca recibe los bytes. Flujo:
  * 1) crear la subida (File PENDING + URL PUT firmada), 2) el cliente sube directo a S3,
  * 3) completar (HeadObject comprueba tamaño, tipo y SHA-256; File READY + InspectionPhoto),
  * 4) descargar con una URL GET firmada emitida solo tras encontrar el File bajo RLS.

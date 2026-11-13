@@ -46,7 +46,7 @@ const tooMany: RequestHandler = (_req, res) => {
 };
 
 /**
- * Formulario público de contacto (decisión T11). Va montado ANTES del CSRF global: no usa
+ * Formulario público de contacto (decisión T26). Va montado ANTES del CSRF global: no usa
  * sesión ni cookies; tiene su propia lista de orígenes (PUBLIC_FORM_ORIGINS) y CORS solo
  * para ellos, sin credenciales. Escribe con `systemDb` (rol app_system).
  */

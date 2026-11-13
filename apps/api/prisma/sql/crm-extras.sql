@@ -57,7 +57,7 @@ ALTER TABLE "appointments"
     "status" <> 'CANCELED' OR ("cancel_reason" IS NOT NULL AND btrim("cancel_reason") <> '')
   ),
   -- Un empleado no puede tener dos citas activas que se solapen (rango semiabierto [inicio, fin):
-  -- una cita que empieza justo cuando termina otra no se solapa). Modelo §2.2, decisión T12.
+  -- una cita que empieza justo cuando termina otra no se solapa). Modelo §2.2, decisión T27.
   ADD CONSTRAINT "appointments_no_overlap" EXCLUDE USING gist (
     "assignee_id" WITH =,
     tstzrange("starts_at", "ends_at", '[)') WITH &&

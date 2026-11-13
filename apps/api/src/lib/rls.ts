@@ -3,7 +3,7 @@ import type { Role } from '../auth/roles.js';
 import type { Db } from './db.js';
 
 /**
- * Contexto de seguridad por fila (RLS, modelo de datos §4.4 y decisión T10).
+ * Contexto de seguridad por fila (RLS, modelo de datos §4.4 y decisión T25).
  *
  * La API se conecta a PostgreSQL como `app_user` (sin BYPASSRLS y sin ser dueño de las tablas).
  * Las políticas leen quién hace la petición de variables locales a la transacción

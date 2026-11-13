@@ -325,7 +325,7 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 ## Etapa 2 · Backend del CRM (13-11-2026)
 
-### C36. Alcance del backend del CRM → N12
+### C53. Alcance del backend del CRM → N12
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -335,7 +335,7 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 **Por qué:** la siguiente etapa (presupuestos) necesita inspecciones con medidas; hacer las fotos ahora evita reabrir el mismo código. El formulario del sitio crea leads `WEB_FORM` y el seed demo (`SEED_DEMO=true`) llena el CRM con datos ficticios del Sur de Florida.
 
-### C37. ¿Seguridad por fila (RLS) ahora o después? → T10
+### C54. ¿Seguridad por fila (RLS) ahora o después? → T25
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -345,7 +345,7 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 **Por qué:** T5 promete doble protección. Rol `app_user` sin BYPASSRLS ni propiedad de las tablas, `ENABLE` + `FORCE` RLS en las tablas de personas y del CRM, `set_config(..., true)` por transacción con una extensión del cliente Prisma, funciones auxiliares en un esquema privado y pruebas de la matriz rol × tabla × operación en la CI. Si el recurso existe pero no es visible, la API responde 404.
 
-### C38. Spam en el formulario público → T11
+### C55. Spam en el formulario público → T26
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -356,7 +356,7 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 **Por qué:** basta para el volumen de una empresa local y respeta I1 (costo cero) y la privacidad. Los envíos sospechosos se guardan como lead `SPAM` o se descartan.
 
-### C39. Citas solapadas del mismo empleado → T12
+### C56. Citas solapadas del mismo empleado → T27
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -366,7 +366,7 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 **Por qué:** una doble reserva es un error caro frente al cliente; la restricción en la base es la única garantía real.
 
-### C40. Almacenamiento de fotos en desarrollo → T13, T14
+### C57. Almacenamiento de fotos en desarrollo → T28, T29
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -376,13 +376,13 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 **Por qué:** probar en local exactamente el flujo de producción (URL firmadas de vida corta emitidas tras comprobar el acceso; validación de tipo MIME, tamaño y sha256) sin activar ningún servicio externo. MinIO quedó descartado.
 
-| Motor local (T14) | A favor | En contra |
+| Motor local (T29) | A favor | En contra |
 | --- | --- | --- |
 | ✅ **Garage** | Mantenido, imagen oficial, muy ligero (Rust), modo de un solo nodo con clave y bucket por defecto | Licencia AGPL (solo herramienta de desarrollo, no se distribuye) |
 | SeaweedFS | Mantenido, imagen oficial, muchas funciones | Más memoria: arranca maestro, volumen, filer y S3 en el mismo proceso |
 | MinIO | Muy conocido | Descartado por el usuario (edición comunitaria archivada) |
 
-### C41. Quién implementa la etapa → W15
+### C58. Quién implementa la etapa → W16
 
 | Opción | A favor | En contra |
 | --- | --- | --- |

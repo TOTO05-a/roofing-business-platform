@@ -48,7 +48,7 @@ La API se conecta con los roles `app_user` y `app_system`, que no saltan la segu
 
 Las fotos se guardan en un almacenamiento compatible con S3. En desarrollo es
 [Garage](https://garagehq.deuxfleurs.fr/) (un solo nodo, bucket privado, solo escucha en
-`127.0.0.1`; decisiones T13 y T14). La API nunca recibe los bytes: emite URL firmadas de 5 minutos.
+`127.0.0.1`; decisiones T28 y T29). La API nunca recibe los bytes: emite URL firmadas de 5 minutos.
 
 ```bash
 docker compose up -d garage               # solo este servicio

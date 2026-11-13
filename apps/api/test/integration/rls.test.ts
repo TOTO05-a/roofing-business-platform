@@ -1,5 +1,5 @@
 /**
- * Matriz de seguridad por fila (modelo de datos §4.4, decisión T10): rol × tabla × operación,
+ * Matriz de seguridad por fila (modelo de datos §4.4, decisión T25): rol × tabla × operación,
  * directamente contra PostgreSQL con los roles reales de la API (app_user y app_system).
  * Los datos se preparan con el dueño (salta la RLS) y cada intento corre en su propia
  * transacción con el contexto que fijaría la API.

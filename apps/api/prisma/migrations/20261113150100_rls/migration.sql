@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------------------
--- Seguridad por fila (RLS), modelo de datos §4.4 y decisión T10.
+-- Seguridad por fila (RLS), modelo de datos §4.4 y decisión T25.
 -- Fuente: apps/api/prisma/sql/rls.sql (migración propia, solo aditiva).
 --
 -- Roles de base de datos (sin LOGIN aquí: la contraseña la pone cada entorno, ver

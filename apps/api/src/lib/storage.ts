@@ -8,7 +8,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Env } from '../env.js';
 
-/** Vida máxima de las URL firmadas (decisión T13): 5 minutos. */
+/** Vida máxima de las URL firmadas (decisión T28): 5 minutos. */
 export const SIGNED_URL_TTL_SECONDS = 300;
 
 export interface PresignedUpload {

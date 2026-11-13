@@ -1,5 +1,5 @@
 /**
- * Prepara Garage (almacenamiento S3 de desarrollo, decisión T14) la primera vez: asigna el
+ * Prepara Garage (almacenamiento S3 de desarrollo, decisión T29) la primera vez: asigna el
  * nodo único al cluster, crea el bucket privado, importa la clave de desarrollo de .env y
  * configura CORS para el origen de la app (el navegador sube con PUT directo a la URL firmada).
  * Es idempotente. Requiere `docker compose up -d garage`. Solo para desarrollo local.

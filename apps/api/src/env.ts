@@ -30,7 +30,7 @@ const envSchema = z
     // Sin valor por defecto: si faltara en producción, todo fallaría "en abierto" (cookies sin Secure…).
     NODE_ENV: z.enum(['development', 'test', 'production']),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-    // Conexiones de la API (seguridad por fila, decisión T10). Nunca el dueño de las tablas:
+    // Conexiones de la API (seguridad por fila, decisión T25). Nunca el dueño de las tablas:
     // APP_DATABASE_URL usa el rol app_user (peticiones de personas autenticadas) y
     // SYSTEM_DATABASE_URL el rol app_system (Better Auth, invitaciones, formulario público).
     // DATABASE_URL (dueño) solo lo usan las migraciones y el seed.
@@ -66,7 +66,7 @@ const envSchema = z
       .max(24 * 30)
       .default(72),
 
-    // Almacenamiento de fotos compatible con S3 (decisiones T13 y T14: Garage en desarrollo).
+    // Almacenamiento de fotos compatible con S3 (decisiones T28 y T29: Garage en desarrollo).
     // Sin endpoint y claves, las rutas de archivos responden 503 STORAGE_NOT_CONFIGURED.
     S3_ENDPOINT: optionalString.pipe(z.url().optional()),
     S3_REGION: z.string().min(1).default('garage'),
