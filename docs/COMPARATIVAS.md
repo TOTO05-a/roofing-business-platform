@@ -376,6 +376,12 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 **Por qué:** probar en local exactamente el flujo de producción (URL firmadas de vida corta emitidas tras comprobar el acceso; validación de tipo MIME, tamaño y sha256) sin activar ningún servicio externo. MinIO quedó descartado.
 
+| Motor local (T14) | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Garage** | Mantenido, imagen oficial, muy ligero (Rust), modo de un solo nodo con clave y bucket por defecto | Licencia AGPL (solo herramienta de desarrollo, no se distribuye) |
+| SeaweedFS | Mantenido, imagen oficial, muchas funciones | Más memoria: arranca maestro, volumen, filer y S3 en el mismo proceso |
+| MinIO | Muy conocido | Descartado por el usuario (edición comunitaria archivada) |
+
 ### C41. Quién implementa la etapa → W15
 
 | Opción | A favor | En contra |

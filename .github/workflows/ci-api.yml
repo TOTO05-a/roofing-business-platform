@@ -68,5 +68,5 @@ jobs:
           --from-migrations prisma/migrations
           --to-schema prisma/schema.prisma
           --exit-code
-      - name: Pruebas de integración (Vitest + Supertest contra PostgreSQL)
+      - name: Pruebas de integración y matriz de RLS (Vitest + Supertest contra PostgreSQL)
         run: pnpm --filter @roofing/api test:integration

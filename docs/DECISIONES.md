@@ -77,6 +77,7 @@ Aprobadas junto con el modelo de datos.
 | T11 | **Anti-spam del formulario público** sin servicios externos: campo trampa, tiempo mínimo de llenado y límite por IP y por correo; lo sospechoso se guarda como lead `SPAM` o se descarta. Ver C38. | Costo cero, privacidad y accesibilidad. | 13-11-2026 | ✅ |
 | T12 | **Sin citas solapadas** por empleado: restricción EXCLUDE (`btree_gist`) en estados activos más comprobación previa en la API con error bilingüe. Ver C39. | Solo la base de datos garantiza que no haya dobles reservas simultáneas. | 13-11-2026 | ✅ |
 | T13 | **Fotos en desarrollo** en un almacenamiento compatible con S3 dentro de `docker compose`, con el AWS SDK v3; bucket privado y URL firmadas de vida corta tras comprobar el acceso; validación de tipo, tamaño y sha256. R2 sigue sin activarse. Ver C40. | El mismo código servirá con R2, sin cuentas externas ni costo. | 13-11-2026 | ✅ |
+| T14 | El almacenamiento S3 de desarrollo es **Garage** (imagen oficial `dxflrs/garage`, modo de un solo nodo). SeaweedFS también está mantenido, pero consume más memoria (arranca maestro, volumen, filer y S3). Ver C40. | El equipo de desarrollo tiene poca RAM; Garage es más ligero y basta con un bucket. | 13-11-2026 | ✅ |
 
 ## 5. Infraestructura y costos
 
