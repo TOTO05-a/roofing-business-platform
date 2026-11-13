@@ -297,4 +297,24 @@ export const en: Dictionary = {
     consent: 'You must agree to continue.',
     service: 'Choose a service.',
   },
+  visualizer: {
+    title: 'Choose your roof',
+    intro:
+      'Try shapes, materials and colors on a sample home. It is an approximate preview to help you picture the result.',
+    shapeLabel: 'Roof shape',
+    shapeGable: 'Gable',
+    shapeHip: 'Hip',
+    materialLabel: 'Material',
+    colorLabel: 'Color',
+    announce: 'Roof: {{material}}, color {{color}}',
+    svgTitle: 'Preview of your roof',
+    svgDescription:
+      'One-story residential home with a {{shape}} roof, in {{material}}, color {{color}}.',
+    cta: 'Request an inspection',
+    note: 'Screen colors are approximate; the final shade depends on the manufacturer and the light.',
+  },
+  intro: {
+    skip: 'Skip',
+    skipLabel: 'Skip the intro animation',
+  },
 };
