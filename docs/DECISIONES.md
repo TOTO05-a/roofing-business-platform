@@ -5,6 +5,7 @@ Cada fila dice **qué** se decidió, **por qué** y **cuándo**. Si una decisió
 
 - Documento original de la Etapa 1 (propuesta completa): [`planificacion/Roofing-Platform-Etapa1-Decisiones.docx`](planificacion/Roofing-Platform-Etapa1-Decisiones.docx)
 - Modelo de datos detallado: [`arquitectura/modelo-datos.md`](arquitectura/modelo-datos.md)
+- **Comparativas** (por qué se eligió cada opción frente a las demás): [`COMPARATIVAS.md`](COMPARATIVAS.md)
 
 **Estados:** ✅ Aprobada · ⏳ Pendiente de dato o verificación · 🔁 Reemplazada
 
@@ -52,7 +53,7 @@ Aprobadas junto con el modelo de datos.
 | D1  | Marca provisional **«Cresta Roofing»** (pizarra `#1E2A38` + cobre `#B45309`; tipografías Manrope y Source Sans 3; logo en SVG).        | La empresa no tenía identidad; se sustituye fácilmente.       | 12-11-2026 | ✅ (nombre por verificar ⏳) |
 | D2  | **Accesibilidad WCAG 2.2 AA**, comprobada con pruebas automáticas (contraste, teclado, lectores de pantalla).                          | Cualquier persona debe poder usar la app; reduce riesgo legal. | 12-11-2026 | ✅     |
 | D3  | **Animación de entrada** de 1–1,5 s en el sitio público: se puede saltar y respeta «reducir movimiento».                               | Petición del cliente, sin molestar.                           | 12-11-2026 | ✅     |
-| D4  | **Visualizador de techos** en ilustración 2D (SVG) con materiales y colores reales del catálogo; casa en 3D queda para después.        | Atractivo y ligero en celulares; el 3D pesa más.              | 12-11-2026 | ✅     |
+| D4  | **Visualizador de techos** en ilustración 2D (SVG), como **componente React** con materiales y colores reales del catálogo; formas **dos aguas y cuatro aguas**; casa en 3D queda para después. | Atractivo y ligero en celulares; reutilizable en presupuestos y portal. Ver C11 y C12. | 12-11-2026 | ✅     |
 | D5  | Modo claro por defecto y **modo oscuro** opcional; diseño probado en 390, 834 y 1512 px.                                               | Comodidad y uso en cualquier dispositivo.                     | 12-11-2026 | ✅     |
 
 ## 4. Tecnología y arquitectura
@@ -93,3 +94,6 @@ Aprobadas junto con el modelo de datos.
 | W5  | Claude (Opus) coordina; la implementación la hacen agentes con Sonnet; cada cambio pasa por **revisión de código** y **pruebas** antes de fusionar. Máximo 2–3 trabajos en paralelo. | Calidad y uso eficiente.            | 12-11-2026 | ✅     |
 | W6  | El agente `fullstack-web-engineer` se sustituye por `general-purpose` (Sonnet) en este proyecto.                          | Su skill de shadcn falla en la raíz de un monorepo.                   | 12-11-2026 | ✅     |
 | W7  | Las decisiones nuevas se añaden **a este archivo**; el modelo de datos detallado vive en `arquitectura/modelo-datos.md`.  | Una sola fuente de verdad.                                            | 12-11-2026 | ✅     |
+| W8  | **Toda decisión técnica se consulta** con el dueño antes de tomarla (no solo las de negocio).                               | Petición del cliente.                                                 | 12-11-2026 | ✅     |
+| W9  | Cada decisión con varias opciones se registra con su **comparativa** en `COMPARATIVAS.md`.                                 | Petición del cliente: entender por qué se eligió cada opción.        | 12-11-2026 | ✅     |
+| W10 | Los commits y PRs salen **solo con el nombre del dueño**, sin atribución a Claude.                                        | Petición del cliente.                                                 | 12-11-2026 | ✅     |
