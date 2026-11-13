@@ -82,6 +82,9 @@ const envSchema = z
     // Orígenes del sitio público que pueden enviar el formulario de contacto (p. ej. el sitio
     // Astro). Se comprueban aparte del CSRF global, que solo admite la app autenticada.
     PUBLIC_FORM_ORIGINS: originList,
+    // Antispam del formulario: envíos por IP cada 15 minutos y por correo o teléfono cada 24 horas.
+    PUBLIC_FORM_IP_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
+    PUBLIC_FORM_CONTACT_LIMIT: z.coerce.number().int().min(1).max(100).default(3),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

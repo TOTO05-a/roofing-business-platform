@@ -14,6 +14,7 @@ import { filesRouter } from './routes/files.js';
 import { inspectionsRouter } from './routes/inspections.js';
 import { leadsRouter } from './routes/leads.js';
 import { propertiesRouter } from './routes/properties.js';
+import { publicRouter } from './routes/public.js';
 import type { AppServices } from './services.js';
 
 export { HttpError } from './lib/http-error.js';
@@ -94,6 +95,10 @@ export function createApp(services: AppServices): Express {
     const body: HealthResponse = { status: 'ok' };
     res.json(body);
   });
+
+  // Formulario público de contacto: sin sesión, con su propia lista de orígenes y CORS; por eso
+  // va antes del CSRF global (que solo admite los orígenes de la app autenticada).
+  app.use('/api/public', publicRouter(services));
 
   // CSRF: toda petición que cambia estado (incluido /api/auth, p. ej. el primer login, que
   // aún no lleva cookies y Better Auth solo frena con cabeceras Sec-Fetch) debe traer un
