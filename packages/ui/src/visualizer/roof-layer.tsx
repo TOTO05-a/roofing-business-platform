@@ -27,7 +27,13 @@ function Eave({ shape }: { shape: RoofShape }) {
   return (
     <g>
       <rect x={fl} y={fy} width={fr - fl} height="5.5" style={{ fill: 'var(--trim)' }} />
-      <rect x={fl} y={fy + 4.5} width={fr - fl} height="1.6" style={{ fill: 'color-mix(in srgb, var(--brand-slate) 28%, transparent)' }} />
+      <rect
+        x={fl}
+        y={fy + 4.5}
+        width={fr - fl}
+        height="1.6"
+        style={{ fill: 'color-mix(in srgb, var(--brand-slate) 28%, transparent)' }}
+      />
       <rect
         x={fl - 1.5}
         y={gutterY}
@@ -36,11 +42,16 @@ function Eave({ shape }: { shape: RoofShape }) {
         rx="3"
         style={{ fill: 'color-mix(in srgb, var(--trim) 82%, var(--brand-slate))' }}
       />
-      <rect x={fl} y={gutterY + 1} width={fr - fl} height="1.4" style={{ fill: 'color-mix(in srgb, white 55%, transparent)' }} />
+      <rect
+        x={fl}
+        y={gutterY + 1}
+        width={fr - fl}
+        height="1.4"
+        style={{ fill: 'color-mix(in srgb, white 55%, transparent)' }}
+      />
     </g>
   );
 }
-
 
 const SPOUT_STROKE = 'color-mix(in srgb, var(--trim) 82%, var(--brand-slate))';
 
@@ -56,7 +67,11 @@ export function Downspouts() {
         const kick = project(sx + 12, 3, -3);
         return (
           <g key={sx} fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d={pathOf([top[0], gutterBottom], wall, foot, kick)} strokeWidth="6" style={{ stroke: SPOUT_STROKE }} />
+            <path
+              d={pathOf([top[0], gutterBottom], wall, foot, kick)}
+              strokeWidth="6"
+              style={{ stroke: SPOUT_STROKE }}
+            />
             <path
               d={pathOf([wall[0] - 1.6, wall[1]], [foot[0] - 1.6, foot[1]])}
               strokeWidth="1.4"
@@ -94,13 +109,19 @@ export function RoofLayer({ spec, uid }: { spec: RoofSpec; uid: string }) {
           points={g.gableEnd}
           strokeWidth="3"
           strokeLinejoin="round"
-          style={{ fill: 'color-mix(in srgb, var(--wall-side) 88%, var(--brand-slate))', stroke: 'var(--trim)' }}
+          style={{
+            fill: 'color-mix(in srgb, var(--wall-side) 88%, var(--brand-slate))',
+            stroke: 'var(--trim)',
+          }}
         />
       )}
       {g.side && (
         <>
           <polygon points={g.side} fill={`url(#${pat})`} />
-          <polygon points={g.side} style={{ fill: 'color-mix(in srgb, var(--brand-slate) 34%, transparent)' }} />
+          <polygon
+            points={g.side}
+            style={{ fill: 'color-mix(in srgb, var(--brand-slate) 34%, transparent)' }}
+          />
         </>
       )}
       <polygon points={g.front} fill={`url(#${pat})`} />
@@ -120,7 +141,12 @@ export function RoofLayer({ spec, uid }: { spec: RoofSpec; uid: string }) {
       {g.ridgeLines.map((d, i) => (
         <g key={d} fill="none" strokeLinecap="round" strokeLinejoin="round">
           <path d={d} strokeWidth={i === 0 ? 5 : 3.6} style={{ stroke: dark(28) }} />
-          <path d={d} strokeWidth={i === 0 ? 1.6 : 1.2} style={{ stroke: light(30) }} transform="translate(0 -1.4)" />
+          <path
+            d={d}
+            strokeWidth={i === 0 ? 1.6 : 1.2}
+            style={{ stroke: light(30) }}
+            transform="translate(0 -1.4)"
+          />
         </g>
       ))}
       <Eave shape={spec.shape} />

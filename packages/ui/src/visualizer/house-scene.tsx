@@ -25,7 +25,17 @@ export const SCENE_VARS = {
 const slateA = (pct: number) => `color-mix(in srgb, var(--brand-slate) ${pct}%, transparent)`;
 
 /** Ventana de la fachada con marco, postigos, parteluz y reflejo. */
-function Window({ x, y = 24, width = 88, height = 52 }: { x: number; y?: number; width?: number; height?: number }) {
+function Window({
+  x,
+  y = 24,
+  width = 88,
+  height = 52,
+}: {
+  x: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}) {
   const [x0, yTop] = P(x, y + height, 0);
   const [x1, yBot] = P(x + width, y, 0);
   const pw = x1 - x0;
@@ -37,7 +47,14 @@ function Window({ x, y = 24, width = 88, height = 52 }: { x: number; y?: number;
       {/* Postigos */}
       {[x0 - shutter - 3, x1 + 3].map((sx) => (
         <g key={sx}>
-          <rect x={sx} y={yTop - 1} width={shutter} height={ph + 2} rx="1.5" style={{ fill: 'var(--door)' }} />
+          <rect
+            x={sx}
+            y={yTop - 1}
+            width={shutter}
+            height={ph + 2}
+            rx="1.5"
+            style={{ fill: 'var(--door)' }}
+          />
           {slats.map((sy) => (
             <rect
               key={`l${sy}`}
@@ -51,16 +68,42 @@ function Window({ x, y = 24, width = 88, height = 52 }: { x: number; y?: number;
         </g>
       ))}
       {/* Marco y vidrio */}
-      <rect x={x0 - 3} y={yTop - 3} width={pw + 6} height={ph + 6} rx="2" style={{ fill: 'var(--trim)' }} />
+      <rect
+        x={x0 - 3}
+        y={yTop - 3}
+        width={pw + 6}
+        height={ph + 6}
+        rx="2"
+        style={{ fill: 'var(--trim)' }}
+      />
       <rect x={x0} y={yTop} width={pw} height={ph} style={{ fill: 'url(#scene-glass)' }} />
       <path
         d={`M${x0 + 8} ${yBot} L${x0 + pw * 0.42} ${yTop} L${x0 + pw * 0.58} ${yTop} L${x0 + 8 + pw * 0.16} ${yBot}Z`}
         style={{ fill: 'color-mix(in srgb, white 16%, transparent)' }}
       />
-      <rect x={x0 + pw / 2 - 1.4} y={yTop} width="2.8" height={ph} style={{ fill: 'var(--trim)' }} />
-      <rect x={x0} y={yTop + ph / 2 - 1.4} width={pw} height="2.8" style={{ fill: 'var(--trim)' }} />
+      <rect
+        x={x0 + pw / 2 - 1.4}
+        y={yTop}
+        width="2.8"
+        height={ph}
+        style={{ fill: 'var(--trim)' }}
+      />
+      <rect
+        x={x0}
+        y={yTop + ph / 2 - 1.4}
+        width={pw}
+        height="2.8"
+        style={{ fill: 'var(--trim)' }}
+      />
       {/* Antepecho */}
-      <rect x={x0 - 6} y={yBot + 2} width={pw + 12} height="5" rx="1.5" style={{ fill: 'var(--trim)' }} />
+      <rect
+        x={x0 - 6}
+        y={yBot + 2}
+        width={pw + 12}
+        height="5"
+        rx="1.5"
+        style={{ fill: 'var(--trim)' }}
+      />
       <rect x={x0 - 6} y={yBot + 6} width={pw + 12} height="2" style={{ fill: slateA(28) }} />
     </g>
   );
@@ -69,10 +112,30 @@ function Window({ x, y = 24, width = 88, height = 52 }: { x: number; y?: number;
 function Shrub({ x, y, r }: { x: number; y: number; r: number }) {
   return (
     <g>
-      <ellipse cx={x + r * 0.15} cy={y + r * 0.78} rx={r * 1.05} ry={r * 0.22} style={{ fill: slateA(24) }} />
+      <ellipse
+        cx={x + r * 0.15}
+        cy={y + r * 0.78}
+        rx={r * 1.05}
+        ry={r * 0.22}
+        style={{ fill: slateA(24) }}
+      />
       <ellipse cx={x} cy={y} rx={r} ry={r * 0.82} style={{ fill: 'var(--shrub)' }} />
-      <ellipse cx={x - r * 0.28} cy={y - r * 0.22} rx={r * 0.55} ry={r * 0.4} style={{ fill: 'color-mix(in srgb, var(--shrub) 76%, white)' }} opacity="0.7" />
-      <ellipse cx={x + r * 0.42} cy={y + r * 0.2} rx={r * 0.5} ry={r * 0.4} style={{ fill: 'color-mix(in srgb, var(--shrub) 82%, black)' }} opacity="0.55" />
+      <ellipse
+        cx={x - r * 0.28}
+        cy={y - r * 0.22}
+        rx={r * 0.55}
+        ry={r * 0.4}
+        style={{ fill: 'color-mix(in srgb, var(--shrub) 76%, white)' }}
+        opacity="0.7"
+      />
+      <ellipse
+        cx={x + r * 0.42}
+        cy={y + r * 0.2}
+        rx={r * 0.5}
+        ry={r * 0.4}
+        style={{ fill: 'color-mix(in srgb, var(--shrub) 82%, black)' }}
+        opacity="0.55"
+      />
     </g>
   );
 }
@@ -81,11 +144,34 @@ function Tree({ x, y }: { x: number; y: number }) {
   return (
     <g>
       <ellipse cx={x + 14} cy={y + 4} rx="52" ry="9" style={{ fill: slateA(20) }} />
-      <rect x={x - 4} y={y - 50} width="9" height="54" rx="3" style={{ fill: 'color-mix(in srgb, var(--brand-copper) 38%, var(--brand-slate))' }} />
-      <circle cx={x - 22} cy={y - 74} r="28" style={{ fill: 'color-mix(in srgb, var(--shrub) 85%, black)' }} />
-      <circle cx={x + 24} cy={y - 76} r="30" style={{ fill: 'color-mix(in srgb, var(--shrub) 92%, black)' }} />
+      <rect
+        x={x - 4}
+        y={y - 50}
+        width="9"
+        height="54"
+        rx="3"
+        style={{ fill: 'color-mix(in srgb, var(--brand-copper) 38%, var(--brand-slate))' }}
+      />
+      <circle
+        cx={x - 22}
+        cy={y - 74}
+        r="28"
+        style={{ fill: 'color-mix(in srgb, var(--shrub) 85%, black)' }}
+      />
+      <circle
+        cx={x + 24}
+        cy={y - 76}
+        r="30"
+        style={{ fill: 'color-mix(in srgb, var(--shrub) 92%, black)' }}
+      />
       <circle cx={x} cy={y - 96} r="34" style={{ fill: 'var(--shrub)' }} />
-      <circle cx={x - 10} cy={y - 104} r="20" style={{ fill: 'color-mix(in srgb, var(--shrub) 74%, white)' }} opacity="0.55" />
+      <circle
+        cx={x - 10}
+        cy={y - 104}
+        r="20"
+        style={{ fill: 'color-mix(in srgb, var(--shrub) 74%, white)' }}
+        opacity="0.55"
+      />
     </g>
   );
 }
@@ -133,7 +219,12 @@ export function HouseBackdrop() {
         </linearGradient>
         <pattern id="scene-siding" patternUnits="userSpaceOnUse" width="10" height="11">
           <rect y="9.2" width="10" height="1.8" style={{ fill: slateA(9) }} />
-          <rect y="8.6" width="10" height="0.7" style={{ fill: 'color-mix(in srgb, white 30%, transparent)' }} />
+          <rect
+            y="8.6"
+            width="10"
+            height="0.7"
+            style={{ fill: 'color-mix(in srgb, white 30%, transparent)' }}
+          />
         </pattern>
         <filter id="scene-blur" x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="5" />
@@ -152,18 +243,30 @@ export function HouseBackdrop() {
 
       {/* Césped */}
       <rect x="0" y="300" width="800" height="130" fill="url(#scene-lawn)" />
-      <path d="M0 304 Q200 292 400 302 T800 298 L800 310 L0 312Z" style={{ fill: 'var(--lawn-far)' }} opacity="0.6" />
+      <path
+        d="M0 304 Q200 292 400 302 T800 298 L800 310 L0 312Z"
+        style={{ fill: 'var(--lawn-far)' }}
+        opacity="0.6"
+      />
       <Tree x={690} y={330} />
       <Tree x={78} y={324} />
 
       {/* Camino a la puerta */}
       <polygon
-        points={points(P(214, 0, 0), P(256, 0, 0), [P(256, 0, 0)[0] + 44, 430], [P(214, 0, 0)[0] - 44, 430])}
+        points={points(
+          P(214, 0, 0),
+          P(256, 0, 0),
+          [P(256, 0, 0)[0] + 44, 430],
+          [P(214, 0, 0)[0] - 44, 430],
+        )}
         style={{ fill: 'var(--path)' }}
       />
       {/* Sombra del edificio en el suelo */}
       <polygon points={shadowGround} style={{ fill: slateA(34) }} filter="url(#scene-blur)" />
-      <polygon points={points(P(-6, 0, -8), P(w + 6, 0, -8), P(w, 0, 0), P(0, 0, 0))} style={{ fill: slateA(22) }} />
+      <polygon
+        points={points(P(-6, 0, -8), P(w + 6, 0, -8), P(w, 0, 0), P(0, 0, 0))}
+        style={{ fill: slateA(22) }}
+      />
 
       {/* Costado derecho */}
       <polygon points={wallSide} style={{ fill: 'var(--wall-side)' }} />
@@ -182,20 +285,68 @@ export function HouseBackdrop() {
       <polygon points={wallFront} style={{ fill: 'var(--wall)' }} />
       <polygon points={wallFront} fill="url(#scene-siding)" />
       <polygon points={wallFront} fill="url(#scene-wall-light)" />
-      <polygon points={foundation} style={{ fill: 'color-mix(in srgb, var(--wall) 65%, var(--brand-slate))' }} />
-      <rect x={P(0, h - 22, 0)[0]} y={P(0, h, 0)[1]} width={P(w, 0, 0)[0] - P(0, 0, 0)[0]} height="24" fill="url(#scene-eave-shadow)" />
+      <polygon
+        points={foundation}
+        style={{ fill: 'color-mix(in srgb, var(--wall) 65%, var(--brand-slate))' }}
+      />
+      <rect
+        x={P(0, h - 22, 0)[0]}
+        y={P(0, h, 0)[1]}
+        width={P(w, 0, 0)[0] - P(0, 0, 0)[0]}
+        height="24"
+        fill="url(#scene-eave-shadow)"
+      />
 
       <Window x={40} />
       <Window x={330} />
 
       {/* Puerta principal */}
-      <rect x={doorX0 - 5} y={doorTop - 5} width={dw + 10} height={dh + 5} rx="2" style={{ fill: 'var(--trim)' }} />
+      <rect
+        x={doorX0 - 5}
+        y={doorTop - 5}
+        width={dw + 10}
+        height={dh + 5}
+        rx="2"
+        style={{ fill: 'var(--trim)' }}
+      />
       <rect x={doorX0} y={doorTop} width={dw} height={dh} style={{ fill: 'var(--door)' }} />
-      <rect x={doorX0 + 7} y={doorTop + 8} width={dw - 14} height={dh * 0.34} rx="1.5" style={{ fill: 'color-mix(in srgb, white 9%, transparent)' }} />
-      <rect x={doorX0 + 7} y={doorTop + 14 + dh * 0.34} width={dw - 14} height={dh * 0.4} rx="1.5" style={{ fill: 'color-mix(in srgb, white 7%, transparent)' }} />
-      <circle cx={doorX1 - 9} cy={doorTop + dh * 0.55} r="2.6" style={{ fill: 'var(--brand-copper)' }} />
-      <rect x={stepX0} y={stepY} width={stepX1 - stepX0} height="9" rx="1.5" style={{ fill: 'var(--trim)' }} />
-      <rect x={stepX0} y={stepY + 7} width={stepX1 - stepX0} height="3" style={{ fill: slateA(25) }} />
+      <rect
+        x={doorX0 + 7}
+        y={doorTop + 8}
+        width={dw - 14}
+        height={dh * 0.34}
+        rx="1.5"
+        style={{ fill: 'color-mix(in srgb, white 9%, transparent)' }}
+      />
+      <rect
+        x={doorX0 + 7}
+        y={doorTop + 14 + dh * 0.34}
+        width={dw - 14}
+        height={dh * 0.4}
+        rx="1.5"
+        style={{ fill: 'color-mix(in srgb, white 7%, transparent)' }}
+      />
+      <circle
+        cx={doorX1 - 9}
+        cy={doorTop + dh * 0.55}
+        r="2.6"
+        style={{ fill: 'var(--brand-copper)' }}
+      />
+      <rect
+        x={stepX0}
+        y={stepY}
+        width={stepX1 - stepX0}
+        height="9"
+        rx="1.5"
+        style={{ fill: 'var(--trim)' }}
+      />
+      <rect
+        x={stepX0}
+        y={stepY + 7}
+        width={stepX1 - stepX0}
+        height="3"
+        style={{ fill: slateA(25) }}
+      />
 
       {/* Arbustos */}
       <Shrub x={P(8, 0, 0)[0]} y={P(0, 17, 0)[1]} r={26} />

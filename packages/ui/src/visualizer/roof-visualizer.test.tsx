@@ -49,7 +49,9 @@ describe('RoofVisualizer', () => {
     expect(svg).toHaveAccessibleDescription(/techo a dos aguas.*arquitectónica.*carbón/i);
     await user.click(screen.getByRole('radio', { name: 'Cuatro aguas' }));
     await user.click(screen.getByRole('radio', { name: 'Pizarra' }));
-    expect(svg).toHaveAccessibleDescription(/techo a cuatro aguas, en pizarra, color gris pizarra/i);
+    expect(svg).toHaveAccessibleDescription(
+      /techo a cuatro aguas, en pizarra, color gris pizarra/i,
+    );
   });
 
   it('cada grupo es un radiogroup con nombre y se maneja con flechas del teclado', async () => {
@@ -112,7 +114,9 @@ describe('RoofVisualizer', () => {
 
   it('usa el patrón procedural de respaldo cuando no hay textureUrl', () => {
     const { container } = setup();
-    expect(container.querySelector('pattern[data-procedural="architectural-shingle"]')).not.toBeNull();
+    expect(
+      container.querySelector('pattern[data-procedural="architectural-shingle"]'),
+    ).not.toBeNull();
     expect(container.querySelector('pattern image')).toBeNull();
   });
 

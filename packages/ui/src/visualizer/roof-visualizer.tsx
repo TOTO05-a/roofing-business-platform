@@ -52,7 +52,8 @@ const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key] ?? '');
 
 function specOf(sel: Selection, materials: readonly RoofMaterial[]): RoofSpec {
-  const material = materials.find((x) => x.id === sel.materialId) ?? getRoofMaterial(sel.materialId);
+  const material =
+    materials.find((x) => x.id === sel.materialId) ?? getRoofMaterial(sel.materialId);
   const color = material.colors.find((c) => c.id === sel.colorId) ?? material.colors[0];
   return {
     shape: sel.shape,
@@ -71,9 +72,21 @@ function ShapeIcon({ shape }: { shape: RoofShape }) {
   return (
     <svg viewBox="0 0 48 28" aria-hidden="true" className="h-7 w-12 shrink-0" fill="none">
       {shape === 'gable' ? (
-        <path d="M3 24 12 6h24l9 18Z" style={{ fill: 'var(--border-strong)' }} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <path
+          d="M3 24 12 6h24l9 18Z"
+          style={{ fill: 'var(--border-strong)' }}
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
       ) : (
-        <path d="M3 24 15 6h18l12 18Z M15 6l-4 18M33 6l4 18" style={{ fill: 'var(--border-strong)' }} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <path
+          d="M3 24 15 6h18l12 18Z M15 6l-4 18M33 6l4 18"
+          style={{ fill: 'var(--border-strong)' }}
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
       )}
     </svg>
   );
@@ -100,7 +113,9 @@ export function RoofVisualizer({
   const [sel, setSel] = useState<Selection>(() => ({
     shape: defaultShape,
     materialId: initialMaterial,
-    colorId: (materials.find((x) => x.id === initialMaterial) ?? getRoofMaterial(initialMaterial)).colors[0]?.id ?? '',
+    colorId:
+      (materials.find((x) => x.id === initialMaterial) ?? getRoofMaterial(initialMaterial))
+        .colors[0]?.id ?? '',
   }));
   const counter = useRef(0);
   const [layers, setLayers] = useState<Layer[]>(() => [
@@ -123,7 +138,8 @@ export function RoofVisualizer({
     [sel.materialId, materials, reduce],
   );
 
-  const material = materials.find((x) => x.id === sel.materialId) ?? getRoofMaterial(sel.materialId);
+  const material =
+    materials.find((x) => x.id === sel.materialId) ?? getRoofMaterial(sel.materialId);
   const color = material.colors.find((c) => c.id === sel.colorId) ?? material.colors[0];
   const materialName = material.name[locale];
   const colorName = color?.name[locale] ?? '';
@@ -136,10 +152,21 @@ export function RoofVisualizer({
     color: colorName.toLowerCase(),
   });
 
-  const ids = { title: `${uid}-t`, desc: `${uid}-d`, shape: `${uid}-shape`, mat: `${uid}-mat`, col: `${uid}-col` };
+  const ids = {
+    title: `${uid}-t`,
+    desc: `${uid}-d`,
+    shape: `${uid}-shape`,
+    mat: `${uid}-mat`,
+    col: `${uid}-col`,
+  };
 
   return (
-    <div className={cn('grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start', className)}>
+    <div
+      className={cn(
+        'grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start',
+        className,
+      )}
+    >
       <figure className="m-0 grid gap-3">
         <div className="overflow-hidden rounded-xl border border-border shadow-md">
           <LazyMotion features={domAnimation} strict>
@@ -166,7 +193,10 @@ export function RoofVisualizer({
                         : false
                   }
                   animate={{ clipPath: 'inset(0% 0% 0% 0%)', opacity: 1 }}
-                  transition={{ duration: layer.mode === 'wipe' ? 0.7 : 0.45, ease: [0.05, 0.7, 0.1, 1] }}
+                  transition={{
+                    duration: layer.mode === 'wipe' ? 0.7 : 0.45,
+                    ease: [0.05, 0.7, 0.1, 1],
+                  }}
                   onAnimationComplete={() =>
                     setLayers((current) => current.filter((l) => l.id >= layer.id))
                   }
@@ -200,7 +230,9 @@ export function RoofVisualizer({
             {(['gable', 'hip'] as const).map((shape) => (
               <RadioGroup.Item key={shape} value={shape} className={itemBase}>
                 <ShapeIcon shape={shape} />
-                <span className="font-semibold">{shape === 'gable' ? labels.shapeGable : labels.shapeHip}</span>
+                <span className="font-semibold">
+                  {shape === 'gable' ? labels.shapeGable : labels.shapeHip}
+                </span>
               </RadioGroup.Item>
             ))}
           </RadioGroup.Root>
@@ -221,7 +253,11 @@ export function RoofVisualizer({
             className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
           >
             {materials.map((mat) => (
-              <RadioGroup.Item key={mat.id} value={mat.id} className={cn(itemBase, 'font-semibold')}>
+              <RadioGroup.Item
+                key={mat.id}
+                value={mat.id}
+                className={cn(itemBase, 'font-semibold')}
+              >
                 <span className="grow leading-snug">{mat.name[locale]}</span>
                 <RadioGroup.Indicator>
                   <Check aria-hidden="true" className="size-5 text-primary" />

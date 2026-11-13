@@ -35,7 +35,13 @@ export function RoofPaint({ id, material, textureUrl }: Props) {
   const { w, h } = TILE[material];
   if (textureUrl) {
     return (
-      <pattern id={id} patternUnits="userSpaceOnUse" width={w * 2} height={h * 2} patternTransform={SCALE}>
+      <pattern
+        id={id}
+        patternUnits="userSpaceOnUse"
+        width={w * 2}
+        height={h * 2}
+        patternTransform={SCALE}
+      >
         <image
           href={textureUrl}
           width={w * 2}
@@ -53,7 +59,14 @@ export function RoofPaint({ id, material, textureUrl }: Props) {
     );
   }
   return (
-    <pattern id={id} patternUnits="userSpaceOnUse" width={w} height={h} patternTransform={SCALE} data-procedural={material}>
+    <pattern
+      id={id}
+      patternUnits="userSpaceOnUse"
+      width={w}
+      height={h}
+      patternTransform={SCALE}
+      data-procedural={material}
+    >
       <rect width={w} height={h} style={{ fill: ROOF }} />
       {material === 'architectural-shingle' && <Architectural />}
       {material === 'three-tab-shingle' && <ThreeTab />}
@@ -140,7 +153,12 @@ function ClayTile({ id }: { id: string }) {
       </defs>
       <rect width="34" height="26" fill={`url(#${id}-barrel)`} />
       <path d="M0 22.5 Q17 28.5 34 22.5 L34 26 L0 26Z" style={shadowStyle} />
-      <path d="M0 22.5 Q17 28.5 34 22.5" fill="none" strokeWidth="1" style={{ stroke: light(20) }} />
+      <path
+        d="M0 22.5 Q17 28.5 34 22.5"
+        fill="none"
+        strokeWidth="1"
+        style={{ stroke: light(20) }}
+      />
     </>
   );
 }
