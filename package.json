@@ -17,7 +17,8 @@
     "test": "pnpm build:shared && pnpm -r run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:capturas": "playwright test -c playwright.capturas.config.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

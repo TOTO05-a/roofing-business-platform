@@ -1,56 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-const WEB = 'http://localhost:4321';
-const APP = 'http://localhost:4173';
-const SHOTS = resolve(import.meta.dirname, 'screenshots');
-const widths = [390, 834, 1512];
-
-const locales = [
-  {
-    code: 'es',
-    gable: 'Dos aguas',
-    hip: 'Cuatro aguas',
-    slate: 'Pizarra',
-    slateColor: 'Gris pizarra',
-    announce: 'Techo: Pizarra, color Gris pizarra',
-  },
-  {
-    code: 'en',
-    gable: 'Gable',
-    hip: 'Hip',
-    slate: 'Slate',
-    slateColor: 'Slate gray',
-    announce: 'Roof: Slate, color Slate gray',
-  },
-] as const;
-
-/** Espera a que terminen las animaciones (Motion, CSS) antes de medir o capturar. */
-async function settle(page: Page) {
-  await page.waitForFunction(() =>
-    document.getAnimations().every((a) => a.playState !== 'running'),
-  );
-}
-
-/** Lleva el visualizador a la vista y espera a que la isla de Astro se hidrate. */
-async function openVisualizer(page: Page) {
-  const section = page.locator('#techos');
-  await section.scrollIntoViewIfNeeded();
-  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
-  await page.evaluate(() => document.fonts.ready);
-  await settle(page);
-  return section;
-}
-
-async function seriousViolations(page: Page) {
-  await settle(page);
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-    .analyze();
-  return results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-}
+import { expect, test } from '@playwright/test';
+import { APP, WEB, locales, openVisualizer, seriousViolations } from './helpers';
 
 for (const l of locales) {
   for (const scheme of ['light', 'dark'] as const) {
@@ -79,11 +29,9 @@ for (const l of locales) {
 
     const gable = page.getByRole('radio', { name: l.gable, exact: true });
     await gable.focus();
-    // Radix marca la opción si la flecha sigue pulsada al llegar el foco (como en un uso real);
-    // `press` suelta la tecla en el mismo instante y haría la prueba intermitente.
-    await page.keyboard.down('ArrowRight');
+    // Los radios nativos se mueven y marcan con las flechas.
+    await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('radio', { name: l.hip, exact: true })).toBeChecked();
-    await page.keyboard.up('ArrowRight');
     await expect(page.locator('svg[data-shape]')).toHaveAttribute('data-shape', 'hip');
 
     await page.getByRole('radio', { name: l.slate, exact: true }).click();
@@ -91,7 +39,7 @@ for (const l of locales) {
     await expect(live).toHaveText(l.announce);
     await expect(live).toHaveAttribute('aria-live', 'polite');
 
-    const radios = page.locator('#techos [role="radio"]');
+    const radios = page.locator('#techos input[type="radio"]');
     const count = await radios.count();
     expect(count).toBeGreaterThan(8);
     for (let i = 0; i < count; i++) {
@@ -126,13 +74,24 @@ test.describe('animación de entrada', () => {
     await expect(overlay).toBeHidden();
   });
 
-  test('termina sola en menos de 1,5 s', async ({ page }) => {
+  test('dura como máximo 1,5 s (retardo + duración de cada animación) y se oculta sola', async ({
+    page,
+  }) => {
     await page.goto(`${WEB}/en/`);
     const overlay = page.locator('[data-intro-overlay]');
     await expect(overlay).toBeVisible();
-    const started = Date.now();
-    await expect(overlay).toBeHidden({ timeout: 3000 });
-    expect(Date.now() - started).toBeLessThan(1700);
+    // Tiempos programados, no medidos con el reloj: no dependen de la velocidad de la máquina.
+    const endTimes = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-intro-overlay], [data-intro-overlay] *')].flatMap((el) =>
+        el.getAnimations().map((a) => {
+          const t = a.effect?.getComputedTiming();
+          return Number(t?.endTime ?? 0);
+        }),
+      ),
+    );
+    expect(endTimes.length).toBeGreaterThan(0);
+    expect(Math.max(...endTimes)).toBeLessThanOrEqual(1500);
+    await expect(overlay).toBeHidden({ timeout: 5000 });
   });
 
   test('con movimiento reducido no se muestra', async ({ page }) => {
@@ -164,33 +123,8 @@ test('catálogo /componentes: demostración del visualizador', async ({ page }) 
   await section.scrollIntoViewIfNeeded();
   await section.getByRole('radio', { name: 'Cuatro aguas', exact: true }).click();
   await expect(section.locator('svg[data-shape]')).toHaveAttribute('data-shape', 'hip');
-  await expect(section.getByRole('status')).toContainText('Techo: Teja asfáltica arquitectónica');
+  await expect(section.getByRole('status')).toContainText(
+    'Techo, cuatro aguas: Teja asfáltica arquitectónica',
+  );
   expect(await seriousViolations(page)).toEqual([]);
-});
-
-test.describe('capturas del visualizador', () => {
-  mkdirSync(SHOTS, { recursive: true });
-  for (const l of locales) {
-    for (const width of widths) {
-      test(`visualizador ${l.code} @${width}px`, async ({ page }) => {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ reducedMotion: 'reduce' });
-        await page.goto(`${WEB}/${l.code}/`);
-        const section = await openVisualizer(page);
-        // La cabecera fija y el enlace "Saltar al contenido" se cuelan en capturas de un elemento.
-        await page.addStyleTag({
-          content: 'header, a[href="#contenido"] { visibility: hidden !important; }',
-        });
-        if (l.code === 'en') {
-          await page.getByRole('radio', { name: l.hip, exact: true }).click();
-          await page.getByRole('radio', { name: 'Standing seam metal', exact: true }).click();
-          await page.getByRole('radio', { name: 'Colonial red', exact: true }).click();
-          await settle(page);
-        }
-        const file = resolve(SHOTS, `visualizador-${l.code}-${width}.png`);
-        await section.screenshot({ path: file });
-        console.log(`captura: ${file}`);
-      });
-    }
-  }
 });

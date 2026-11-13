@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  // Las capturas del visualizador no corren aquí: `pnpm test:capturas`.
+  testIgnore: '**/capturas/**',
   outputDir: './e2e/.results',
   reporter: process.env.CI
     ? [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]]
