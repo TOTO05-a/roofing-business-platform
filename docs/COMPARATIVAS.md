@@ -320,3 +320,68 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 | Solo `verify` (como antes)    | Sin esperas                                                     | Puede repetirse lo del PR #10, fusionado con el e2e en rojo     |
 
 **Por qué:** el repositorio es público (CI gratis) y el e2e protege la accesibilidad WCAG 2.2 AA (D2). El ruleset «Proteger main y dev» exige ahora `verify` y `e2e`.
+
+---
+
+## Etapa 2 · Backend del CRM (13-11-2026)
+
+### C36. Alcance del backend del CRM → N12
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Completo: propiedades, leads, citas, inspecciones con medidas y fotos, archivos, formulario web y datos demo** | Cubre todo el camino del contacto a la inspección; los presupuestos pueden partir de medidas reales | Etapa más larga; exige almacenamiento de fotos ya |
+| CRM básico sin inspecciones | Rápido | El motor de presupuestos no tendría medidas de donde partir |
+| Con inspecciones pero sin fotos | Evita el almacenamiento por ahora | La inspección queda a medias; habría que volver a tocarla |
+
+**Por qué:** la siguiente etapa (presupuestos) necesita inspecciones con medidas; hacer las fotos ahora evita reabrir el mismo código. El formulario del sitio crea leads `WEB_FORM` y el seed demo (`SEED_DEMO=true`) llena el CRM con datos ficticios del Sur de Florida.
+
+### C37. ¿Seguridad por fila (RLS) ahora o después? → T10
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Ahora, según el modelo §4.4** | Protege desde la primera tabla con datos de clientes; las rutas nuevas nacen con la doble capa | Más trabajo en esta etapa; hay que adaptar las rutas existentes |
+| En una etapa propia | Etapa actual más corta | Todas las rutas del CRM se reescribirían después |
+| Solo el filtro de la API | Lo más simple | Un filtro olvidado expone datos de otros clientes |
+
+**Por qué:** T5 promete doble protección. Rol `app_user` sin BYPASSRLS ni propiedad de las tablas, `ENABLE` + `FORCE` RLS en las tablas de personas y del CRM, `set_config(..., true)` por transacción con una extensión del cliente Prisma, funciones auxiliares en un esquema privado y pruebas de la matriz rol × tabla × operación en la CI. Si el recurso existe pero no es visible, la API responde 404.
+
+### C38. Spam en el formulario público → T11
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Campo trampa + tiempo mínimo de llenado + límite por IP y por correo** | Sin servicios externos ni costo; invisible para personas reales; accesible | No frena a un atacante decidido |
+| Cloudflare Turnstile | Muy eficaz y gratis | Servicio externo, script de terceros y cuenta |
+| Google reCAPTCHA | Conocido | Rastreo de Google; peor accesibilidad y privacidad |
+| Ninguna | Nada que hacer | El CRM se llena de basura |
+
+**Por qué:** basta para el volumen de una empresa local y respeta I1 (costo cero) y la privacidad. Los envíos sospechosos se guardan como lead `SPAM` o se descartan.
+
+### C39. Citas solapadas del mismo empleado → T12
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **EXCLUDE con `btree_gist` sobre (`assignee_id`, rango de horas) en estados activos + comprobación previa en la API** | La base de datos garantiza que no hay solapes aunque lleguen peticiones simultáneas; la API da un error claro y bilingüe | Requiere la extensión `btree_gist` |
+| Solo comprobación en la API | Simple | Dos peticiones a la vez pueden crear el solape |
+| Permitir el solape y avisar | Flexible | Dobles reservas reales con clientes |
+
+**Por qué:** una doble reserva es un error caro frente al cliente; la restricción en la base es la única garantía real.
+
+### C40. Almacenamiento de fotos en desarrollo → T13, T14
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Almacenamiento compatible con S3 en `docker compose` + AWS SDK v3** | El mismo código servirá con Cloudflare R2; URL firmadas y bucket privado igual que en producción; sin cuentas externas | Un contenedor más en local |
+| Carpeta local | Lo más simple | Código distinto al de producción; sin URL firmadas reales |
+| Activar R2 ya | Entorno real | Puede pedir tarjeta (I7); choca con I1 |
+
+**Por qué:** probar en local exactamente el flujo de producción (URL firmadas de vida corta emitidas tras comprobar el acceso; validación de tipo MIME, tamaño y sha256) sin activar ningún servicio externo. MinIO quedó descartado.
+
+### C41. Quién implementa la etapa → W15
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Opus alto: esquema, migraciones, RLS y pruebas; Sonnet medio: rutas, servicios, formulario, fotos y seed; auditoría final de `security-auditor` (Opus alto)** | Lo crítico (datos y acceso) con el modelo más capaz; lo repetitivo, más barato; revisión independiente antes del PR | Coordinación en dos fases |
+| Todo con Opus alto | Máxima calidad en todo | Gasta mucho más límite de uso en código rutinario |
+| Todo con Sonnet y auditoría de Opus | Lo más barato | La RLS y las migraciones son donde un error cuesta más |
+
+**Por qué:** aplica W11 y C31: Opus donde un error es caro (seguridad y datos), Sonnet para la implementación acotada.

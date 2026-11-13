@@ -26,6 +26,7 @@ Cada fila dice **qué** se decidió, **por qué** y **cuándo**. Si una decisió
 | N9  | **Español principal, inglés secundario** con selector de idioma.                                                              | Requisito del cliente.                                                    | 12-11-2026 | ✅     |
 | N10 | Mientras no haya datos reales, el sitio y la app usan **datos ficticios de demostración** (licencia, seguro, teléfono, correo, servicios, área, garantías), siempre con el aviso «Empresa y datos ficticios de demostración». Los datos **reales** siguen pendientes. | No inventar datos del negocio como si fueran reales, pero probar con datos verosímiles. | 13-11-2026 | ⏳ (datos reales) |
 | N11 | La empresa ficticia se simula en el **Sur de Florida** (Miami-Dade, Broward y Palm Beach). Ver C32. | Licencia estatal única, impuesto solo sobre material y encaje con el sitio en español. | 13-11-2026 | ✅ |
+| N12 | **Backend del CRM completo:** propiedades, leads (con conversión a cliente y propiedad), citas, inspecciones con medidas y fotos, archivos, formulario de contacto del sitio conectado y datos demo del CRM. Ver C36. | Los presupuestos necesitan inspecciones con medidas; hacer las fotos ahora evita reabrir el código. | 13-11-2026 | ✅ |
 
 ## 2. Reglas de presupuestos y datos del negocio
 
@@ -72,6 +73,10 @@ Aprobadas junto con el modelo de datos.
 | T7  | Todo empaquetado con **Docker** y configuración por variables de entorno.                                     | Mudar a dominio propio o a un servidor propio sin reescribir.             | 12-11-2026 | ✅     |
 | T8  | Pruebas: **Vitest** (unitarias), **Supertest** (API) y **Playwright + axe** (navegador y accesibilidad), ejecutadas en cada PR. | Nada se da por bueno sin ejecutarlo.                     | 12-11-2026 | ✅     |
 | T9  | Node 26 y pnpm 12.                                                                                             | Versiones estables actuales.                                               | 12-11-2026 | ✅     |
+| T10 | **Seguridad por fila (RLS) en PostgreSQL desde ya:** rol `app_user` sin BYPASSRLS ni propiedad de las tablas, `ENABLE` + `FORCE` RLS en las tablas de personas y del CRM, contexto por transacción con `set_config` y pruebas de la matriz rol × tabla × operación en la CI. 404 si el recurso no es visible. Ver C37. | Cumple T5: un filtro olvidado en la API no expone datos de otros. | 13-11-2026 | ✅ |
+| T11 | **Anti-spam del formulario público** sin servicios externos: campo trampa, tiempo mínimo de llenado y límite por IP y por correo; lo sospechoso se guarda como lead `SPAM` o se descarta. Ver C38. | Costo cero, privacidad y accesibilidad. | 13-11-2026 | ✅ |
+| T12 | **Sin citas solapadas** por empleado: restricción EXCLUDE (`btree_gist`) en estados activos más comprobación previa en la API con error bilingüe. Ver C39. | Solo la base de datos garantiza que no haya dobles reservas simultáneas. | 13-11-2026 | ✅ |
+| T13 | **Fotos en desarrollo** en un almacenamiento compatible con S3 dentro de `docker compose`, con el AWS SDK v3; bucket privado y URL firmadas de vida corta tras comprobar el acceso; validación de tipo, tamaño y sha256. R2 sigue sin activarse. Ver C40. | El mismo código servirá con R2, sin cuentas externas ni costo. | 13-11-2026 | ✅ |
 
 ## 5. Infraestructura y costos
 
@@ -104,3 +109,4 @@ Aprobadas junto con el modelo de datos.
 | W12 | **La calidad visual no se sacrifica por peso:** si una optimización empeora el aspecto, se mantiene la versión anterior y se consulta. | Petición del cliente. | 13-11-2026 | ✅ |
 | W13 | **La app no se lanzará a producción por ahora:** es una demostración. | Petición del cliente; no hay datos ni fotos reales todavía. | 13-11-2026 | ✅ |
 | W14 | El ruleset de `main` y `dev` exige los checks **`verify` y `e2e`** para fusionar. Ver C34. | Evitar fusiones con pruebas de navegador o accesibilidad en rojo (como el PR #10). | 13-11-2026 | ✅ |
+| W15 | Backend del CRM en dos fases: **Opus alto** hace esquema, migraciones, RLS y sus pruebas; **Sonnet medio** (`general-purpose`) hace rutas, servicios, formulario, fotos y seed; al final, auditoría de **`security-auditor`** (Opus alto) antes del PR. Ver C41. | Opus donde un error es caro; Sonnet para lo acotado (W11, C31). | 13-11-2026 | ✅ |
