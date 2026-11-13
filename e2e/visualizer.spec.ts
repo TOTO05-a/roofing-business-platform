@@ -105,6 +105,14 @@ test.describe('animación de entrada', () => {
   test('sin violaciones serious/critical mientras se muestra', async ({ page }) => {
     await page.goto(`${WEB}/es/`);
     await expect(page.locator('[data-intro-overlay]')).toBeVisible();
+    // Congela la intro en un instante con todo visible (tras el último trazo y la palabra, antes de
+    // la salida a 1020 ms) para que axe no calcule contraste con opacidades intermedias.
+    await page.evaluate(() => {
+      for (const a of document.getAnimations()) {
+        a.pause();
+        a.currentTime = 980;
+      }
+    });
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
       .analyze();
