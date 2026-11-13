@@ -22,13 +22,15 @@ export const en: Dictionary = {
     required: 'required',
     skipToContent: 'Skip to content',
     notifications: 'Notifications',
-    examplePhone: '(000) 000-0000',
+    phone: '(305) 555-0142',
+    phoneHref: '+13055550142',
+    email: 'hola@cresta-roofing.example',
   },
   web: {
     meta: {
-      title: 'Cresta Roofing | Residential roofing with a warranty',
+      title: 'Cresta Roofing | Residential roofing in South Florida',
       description:
-        'Residential roof repair, replacement and installation. Free inspection and a clear written estimate.',
+        'Roof replacement and repair in Miami-Dade, Broward and Palm Beach: asphalt shingle, metal, clay or concrete tile and flat roofs. Fictional demo company.',
     },
     nav: {
       label: 'Main navigation',
@@ -46,7 +48,7 @@ export const en: Dictionary = {
       callUs: 'Call us',
     },
     hero: {
-      eyebrow: 'Residential roofing in the U.S.',
+      eyebrow: 'Residential roofing in South Florida',
       title: 'A solid roof over what you love most.',
       subtitle:
         'We inspect, repair and replace roofs with quality materials and a clear written estimate before any work begins.',
@@ -55,37 +57,42 @@ export const en: Dictionary = {
       points: {
         one: 'Inspection at no cost or obligation',
         two: 'Written estimate, no surprises',
-        three: 'Written warranty on every job',
+        three: '10-year workmanship warranty',
       },
-      note: 'Sample data: it will be replaced with the business details.',
+      note: 'Fictional demo company and data.',
     },
     services: {
       title: 'Services for every stage of your roof',
-      intro: 'From a small leak to a brand-new roof: we explain your options clearly.',
+      intro:
+        'Residential roofs in Miami-Dade, Broward and Palm Beach. We explain every option clearly, with a 10-year workmanship warranty and up to 50 years from the manufacturer depending on the material.',
       items: {
+        shingle: {
+          title: 'Asphalt shingle roof',
+          text: 'Full replacement with high wind-rated asphalt shingles.',
+        },
+        metal: {
+          title: 'Metal roof',
+          text: 'Metal replacement: durable, reflective and built for storms.',
+        },
+        tile: {
+          title: 'Clay or concrete tile',
+          text: 'The classic South Florida roof, installed with reinforced fastening.',
+        },
+        flat: {
+          title: 'Flat roof (TPO)',
+          text: 'White TPO membrane for flat roofs and rooftops, with a tight seal.',
+        },
         repair: {
           title: 'Repairs',
-          text: 'Leaks, damaged shingles and water intrusion after a storm.',
-        },
-        replacement: {
-          title: 'Roof replacement',
-          text: 'A complete new roof when repair is no longer enough.',
-        },
-        installation: {
-          title: 'New installation',
-          text: 'Roofs for new builds and additions, with proper ventilation.',
+          text: 'Leaks, damaged tiles and water intrusion after a storm.',
         },
         inspection: {
           title: 'Inspections',
           text: 'A look at the real condition of your roof, with photos and a simple report.',
         },
-        maintenance: {
-          title: 'Maintenance',
-          text: 'Gutter cleaning and regular checkups to extend its service life.',
-        },
-        emergency: {
-          title: 'Emergencies',
-          text: 'Fast temporary protection after wind or hail damage.',
+        windMitigation: {
+          title: 'Wind mitigation',
+          text: 'Wind mitigation certification that can lower your insurance premium.',
         },
       },
     },
@@ -109,14 +116,60 @@ export const en: Dictionary = {
     },
     projects: {
       title: 'Projects',
-      intro: 'This is where we will show real work, with before and after photos.',
-      placeholder: 'Sample project',
-      placeholderText: 'Placeholder content: it will be replaced with a real project.',
-      soon: 'Coming soon',
+      intro:
+        'A sample of the roofs we install in South Florida. Demo stock photos: they are not the company’s own work.',
+      stockNote: 'Demo stock photo',
+      items: {
+        clayStucco: {
+          title: 'Clay tile over stucco',
+          text: 'White stucco home with a clay tile roof, a South Florida classic.',
+          alt: 'White stucco house with a clay tile roof and a front lawn.',
+        },
+        clayDetail: {
+          title: 'Clay tile detail',
+          text: 'Curved clay tile at the eave, with a clean finish and good drainage.',
+          alt: 'Close-up of the eave of a clay tile roof among tree leaves.',
+        },
+        metalHome: {
+          title: 'Metal roof',
+          text: 'Metal roof with sealed seams, built for heavy rain and wind.',
+          alt: 'Single-story white house with a gray metal roof under a clear sky.',
+        },
+        palmModern: {
+          title: 'Modern home with palms',
+          text: 'Contemporary Miami Beach home among palm trees, with a flat roofline.',
+          alt: 'Front of a modern Miami Beach house with palm trees and a wooden fence.',
+        },
+        shingleAerial: {
+          title: 'Asphalt shingle, full replacement',
+          text: 'Aerial view of a home with a new gray asphalt shingle roof.',
+          alt: 'Aerial view of a single-story house with a new gray asphalt shingle roof.',
+        },
+        orlandoHome: {
+          title: 'Two-story home',
+          text: 'Family two-story home with shutters and a porch, in a Florida style.',
+          alt: 'Blue and beige two-story house with red shutters, a porch and a lawn in Florida.',
+        },
+        flatModern: {
+          title: 'Residential flat roof',
+          text: 'Modern home with a flat roof and clean edges, ready for a TPO membrane.',
+          alt: 'White modern flat-roof house with large windows and a concrete driveway.',
+        },
+        flatBuilding: {
+          title: 'Building rooftop',
+          text: 'Flat rooftop of an apartment building, with sealing and drains.',
+          alt: 'Aerial view of the flat rooftop of a cream-colored apartment building.',
+        },
+        crew: {
+          title: 'Crew on site',
+          text: 'An installer carries material up the roof during a full replacement.',
+          alt: 'Worker carrying bundles of shingles across a roof under construction.',
+        },
+      },
     },
     about: {
       title: 'About us',
-      text: 'We are a family-run residential roofing company. We treat your home like our own and speak plainly about work and costs.',
+      text: 'We are a family-run residential roofing company in South Florida (fictional demo company). We treat your home like our own and speak plainly about work and costs.',
       values: {
         one: { title: 'Clarity', text: 'We explain every step and every cost before we start.' },
         two: {
@@ -125,7 +178,7 @@ export const en: Dictionary = {
         },
         three: {
           title: 'Backing',
-          text: 'We meet deadlines and stand behind our work in writing.',
+          text: '10-year workmanship warranty and up to 50 years from the manufacturer, depending on the material.',
         },
       },
     },
@@ -134,17 +187,20 @@ export const en: Dictionary = {
       text: 'Request a free inspection. We will reply within one business day.',
       cta: 'Request a free inspection',
       phoneLabel: 'Phone',
-      hours: 'Monday to Saturday, 8:00 am to 6:00 pm (sample)',
+      emailLabel: 'Email',
+      hours: 'Monday to Saturday, 8:00 am to 6:00 pm',
     },
     footer: {
       label: 'Page footer',
-      license: 'License no. [EXAMPLE]',
-      insurance: 'Liability insurance no. [EXAMPLE]',
+      license: 'License no. CCC-DEMO-0001',
+      insurance: 'Liability insurance no. GL-DEMO-0001',
       legal: 'Legal information',
       privacy: 'Privacy policy',
       terms: 'Terms of service',
       rights: 'All rights reserved.',
-      placeholderNote: 'Sample name and details until the final brand is defined.',
+      placeholderNote: 'Fictional demo company and data.',
+      address: 'Miami, FL',
+      area: 'Miami-Dade, Broward and Palm Beach',
     },
     mobileBar: { label: 'Quick actions' },
   },

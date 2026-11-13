@@ -2,16 +2,27 @@
 import {
   ArrowRight,
   CircleCheck,
-  ClipboardCheck,
-  Hammer,
-  HousePlus,
+  House,
+  Layers,
+  Mail,
+  PanelTop,
   Phone,
   Search,
   ShieldCheck,
-  Siren,
+  Square,
+  Wind,
   Wrench,
-  Layers,
 } from '@lucide/astro';
+import { Picture } from 'astro:assets';
+import clayStucco from '../assets/proyectos/teja-barro-estuco.jpg';
+import clayDetail from '../assets/proyectos/teja-barro-detalle.jpg';
+import metalHome from '../assets/proyectos/techo-metal-casa-blanca.jpg';
+import palmModern from '../assets/proyectos/casa-palmeras-miami.jpg';
+import shingleAerial from '../assets/proyectos/teja-asfaltica-vista-aerea.jpg';
+import orlandoHome from '../assets/proyectos/casa-orlando.jpg';
+import flatModern from '../assets/proyectos/techo-plano-casa-moderna.jpg';
+import flatBuilding from '../assets/proyectos/techo-plano-edificio.jpg';
+import crew from '../assets/proyectos/cuadrilla-instalando-teja.jpg';
 import Base from '../layouts/Base.astro';
 import RoofSection from './RoofSection.astro';
 import { getDict, type Locale } from '../i18n/ui';
@@ -24,12 +35,25 @@ const t = getDict(locale);
 const w = t.web;
 
 const services = [
+  { key: 'shingle', icon: Layers },
+  { key: 'metal', icon: PanelTop },
+  { key: 'tile', icon: House },
+  { key: 'flat', icon: Square },
   { key: 'repair', icon: Wrench },
-  { key: 'replacement', icon: Layers },
-  { key: 'installation', icon: HousePlus },
   { key: 'inspection', icon: Search },
-  { key: 'maintenance', icon: Hammer },
-  { key: 'emergency', icon: Siren },
+  { key: 'windMitigation', icon: Wind },
+] as const;
+
+const projects = [
+  { key: 'clayStucco', img: clayStucco },
+  { key: 'metalHome', img: metalHome },
+  { key: 'shingleAerial', img: shingleAerial },
+  { key: 'palmModern', img: palmModern },
+  { key: 'flatModern', img: flatModern },
+  { key: 'clayDetail', img: clayDetail },
+  { key: 'orlandoHome', img: orlandoHome },
+  { key: 'flatBuilding', img: flatBuilding },
+  { key: 'crew', img: crew },
 ] as const;
 const steps = ['one', 'two', 'three', 'four'] as const;
 const values = ['one', 'two', 'three'] as const;
@@ -104,7 +128,7 @@ const btnPrimary =
         </h2>
         <p class="mt-4 text-lg text-fg-muted">{w.services.intro}</p>
       </div>
-      <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {services.map(({ key, icon: Icon }) => (
           <li class="group rounded-lg border border-border bg-surface p-6 shadow-sm transition-[transform,box-shadow] duration-[var(--duration-base)] ease-standard hover:-translate-y-1 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
             <span class="grid size-12 place-items-center rounded-md bg-surface-alt text-link">
@@ -141,7 +165,7 @@ const btnPrimary =
     </div>
   </section>
 
-  <!-- Proyectos (marcador) -->
+  <!-- Proyectos (fotos de stock de demostración) -->
   <section
     id="proyectos"
     class="scroll-mt-20 bg-surface-alt py-20 sm:py-28"
@@ -154,23 +178,25 @@ const btnPrimary =
         </h2>
         <p class="mt-4 text-lg text-fg-muted">{w.projects.intro}</p>
       </div>
-      <ul class="mt-12 grid gap-5 md:grid-cols-3">
-        {[1, 2, 3].map((n) => (
+      <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {projects.map(({ key, img }) => (
           <li class="overflow-hidden rounded-lg border border-border bg-surface">
-            <div
-              aria-hidden="true"
-              class="grid aspect-[4/3] place-items-center bg-surface-alt text-border-strong"
-            >
-              <ClipboardCheck class="size-12" />
-            </div>
+            <Picture
+              src={img}
+              alt={w.projects.items[key].alt}
+              formats={['avif', 'webp']}
+              widths={[480, 720, 960]}
+              sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
+              loading="lazy"
+              decoding="async"
+              class="aspect-[4/3] w-full object-cover"
+            />
             <div class="p-5">
               <p class="font-display text-sm font-bold tracking-wide text-link uppercase">
-                {w.projects.soon}
+                {w.projects.stockNote}
               </p>
-              <h3 class="mt-1 text-lg font-bold">
-                {w.projects.placeholder} {n}
-              </h3>
-              <p class="mt-1 text-fg-muted">{w.projects.placeholderText}</p>
+              <h3 class="mt-1 text-lg font-bold">{w.projects.items[key].title}</h3>
+              <p class="mt-1 text-fg-muted">{w.projects.items[key].text}</p>
             </div>
           </li>
         ))}
@@ -213,9 +239,16 @@ const btnPrimary =
       </h2>
       <p class="mt-4 text-lg text-on-brand-muted">{w.contact.text}</p>
       <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <a href="tel:+10000000000" class={btnPrimary}>
+        <a href={`tel:${t.common.phoneHref}`} class={btnPrimary}>
           <Phone aria-hidden="true" class="size-5" />
-          {t.common.examplePhone}
+          {t.common.phone}
+        </a>
+        <a
+          href={`mailto:${t.common.email}`}
+          class="inline-flex min-h-14 items-center justify-center gap-2 rounded-md border-2 border-white/60 px-8 font-display text-lg font-semibold text-on-brand no-underline hover:bg-white/10"
+        >
+          <Mail aria-hidden="true" class="size-5" />
+          {t.common.email}
         </a>
       </div>
       <p class="mt-6 text-on-brand-muted">{w.contact.hours}</p>
