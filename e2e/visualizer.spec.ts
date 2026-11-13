@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { APP, WEB, locales, openVisualizer, seriousViolations } from './helpers';
+import { me, mockApi } from './support/api';
 
 for (const l of locales) {
   for (const scheme of ['light', 'dark'] as const) {
@@ -124,6 +125,7 @@ test.describe('animación de entrada', () => {
 });
 
 test('catálogo /componentes: demostración del visualizador', async ({ page }) => {
+  await mockApi(page, { 'GET /api/me': me('CUSTOMER') });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript(() => localStorage.setItem('lang', 'es'));
   await page.goto(`${APP}/componentes`);
