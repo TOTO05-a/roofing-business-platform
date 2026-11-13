@@ -256,14 +256,7 @@ export function SetupTwoFactorPage() {
         />
       )}
       {step !== 'backup' && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            void signOut().then(() =>
-              navigate('/iniciar-sesion', { replace: true, state: { notice: 'signedOut' } }),
-            )
-          }
-        >
+        <Button variant="ghost" onClick={() => void signOut()}>
           {t('app.shell.signOut')}
         </Button>
       )}

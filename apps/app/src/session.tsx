@@ -16,7 +16,8 @@ import { ApiError } from './api/client';
 
 export type SessionState =
   | { status: 'loading' }
-  | { status: 'unauthenticated' }
+  /** `signedOut`: la persona cerró sesión ella misma (no es una sesión caducada). */
+  | { status: 'unauthenticated'; signedOut?: true }
   | { status: 'error' }
   | { status: 'authenticated'; user: SessionUser; twoFactorRequired: boolean };
 
@@ -66,7 +67,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await apiSignOut();
-    setSession({ status: 'unauthenticated' });
+    setSession({ status: 'unauthenticated', signedOut: true });
   }, []);
 
   const value = useMemo(() => ({ session, refresh, signOut }), [session, refresh, signOut]);
@@ -130,7 +131,11 @@ export function RequireSession({ children, allowPendingTwoFactor = false }: Guar
       <Navigate
         to="/iniciar-sesion"
         replace
-        state={{ from: `${location.pathname}${location.search}` }}
+        state={
+          session.signedOut
+            ? { notice: 'signedOut' }
+            : { from: `${location.pathname}${location.search}` }
+        }
       />
     );
   }

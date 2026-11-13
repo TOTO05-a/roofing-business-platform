@@ -1,7 +1,8 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { me, mockApi } from './support/api';
+import { seriousViolations, settle } from './support/a11y';
 
 const WEB = 'http://localhost:4321';
 const APP = 'http://localhost:4173';
@@ -14,24 +15,10 @@ const pages = [
   { name: 'app-componentes', url: `${APP}/componentes` },
 ];
 
-/** Espera a que terminen las animaciones (p. ej. opacidad de Motion) antes de medir o capturar. */
-async function settle(page: Page) {
-  await page.waitForFunction(() =>
-    document.getAnimations().every((a) => a.playState !== 'running'),
-  );
-}
-
-async function seriousViolations(page: Page) {
-  await settle(page);
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-    .analyze();
-  return results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-}
-
 for (const scheme of ['light', 'dark'] as const) {
   for (const p of pages) {
     test(`${p.name} (${scheme}) sin violaciones serious/critical`, async ({ page }) => {
+      await mockApi(page, { 'GET /api/me': me('CUSTOMER') });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
       await page.goto(p.url);
       await page.locator('main').first().waitFor();
@@ -42,6 +29,7 @@ for (const scheme of ['light', 'dark'] as const) {
 }
 
 test('formulario inválido: errores visibles, sin violaciones y traducibles', async ({ page }) => {
+  await mockApi(page, { 'GET /api/me': me('CUSTOMER') });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript(() => localStorage.setItem('lang', 'es'));
   await page.goto(`${APP}/componentes`);
@@ -54,6 +42,7 @@ test('formulario inválido: errores visibles, sin violaciones y traducibles', as
 });
 
 test('cambiar de idioma en la app no mueve el foco ni el scroll', async ({ page }) => {
+  await mockApi(page, { 'GET /api/me': me('CUSTOMER') });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript(() => localStorage.setItem('lang', 'es'));
   await page.goto(`${APP}/componentes`);
@@ -73,6 +62,7 @@ test('cambiar de idioma en la app no mueve el foco ni el scroll', async ({ page 
 });
 
 test('ruta de otro rol: página 403 accesible y traducida', async ({ page }) => {
+  await mockApi(page, { 'GET /api/me': me('CUSTOMER') });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript(() => localStorage.setItem('lang', 'es'));
   await page.goto(`${APP}/agenda`);
@@ -110,6 +100,7 @@ test.describe('capturas de pantalla', () => {
   for (const p of pages) {
     for (const width of widths) {
       test(`${p.name} @${width}px`, async ({ page }) => {
+        await mockApi(page, { 'GET /api/me': me('CUSTOMER') });
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(p.url);

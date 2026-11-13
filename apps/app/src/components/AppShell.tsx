@@ -26,7 +26,7 @@ import {
 import { ChevronsLeft, ChevronsRight, Menu } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { NavLink, Outlet, useLocation } from 'react-router';
 import { canAccess, findNavItem, navForRole, roles, type NavItem } from '../navigation';
 import { isDev } from '../config';
 import { authErrorKey } from '../api/errors';
@@ -138,7 +138,6 @@ export function AppShell() {
   const { t, i18n } = useTranslation();
   const { role } = useRole();
   const { session, signOut } = useSession();
-  const navigate = useNavigate();
   const location = useLocation();
   const [theme, setTheme] = useTheme();
   const [collapsed, toggleCollapsed] = useCollapsed();
@@ -180,8 +179,7 @@ export function AppShell() {
     .join('');
   const handleSignOut = async () => {
     try {
-      await signOut();
-      void navigate('/iniciar-sesion', { replace: true, state: { notice: 'signedOut' } });
+      await signOut(); // al quedar sin sesión, RequireSession lleva al acceso
     } catch (error) {
       toast.error(t(`app.auth.errors.${authErrorKey(error)}`));
     }
