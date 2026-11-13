@@ -79,8 +79,11 @@ for (const l of locales) {
 
     const gable = page.getByRole('radio', { name: l.gable, exact: true });
     await gable.focus();
-    await page.keyboard.press('ArrowRight');
+    // Radix marca la opción si la flecha sigue pulsada al llegar el foco (como en un uso real);
+    // `press` suelta la tecla en el mismo instante y haría la prueba intermitente.
+    await page.keyboard.down('ArrowRight');
     await expect(page.getByRole('radio', { name: l.hip, exact: true })).toBeChecked();
+    await page.keyboard.up('ArrowRight');
     await expect(page.locator('svg[data-shape]')).toHaveAttribute('data-shape', 'hip');
 
     await page.getByRole('radio', { name: l.slate, exact: true }).click();
@@ -174,6 +177,10 @@ test.describe('capturas del visualizador', () => {
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(`${WEB}/${l.code}/`);
         const section = await openVisualizer(page);
+        // La cabecera fija y el enlace "Saltar al contenido" se cuelan en capturas de un elemento.
+        await page.addStyleTag({
+          content: 'header, a[href="#contenido"] { visibility: hidden !important; }',
+        });
         if (l.code === 'en') {
           await page.getByRole('radio', { name: l.hip, exact: true }).click();
           await page.getByRole('radio', { name: 'Standing seam metal', exact: true }).click();
