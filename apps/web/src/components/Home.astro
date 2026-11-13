@@ -13,6 +13,7 @@ import {
   Layers,
 } from '@lucide/astro';
 import Base from '../layouts/Base.astro';
+import RoofSection from './RoofSection.astro';
 import { getDict, type Locale } from '../i18n/ui';
 
 interface Props {
@@ -117,8 +118,11 @@ const btnPrimary =
     </div>
   </section>
 
+  <!-- Visualizador de techos -->
+  <RoofSection locale={locale} />
+
   <!-- Proceso -->
-  <section class="bg-surface-alt py-20 sm:py-28" aria-labelledby="proceso-title">
+  <section class="py-20 sm:py-28" aria-labelledby="proceso-title">
     <div class="mx-auto max-w-6xl px-4 sm:px-6">
       <h2 id="proceso-title" class="text-3xl font-extrabold sm:text-4xl">
         {w.process.title}
@@ -138,7 +142,7 @@ const btnPrimary =
   </section>
 
   <!-- Proyectos (marcador) -->
-  <section id="proyectos" class="scroll-mt-20 py-20 sm:py-28" aria-labelledby="proyectos-title">
+  <section id="proyectos" class="scroll-mt-20 bg-surface-alt py-20 sm:py-28" aria-labelledby="proyectos-title">
     <div class="mx-auto max-w-6xl px-4 sm:px-6">
       <div class="max-w-2xl">
         <h2 id="proyectos-title" class="text-3xl font-extrabold sm:text-4xl">
@@ -173,7 +177,7 @@ const btnPrimary =
   <!-- Nosotros -->
   <section
     id="nosotros"
-    class="scroll-mt-20 bg-surface-alt py-20 sm:py-28"
+    class="scroll-mt-20 py-20 sm:py-28"
     aria-labelledby="nosotros-title"
   >
     <div class="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-2">
