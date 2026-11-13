@@ -2,7 +2,7 @@
 
 Todos los recursos son **CC0** (dominio público): se pueden usar, modificar y redistribuir sin
 atribución obligatoria, también en este repositorio público. Se anotan igualmente por trazabilidad.
-Decisiones: `docs/COMPARATIVAS.md` C35–C42 y C47.
+Decisiones: `docs/COMPARATIVAS.md` C35, C39–C46 y C51 (D8).
 
 | Archivo(s) en el repo | Origen | Ficha | Licencia |
 | --- | --- | --- | --- |
@@ -16,11 +16,11 @@ Decisiones: `docs/COMPARATIVAS.md` C35–C42 y C47.
 | `textures/grass-*` | ambientCG · Grass 004 | https://ambientcg.com/view?id=Grass004 | CC0 |
 | `textures/concrete-*` | ambientCG · Concrete 048 | https://ambientcg.com/view?id=Concrete048 | CC0 |
 
-El metal de junta alzada no usa textura: geometría y material por código (C37).
+El metal de junta alzada no usa textura: geometría y material por código (C41).
 
 ## Cómo se generan los mapas
 
 `python -I packages/ui/scripts/roof-textures/build.py <carpeta-de-descargas>` convierte los
-originales (2K) en tres WebP por superficie: `-color` (en gris para teñir con el color del catálogo;
+originales en tres WebP (2K en techo y fachada; 1K en césped y hormigón) por superficie: `-color` (en gris para teñir con el color del catálogo;
 en color real para césped y hormigón), `-normal` (OpenGL) y `-orm` (R = oclusión, G = rugosidad,
 B = metal). `textures/albedo-gain.json` guarda el factor que compensa el gris al teñir.

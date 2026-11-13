@@ -1,4 +1,4 @@
-"""Convierte las texturas CC0 descargadas en los mapas WebP del visualizador 3D (C47).
+"""Convierte las texturas CC0 descargadas en los mapas WebP del visualizador 3D (C51, D8: 2K en techo y fachada, 1K en suelo).
 
 Uso (Python 3 con Pillow y NumPy):
 
@@ -288,6 +288,7 @@ def main() -> None:
         Path(f'{g4}_Roughness.jpg'),
         Path(f'{g4}_AmbientOcclusion.jpg'),
         tint=False,
+        size=(1024, 1024),
     )
     c48 = src / 'Concrete048/x/Concrete048_2K-JPG'
     gains['concrete'] = standard(
@@ -297,6 +298,7 @@ def main() -> None:
         Path(f'{c48}_Roughness.jpg'),
         Path(f'{c48}_AmbientOcclusion.jpg'),
         tint=False,
+        size=(1024, 1024),
     )
 
     manifest = {k: round(v, 4) for k, v in gains.items()}

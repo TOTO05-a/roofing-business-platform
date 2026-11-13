@@ -283,21 +283,29 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 **Alternativa descartada:** usar siempre el modelo más capaz (más caro y agota antes el límite de uso) o siempre el más barato (riesgo en seguridad y pagos).
 
-### C32. Visualizador 3D realista frente a texturas con IA (13-11-2026)
+### C35. Texturas del visualizador 3D: ¿cómo se guardan? → D8 (13-11-2026)
+
+| Opción | A favor | En contra | Por qué |
+| --- | --- | --- | --- |
+| ✅ **A. Reducir a 1K/2K solo con los mapas necesarios** (2K en techo y fachada, 1K en el resto; ≈ 8–15 MB) | Repo ligero; sin servicios externos; calidad casi idéntica | Si alguna superficie pierde calidad visible se deja en 4K y se avisa (W12) | Decisión del cliente |
+| B. Git LFS | Archivos grandes fuera del historial normal | Gratis solo hasta 1 GB de espacio y 1 GB de descarga al mes; con costo si se excede | Riesgo de costo (I8) |
+| C. Subir los originales tal cual (≈ 55 MB o más) | Sin conversión | Engorda mucho el repo y cada clonado | Innecesario |
+
+### C36. Visualizador 3D realista frente a texturas con IA (13-11-2026)
 
 | Opción | A favor | En contra | Por qué |
 | --- | --- | --- | --- |
 | ✅ **Visualizador 3D realista** | Realismo muy alto; transiciones 3D posibles; sin costo | Más peso y trabajo | La prioridad es que se vea realista (W13) |
 | Texturas generadas con IA sobre el 2D | Fotos muy vistosas | Tiene costo en créditos; la casa seguiría en 2D | Choca con I1/I8 y no da transiciones 3D |
 
-### C33. Base del visualizador 3D (13-11-2026)
+### C37. Base del visualizador 3D (13-11-2026)
 
 | Opción | A favor | En contra | Por qué |
 | --- | --- | --- | --- |
 | ✅ **React Three Fiber + drei** | Escena como componentes React; encaja con la isla de Astro y `/componentes`; drei trae HDRI, sombras, controles y carga de texturas; posprocesado disponible | ≈ +150 kB; R3F 9.8 admite React hasta 19.3 | Más rápido llegar a algo realista y más mantenible (W13) |
 | Three.js directo | Mínima dependencia; control total | Montaje, cambio de tamaño, liberación de GPU, HDRI y controles a mano; más riesgo de fugas | Solo compensaría si el peso importara |
 
-### C34. Casa 3D: ¿por código o modelo descargado? (13-11-2026)
+### C38. Casa 3D: ¿por código o modelo descargado? (13-11-2026)
 
 | Opción | A favor | En contra | Por qué |
 | --- | --- | --- | --- |
@@ -305,7 +313,7 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 | Modelo GLB descargado | Más detalle de partida | Casi no hay casas ranch CC0; Sketchfab suele ser CC-BY o de pago; techo fijo con UV inservibles; varios MB | No resuelve lo principal y arriesga la licencia |
 | Mixto (código + adornos GLB CC0) | Escena más viva | Otra descarga que revisar | Puede decidirse después sin cambiar la base |
 
-### C35. Iluminación del visualizador 3D (13-11-2026)
+### C39. Iluminación del visualizador 3D (13-11-2026)
 
 | Opción | A favor | En contra | Por qué |
 | --- | --- | --- | --- |
@@ -313,7 +321,7 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 | Cielo procedural (`Sky` + `Lightformer`) | Sin descargas ni licencias | Reflejos planos, aspecto de estudio | Pierde realismo |
 | `Environment preset` de drei | Una línea | Descarga desde un CDN externo en cada visita; licencia fuera del repo | Dependencia de terceros |
 
-### C36. Texturas de teja asfáltica (13-11-2026)
+### C40. Texturas de teja asfáltica (13-11-2026)
 
 | Material | Opción | A favor | En contra |
 | --- | --- | --- | --- |
@@ -325,7 +333,7 @@ Fuentes: investigación del 12-11-2026 con páginas oficiales de precios y docum
 
 Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3dtextures.me (CC0).
 
-### C37. Metal de junta alzada (13-11-2026)
+### C41. Metal de junta alzada (13-11-2026)
 
 | Opción | A favor | En contra | Por qué |
 | --- | --- | --- | --- |
@@ -333,7 +341,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Lo mismo + ambientCG `Metal027` | Grano fino de pintura | 6,3–24,9 MB; casi invisible a esa distancia | Mejora mínima |
 | Chapa ondulada o grecada CC0 | Foto ya hecha | Es otro producto (industrial) | Confundiría al cliente |
 
-### C38. Textura de teja de barro o concreto (13-11-2026)
+### C42. Textura de teja de barro o concreto (13-11-2026)
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -343,7 +351,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Poly Haven `roof_tiles` | Realista | Envejecida y apagada |
 | TextureCan `rooftop_0008` | Limpia | Teja plana; ZIP de 49 MB |
 
-### C39. Textura de pizarra (13-11-2026)
+### C43. Textura de pizarra (13-11-2026)
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -351,7 +359,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Poly Haven `roof_slates_02` | Escaneo real | Vieja y desigual |
 | ambientCG `RoofingTiles003` | Limpia | Verdosa, aspecto de render; 25 MB |
 
-### C40. Textura de tejuela de cedro (13-11-2026)
+### C44. Textura de tejuela de cedro (13-11-2026)
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -361,7 +369,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | 3dtextures.me `Wood Roof Shingles 002` | Cálida | Piezas pequeñas; descarga desde Google Drive |
 | 3dtextures.me `Wood Shingles 001` | — | Estilizada |
 
-### C41. Paredes de la casa 3D (13-11-2026)
+### C45. Paredes de la casa 3D (13-11-2026)
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -369,7 +377,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Revestimiento por código | Sin descargas | Aspecto de render |
 | Ladrillo (`Bricks051`, `exterior_wall_cladding_02`) | Ranch de ladrillo es común | Compite con el color del techo; 27 MB |
 
-### C42. Suelo de la escena 3D (13-11-2026)
+### C46. Suelo de la escena 3D (13-11-2026)
 
 | Elemento | Opción | A favor | En contra |
 | --- | --- | --- | --- |
@@ -379,7 +387,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Entrada | `Concrete034` | 10,6 MB | Parece yeso |
 | Entrada | `Concrete047A` | — | Sucio |
 
-### C43. Controles de cámara (13-11-2026)
+### C47. Controles de cámara (13-11-2026)
 
 | Opción | A favor | En contra | Por qué |
 | --- | --- | --- | --- |
@@ -388,7 +396,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | `OrbitControls` libre | Libertad total | Trasera vacía, atraviesa el suelo, secuestra la página | Accesibilidad y experiencia |
 | Giro automático | Llamativo | Molesta; hay que pausarlo (WCAG 2.2.2) | No aporta |
 
-### C44. Transiciones 3D (13-11-2026)
+### C48. Transiciones 3D (13-11-2026)
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -396,7 +404,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Tejas que caen una a una | Llamativo | Miles de piezas modeladas; abandona las texturas aprobadas; menos fluido |
 | Fundido cruzado | Simple | Plano, como en 2D |
 
-### C45. ¿Qué hacer con el visualizador 2D? (13-11-2026)
+### C49. ¿Qué hacer con el visualizador 2D? (13-11-2026)
 
 | Opción | A favor | En contra | Por qué |
 | --- | --- | --- | --- |
@@ -404,7 +412,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | ✅ **Eliminarlo** | Menos código; una sola representación | Hay que resolver la carga y la falta de WebGL de otra forma; rehacer pruebas | Decisión del cliente |
 | Selector 2D / 3D | El usuario elige | Más interfaz; el 2D parece la versión pobre | Complica |
 
-### C46. Carga del 3D y equipos sin WebGL (13-11-2026)
+### C50. Carga del 3D y equipos sin WebGL (13-11-2026)
 
 | Opción | A favor | En contra | Por qué |
 | --- | --- | --- | --- |
@@ -412,7 +420,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | ✅ **Solo indicador de carga** | Lo más simple; nada que mantener | 1–3 s de recuadro gris | Decisión del cliente |
 | Carga por fases (512 px → 2K) | Aparece antes | Doble de texturas; salto de nitidez | Complejo |
 
-### C47. Formato de las texturas en el repo (13-11-2026)
+### C51. Formato de las texturas en el repo (13-11-2026)
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
@@ -420,7 +428,7 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | KTX2 / Basis Universal | 4–8× menos memoria gráfica | Descargar un ejecutable codificador; decodificador WASM; artefactos en normales |
 | JPG/PNG originales | Sin conversión | 40–60 MB en el repo; más mapas y memoria |
 
-### C48. Posprocesado del 3D (13-11-2026)
+### C52. Posprocesado del 3D (13-11-2026)
 
 | Opción | A favor | En contra |
 | --- | --- | --- |
