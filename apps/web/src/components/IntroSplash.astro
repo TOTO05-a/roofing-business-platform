@@ -152,11 +152,14 @@ const t = getDict(Astro.props.locale);
 </style>
 
 <script is:inline>
-  // Botón "Saltar": cierra la animación al instante.
-  const skip = document.querySelector('[data-intro-skip]');
-  if (skip) {
-    skip.addEventListener('click', () => {
-      document.documentElement.setAttribute('data-intro', 'done');
-    });
-  }
+  // Botón "Saltar": cierra la animación al instante. Va en una función para que, con el
+  // `ClientRouter`, volver a ejecutar el script al navegar no redeclare variables globales.
+  (() => {
+    const skip = document.querySelector('[data-intro-skip]');
+    if (skip) {
+      skip.addEventListener('click', () => {
+        document.documentElement.setAttribute('data-intro', 'done');
+      });
+    }
+  })();
 </script>

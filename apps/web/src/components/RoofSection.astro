@@ -22,7 +22,12 @@ const v = getDict(locale).visualizer;
       <p class="mt-4 text-lg text-fg-muted">{v.intro}</p>
     </div>
     <div class="mt-10 sm:mt-12">
-      <RoofVisualizer client:visible locale={locale} labels={v} ctaHref={`/${locale}/#contacto`} />
+      <RoofVisualizer
+        client:visible={{ rootMargin: '300px' }}
+        locale={locale}
+        labels={v}
+        ctaHref={`/${locale}/#contacto`}
+      />
     </div>
   </div>
 </section>
