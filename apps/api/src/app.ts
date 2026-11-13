@@ -9,6 +9,7 @@ import { adminRouter } from './routes/admin.js';
 import { invitationsRouter } from './routes/invitations.js';
 import { meRouter } from './routes/me.js';
 import { profilesRouter } from './routes/profiles.js';
+import { propertiesRouter } from './routes/properties.js';
 import type { AppServices } from './services.js';
 
 export { HttpError } from './lib/http-error.js';
@@ -106,6 +107,7 @@ export function createApp(services: AppServices): Express {
   app.use('/api/invitations', invitationsRouter(services));
   app.use('/api/admin', adminRouter(services));
   app.use('/api', profilesRouter(services));
+  app.use('/api', propertiesRouter(services));
 
   app.use(notFound);
   app.use(createErrorHandler(env.NODE_ENV === 'production'));

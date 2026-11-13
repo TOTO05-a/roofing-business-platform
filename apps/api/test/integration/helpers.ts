@@ -258,3 +258,36 @@ export async function waitForMail(ctx: TestContext, email: string): Promise<Mail
   }
   throw new Error(`No llegó ningún correo a ${email}`);
 }
+
+/** Inicia sesión con una cuenta ya creada (sin 2FA: para CUSTOMER y EMPLOYEE). */
+export async function loginAs(ctx: TestContext, user: CreatedUser): Promise<Agent> {
+  const agent = newAgent(ctx.app);
+  const res = await signIn(agent, user.email, user.password);
+  expect(res.status, JSON.stringify(res.body)).toBe(200);
+  return agent;
+}
+
+/** Una propiedad válida de un cliente (la crea el dueño, saltando la RLS). */
+export async function createProperty(
+  db: Db,
+  customerId: string,
+  overrides: { addressLine1?: string; city?: string; zip?: string } = {},
+): Promise<string> {
+  const property = await db.property.create({
+    data: {
+      customerId,
+      addressLine1: overrides.addressLine1 ?? '100 Calle Ficticia',
+      city: overrides.city ?? 'Miami',
+      state: 'FL',
+      zip: overrides.zip ?? '33101',
+    },
+    select: { id: true },
+  });
+  return property.id;
+}
+
+/** Empleado con cuenta y perfil, listo para iniciar sesión. */
+export async function createEmployee(db: Db): Promise<CreatedUser & { employeeId: string }> {
+  const user = await createUser(db, { role: 'EMPLOYEE' });
+  return user as CreatedUser & { employeeId: string };
+}

@@ -2,10 +2,57 @@ import { z } from 'zod';
 
 /** Estados de EE. UU. (50 + DC): la misma lista que la función `is_us_state` de la base de datos. */
 export const US_STATES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA',
-  'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM',
-  'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA',
-  'WV', 'WI', 'WY',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'DC',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
 ] as const;
 
 export const stateSchema = z
@@ -45,4 +92,16 @@ export function optionalText(max: number) {
 /** Convierte un Decimal de Prisma (o null) en número para la respuesta JSON. */
 export function decimalToNumber(value: { toNumber(): number } | null | undefined): number | null {
   return value === null || value === undefined ? null : value.toNumber();
+}
+
+/**
+ * Quita las claves con valor `undefined` (con `exactOptionalPropertyTypes`, Prisma no las
+ * acepta): lo que Zod deja sin enviar no se escribe, y `null` sí vacía el campo.
+ */
+export function omitUndefined<T extends Record<string, unknown>>(
+  value: T,
+): { [K in keyof T]: Exclude<T[K], undefined> } {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as {
+    [K in keyof T]: Exclude<T[K], undefined>;
+  };
 }
