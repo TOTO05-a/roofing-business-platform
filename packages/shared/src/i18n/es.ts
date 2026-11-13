@@ -480,6 +480,13 @@ export const es = {
     svgTitle: 'Vista previa de su techo',
     svgDescription:
       'Casa residencial de una planta con techo a {{shape}}, en {{material}}, color {{color}}.',
+    loading: 'Cargando la vista 3D',
+    noWebgl:
+      'Su navegador no puede mostrar la vista 3D. Puede elegir forma, material y color igualmente: el texto bajo este recuadro describe su selección.',
+    viewLabel: 'Vista de la cámara',
+    viewFront: 'Frente',
+    viewCorner: 'Esquina',
+    viewTop: 'Desde arriba',
     cta: 'Solicitar inspección',
     note: 'Los colores de la pantalla son aproximados; el tono final depende del fabricante y de la luz.',
   },

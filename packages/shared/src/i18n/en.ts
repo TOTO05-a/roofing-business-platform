@@ -484,6 +484,13 @@ export const en: Dictionary = {
     svgTitle: 'Preview of your roof',
     svgDescription:
       'One-story residential home with a {{shape}} roof, in {{material}}, color {{color}}.',
+    loading: 'Loading the 3D view',
+    noWebgl:
+      'Your browser cannot show the 3D view. You can still choose shape, material and color: the text below this box describes your selection.',
+    viewLabel: 'Camera view',
+    viewFront: 'Front',
+    viewCorner: 'Corner',
+    viewTop: 'Top view',
     cta: 'Request an inspection',
     note: 'Screen colors are approximate; the final shade depends on the manufacturer and the light.',
   },
