@@ -43,31 +43,56 @@ function configure(tex: Texture, id: SurfaceId, srgb: boolean, anisotropy: numbe
   return tex;
 }
 
-/** Carga (una sola vez) los tres mapas de una superficie. */
+/** Referencias vivas de cada superficie: cada `loadSurface` que resuelve suma una. */
+const refs = new Map<SurfaceId, number>();
+
+/**
+ * Carga (una sola vez) los tres mapas de una superficie y toma una referencia: quien la reciba
+ * debe llamar a `releaseSurface` exactamente una vez cuando deje de usarla. Si la carga falla no
+ * queda ninguna referencia.
+ */
 export function loadSurface(id: SurfaceId, anisotropy = 8): Promise<SurfaceTextures> {
+  refs.set(id, (refs.get(id) ?? 0) + 1);
   const hit = cache.get(id);
   if (hit) return hit;
   const urls = surfaceUrls[id];
-  const promise = Promise.all([
+  const promise: Promise<SurfaceTextures> = Promise.all([
     loader.loadAsync(urls.color),
     loader.loadAsync(urls.normal),
     loader.loadAsync(urls.orm),
-  ]).then(([color, normal, orm]) => {
-    const set = {
-      color: configure(color, id, true, anisotropy),
-      normal: configure(normal, id, false, anisotropy),
-      orm: configure(orm, id, false, anisotropy),
-    };
-    resolved.set(id, set);
-    return set;
-  });
-  promise.catch(() => cache.delete(id));
+  ]).then(
+    ([color, normal, orm]) => {
+      const set = {
+        color: configure(color, id, true, anisotropy),
+        normal: configure(normal, id, false, anisotropy),
+        orm: configure(orm, id, false, anisotropy),
+      };
+      resolved.set(id, set);
+      return set;
+    },
+    (error: unknown) => {
+      if (cache.get(id) === promise) {
+        cache.delete(id);
+        refs.delete(id);
+      }
+      throw error;
+    },
+  );
   cache.set(id, promise);
   return promise;
 }
 
-/** Libera la memoria de vídeo de una superficie (se volverá a cargar si hace falta). */
+/**
+ * Suelta una referencia de la superficie; al llegar a 0 libera la memoria de vídeo (se volverá a
+ * cargar si hace falta).
+ */
 export function releaseSurface(id: SurfaceId) {
+  const left = (refs.get(id) ?? 0) - 1;
+  if (left > 0) {
+    refs.set(id, left);
+    return;
+  }
+  refs.delete(id);
   const set = resolved.get(id);
   if (!set) return;
   set.color.dispose();

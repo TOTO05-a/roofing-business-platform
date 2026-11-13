@@ -1,4 +1,4 @@
-import type { Dictionary } from '@roofing/shared/i18n';
+import { dictionaries, type Dictionary } from '@roofing/shared/i18n';
 import {
   getRoofMaterial,
   roofMaterials,
@@ -116,7 +116,14 @@ function Option({
   children: ReactNode;
 }) {
   return (
-    <label className={clsx(itemBase, checked && itemChecked, className)}>
+    <label
+      className={clsx(
+        itemBase,
+        'has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--ring)]',
+        checked && itemChecked,
+        className,
+      )}
+    >
       <input
         type="radio"
         name={name}
@@ -278,8 +285,16 @@ export function RoofVisualizer({
               <p className="max-w-md text-fg">{labels.noWebgl}</p>
             </div>
           ) : (
+            // Sin JavaScript (o mientras se detecta WebGL) no hay barra de carga eterna.
+            webgl === 'ok' &&
             !ready && <LoadingSkeleton label={labels.loading} progress={progress} />
           )}
+          <noscript>
+            <div className="absolute inset-0 grid place-items-center gap-2 p-6 text-center text-fg">
+              <p lang="es">{dictionaries.es.visualizer.noWebgl}</p>
+              <p lang="en">{dictionaries.en.visualizer.noWebgl}</p>
+            </div>
+          </noscript>
         </div>
         <p id={ids.desc} className="sr-only">
           {description}

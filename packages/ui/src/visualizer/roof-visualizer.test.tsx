@@ -2,16 +2,21 @@ import { dictionaries } from '@roofing/shared/i18n';
 import { roofMaterials, type RoofMaterial } from '@roofing/shared/visualizer';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const webgl = vi.hoisted(() => ({ supported: true }));
-const sceneProps = vi.hoisted(() => ({ last: null as null | Record<string, unknown> }));
+const sceneProps = vi.hoisted(() => ({
+  last: null as null | Record<string, unknown>,
+  throwOnRender: false,
+}));
 
 vi.mock('./3d/webgl', () => ({ hasWebGL: () => webgl.supported }));
 // La escena 3D (three) no se ejecuta en jsdom: se sustituye por un módulo lazy mínimo.
 vi.mock('./3d/scene-canvas', () => ({
   default: (props: Record<string, unknown>) => {
     sceneProps.last = props;
+    if (sceneProps.throwOnRender) throw new Error('fallo de render');
     return <canvas data-testid="scene" />;
   },
 }));
@@ -24,6 +29,7 @@ const en = dictionaries.en.visualizer;
 beforeEach(() => {
   webgl.supported = true;
   sceneProps.last = null;
+  sceneProps.throwOnRender = false;
 });
 
 function setup(props: Partial<Parameters<typeof RoofVisualizer>[0]> = {}) {
@@ -141,6 +147,33 @@ describe('RoofVisualizer (3D)', () => {
     await user.click(screen.getByRole('radio', { name: 'Cuatro aguas' }));
     expect(container.querySelector('[data-shape]')).toHaveAttribute('data-shape', 'hip');
     expect(screen.getByRole('status')).toHaveTextContent('Techo, cuatro aguas');
+  });
+
+  it('onError de la escena muestra el aviso sin WebGL y retira el esqueleto', async () => {
+    const { container } = setup();
+    await screen.findByTestId('scene');
+    act(() => (sceneProps.last!.onError as () => void)());
+    expect(await screen.findByText(es.noWebgl)).toBeInTheDocument();
+    expect(screen.queryByTestId('scene')).toBeNull();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(container.querySelector('[data-shape]')).toHaveAttribute('data-webgl', 'none');
+  });
+
+  it('un error al renderizar la escena (boundary) cae al aviso de texto', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    sceneProps.throwOnRender = true;
+    setup();
+    expect(await screen.findByText(es.noWebgl)).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    spy.mockRestore();
+  });
+
+  it('al pasar a ready desaparece el esqueleto de carga', async () => {
+    setup();
+    await screen.findByRole('progressbar', { name: es.loading });
+    act(() => (sceneProps.last!.onReady as () => void)());
+    await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
+    expect(screen.getByTestId('scene')).toBeInTheDocument();
   });
 
   it('el botón de solicitud apunta a ctaHref', () => {

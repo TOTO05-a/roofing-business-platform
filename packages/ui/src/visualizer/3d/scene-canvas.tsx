@@ -38,9 +38,10 @@ interface Quality {
 }
 
 function detectQuality(): Quality {
+  // T24: calidad media automática en celulares (pantalla estrecha o puntero táctil principal).
   const mobile =
     window.innerWidth < 768 ||
-    (typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4);
+    (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches);
   return {
     mobile,
     dpr: mobile ? [1, 1.5] : [1, 2],
@@ -209,6 +210,7 @@ function Contents({
         trimMaterial={m.trim}
         metalTrimMaterial={m.aluminum}
         onReady={onReady}
+        onError={props.onError}
       />
       <CameraRig view={props.view} reduced={props.reduced} onUserRotate={props.onUserRotate} />
       <EffectComposer multisampling={4}>

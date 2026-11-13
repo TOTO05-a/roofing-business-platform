@@ -1,6 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import type { RoofMaterialId, RoofShape } from '@roofing/shared/visualizer';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   BufferAttribute,
   BufferGeometry,
@@ -24,26 +24,24 @@ import {
   gableInfillPolygon,
   roofDerived,
   ROOF_PARAMS,
-  type RoofData,
 } from './roof-geometry';
 import { releaseSurface } from './textures';
 import { EaveDetails } from './eave-details';
+import { toGeometry, updateGeometry } from './roof-buffers';
+import {
+  accelerateWipe,
+  advanceWipe,
+  COLOR_MS,
+  createShapeAnim,
+  retargetShape,
+  SHAPE_MS,
+  stepShape,
+  WIPE_MS,
+  type ShapeAnim,
+  type WipeClock,
+} from './transitions';
 
-export const SHAPE_MS = 900;
-export const WIPE_MS = 1100;
-export const COLOR_MS = 400;
-
-function toGeometry(d: RoofData): BufferGeometry {
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(d.positions, 3));
-  g.setAttribute('normal', new BufferAttribute(d.normals, 3));
-  g.setAttribute('uv', new BufferAttribute(d.uvs, 2));
-  // Segundo juego de UV (iguales) para el mapa de oclusión ambiental.
-  g.setAttribute('uv1', new BufferAttribute(d.uvs.slice(), 2));
-  g.setIndex(new BufferAttribute(d.indices, 1));
-  g.computeBoundingSphere();
-  return g;
-}
+export { COLOR_MS, SHAPE_MS, WIPE_MS };
 
 function infillGeometry(poly: [number, number][], x: number): BufferGeometry | null {
   if (poly.length < 3) return null;
@@ -83,6 +81,8 @@ export interface RoofRigProps {
   trimMaterial: Material;
   metalTrimMaterial: Material;
   onReady: () => void;
+  /** La carga inicial del techo falló (sin texturas no hay escena útil). */
+  onError: () => void;
 }
 
 interface Fade {
@@ -91,10 +91,9 @@ interface Fade {
   elapsed: number;
 }
 
-interface Wipe {
+interface Wipe extends WipeClock {
   old: RoofMaterialHandle;
   nw: RoofMaterialHandle;
-  elapsed: number;
 }
 
 const cloneAppearance = (a: Appearance): Appearance => ({ ...a, color: a.color.clone() });
@@ -118,12 +117,13 @@ export function RoofRig(props: RoofRigProps) {
   const [ends, setEnds] = useState(shape === 'hip');
 
   const sim = useRef({
-    t: shape === 'hip' ? 1 : 0,
-    tFrom: 0,
-    tTo: shape === 'hip' ? 1 : 0,
-    tElapsed: 0,
-    tActive: false,
+    shape: createShapeAnim(shape === 'hip' ? 1 : 0) as ShapeAnim,
     current: null as RoofMaterialHandle | null,
+    /** Material ya cargado que espera a que termine el barrido en curso. */
+    pending: null as RoofMaterialHandle | null,
+    mounted: true,
+    released: new WeakSet<RoofMaterialHandle>(),
+    timers: new Map<ReturnType<typeof setTimeout>, RoofMaterialHandle>(),
     token: 0,
     fade: null as Fade | null,
     wipe: null as Wipe | null,
@@ -139,6 +139,10 @@ export function RoofRig(props: RoofRigProps) {
   const infill = useRef<[Mesh | null, Mesh | null]>([null, null]);
   const onReadyRef = useRef(props.onReady);
   onReadyRef.current = props.onReady;
+  const onErrorRef = useRef(props.onError);
+  onErrorRef.current = props.onError;
+  const reducedRef = useRef(reduced);
+  reducedRef.current = reduced;
 
   const metalVisible = () => {
     const s = sim.current;
@@ -147,15 +151,25 @@ export function RoofRig(props: RoofRigProps) {
 
   const rebuild = useCallback(() => {
     const s = sim.current;
-    const params = { ...ROOF_PARAMS, hipInset: s.t };
+    const params = { ...ROOF_PARAMS, hipInset: s.shape.t };
     const prev = geo.current;
-    const roof = toGeometry(buildRoofData(params));
-    const ribs = metalVisible() ? toGeometry(buildRibsData(params)) : null;
-    geo.current = { roof, ribs };
-    for (const m of roofMeshes.current) m.geometry = roof;
-    for (const m of ribMeshes.current) m.geometry = ribs ?? roof;
-    prev.roof?.dispose();
-    prev.ribs?.dispose();
+    // Si el número de vértices no cambia se reutilizan los atributos; si cambia, se regenera.
+    const roofData = buildRoofData(params);
+    const roofNext = prev.roof ? updateGeometry(prev.roof, roofData) : toGeometry(roofData);
+    const ribsData = metalVisible() ? buildRibsData(params) : null;
+    const ribs = ribsData
+      ? prev.ribs
+        ? updateGeometry(prev.ribs, ribsData)
+        : toGeometry(ribsData)
+      : null;
+    geo.current = { roof: roofNext, ribs };
+    for (const m of roofMeshes.current) if (m.geometry !== roofNext) m.geometry = roofNext;
+    for (const m of ribMeshes.current) {
+      const g = ribs ?? roofNext;
+      if (m.geometry !== g) m.geometry = g;
+    }
+    if (prev.roof && prev.roof !== roofNext) prev.roof.dispose();
+    if (prev.ribs && prev.ribs !== ribs) prev.ribs.dispose();
     const poly = gableInfillPolygon(params);
     [-1, 1].forEach((sign, i) => {
       const mesh = infill.current[i];
@@ -176,14 +190,31 @@ export function RoofRig(props: RoofRigProps) {
 
   // Geometría inicial (antes del primer render del techo).
   if (!geo.current.roof) {
-    const params = { ...ROOF_PARAMS, hipInset: sim.current.t };
+    const params = { ...ROOF_PARAMS, hipInset: sim.current.shape.t };
     geo.current = { roof: toGeometry(buildRoofData(params)), ribs: null };
   }
 
+  /** Libera un material y su superficie exactamente una vez, aunque se pida más de una. */
   const releaseHandle = useCallback((h: RoofMaterialHandle) => {
+    const { released } = sim.current;
+    if (released.has(h)) return;
+    released.add(h);
     h.material.dispose();
     if (h.surface) releaseSurface(h.surface);
   }, []);
+
+  /** Libera un material un instante después, para que ningún fotograma pinte la malla retirada. */
+  const releaseLater = useCallback(
+    (h: RoofMaterialHandle) => {
+      const { timers } = sim.current;
+      const id = setTimeout(() => {
+        timers.delete(id);
+        releaseHandle(h);
+      }, 250);
+      timers.set(id, h);
+    },
+    [releaseHandle],
+  );
 
   const finishWipe = useCallback(() => {
     const s = sim.current;
@@ -192,15 +223,42 @@ export function RoofRig(props: RoofRigProps) {
     w.old.wipe.mode.value = 0;
     w.nw.wipe.mode.value = 0;
     s.wipe = null;
-    // Se libera un instante después para que ningún fotograma pinte la malla ya retirada.
-    setTimeout(() => releaseHandle(w.old), 250);
+    releaseLater(w.old);
     setLayers({ current: s.current, prev: null });
+  }, [releaseLater]);
+
+  /** Empieza el barrido (o el cambio instantáneo) del material actual al `handle` ya cargado. */
+  const swapTo = useCallback(
+    (handle: RoofMaterialHandle) => {
+      const s = sim.current;
+      const old = s.current!;
+      s.current = handle;
+      if (reducedRef.current) {
+        setLayers({ current: handle, prev: null });
+        releaseLater(old);
+      } else {
+        old.wipe.mode.value = 1;
+        handle.wipe.mode.value = 2;
+        old.wipe.front.value = handle.wipe.front.value = ROOF_PARAMS.eaveY - 1;
+        s.wipe = { old, nw: handle, p: 0, rate: 1 };
+        setLayers({ current: handle, prev: old });
+      }
+      rebuild();
+    },
+    [rebuild, releaseLater],
+  );
+
+  const dropPending = useCallback(() => {
+    const s = sim.current;
+    if (s.pending) releaseHandle(s.pending);
+    s.pending = null;
   }, [releaseHandle]);
 
   // Cambios de material y de color.
   useEffect(() => {
     const s = sim.current;
     const target = appearanceFor(materialId, colorId, hex);
+    dropPending();
 
     if (s.current?.id === materialId) {
       // Solo cambia el color: fundido desde el aspecto actual (y se cancela una carga pendiente).
@@ -218,7 +276,7 @@ export function RoofRig(props: RoofRigProps) {
     const token = ++s.token;
     createRoofMaterial(materialId, anisotropy)
       .then((handle) => {
-        if (token !== s.token) {
+        if (!s.mounted || token !== s.token) {
           releaseHandle(handle);
           return;
         }
@@ -231,29 +289,33 @@ export function RoofRig(props: RoofRigProps) {
           if (!s.ready) {
             s.ready = true;
             // Dos fotogramas para que la textura suba a la GPU antes de retirar la carga.
-            requestAnimationFrame(() => requestAnimationFrame(() => onReadyRef.current()));
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => {
+                if (s.mounted) onReadyRef.current();
+              }),
+            );
           }
           return;
         }
-        finishWipe();
-        const old = s.current;
-        s.current = handle;
-        if (reduced) {
-          setLayers({ current: handle, prev: null });
-          setTimeout(() => releaseHandle(old), 250);
-          rebuild();
-        } else {
-          old.wipe.mode.value = 1;
-          handle.wipe.mode.value = 2;
-          old.wipe.front.value = handle.wipe.front.value = ROOF_PARAMS.eaveY - 1;
-          s.wipe = { old, nw: handle, elapsed: 0 };
-          setLayers({ current: handle, prev: old });
-          rebuild();
+        if (s.wipe) {
+          if (reduced) {
+            finishWipe();
+          } else {
+            // Barrido en curso: se acelera hasta completarlo y el nuevo encadena después, sin saltos.
+            s.pending = handle;
+            s.wipe = { ...s.wipe, ...accelerateWipe(s.wipe) };
+            invalidate();
+            return;
+          }
         }
+        swapTo(handle);
         invalidate();
       })
-      .catch(() => {
-        // Sin textura no hay techo nuevo: se conserva el estado anterior.
+      .catch((error: unknown) => {
+        console.error('No se pudo cargar el material del techo', error);
+        if (!s.mounted || token !== s.token) return;
+        // Carga inicial: aviso sin WebGL. Cargas posteriores: se conserva el techo anterior.
+        if (!s.current) onErrorRef.current();
       });
   }, [
     materialId,
@@ -265,24 +327,18 @@ export function RoofRig(props: RoofRigProps) {
     rebuild,
     finishWipe,
     releaseHandle,
+    dropPending,
+    swapTo,
   ]);
 
   // Cambio de forma.
   useEffect(() => {
     const s = sim.current;
-    const to = shape === 'hip' ? 1 : 0;
-    if (to === s.tTo && !s.tActive) return;
-    s.tTo = to;
-    if (reduced) {
-      s.t = to;
-      s.tActive = false;
-      rebuild();
-      return;
-    }
-    s.tFrom = s.t;
-    s.tElapsed = 0;
-    s.tActive = true;
-    invalidate();
+    const next = retargetShape(s.shape, shape === 'hip' ? 1 : 0, reduced);
+    if (next === s.shape) return;
+    s.shape = next;
+    if (next.active) invalidate();
+    else rebuild();
   }, [shape, reduced, invalidate, rebuild]);
 
   useFrame((_, rawDelta) => {
@@ -290,14 +346,9 @@ export function RoofRig(props: RoofRigProps) {
     const dt = Math.min(rawDelta, 0.05) * 1000;
     let busy = false;
 
-    if (s.tActive) {
-      s.tElapsed += dt;
-      const p = Math.min(1, s.tElapsed / SHAPE_MS);
-      s.t = s.tFrom + (s.tTo - s.tFrom) * easeInOutCubic(p);
-      if (p >= 1) {
-        s.t = s.tTo;
-        s.tActive = false;
-      } else busy = true;
+    if (s.shape.active) {
+      s.shape = stepShape(s.shape, dt);
+      if (s.shape.active) busy = true;
       rebuild();
     }
 
@@ -317,30 +368,58 @@ export function RoofRig(props: RoofRigProps) {
     }
 
     if (s.wipe) {
-      s.wipe.elapsed += dt;
-      const p = Math.min(1, s.wipe.elapsed / WIPE_MS);
+      const clock = advanceWipe(s.wipe, dt);
+      s.wipe.p = clock.p;
       const band = s.wipe.nw.wipe.band.value;
       const y0 = ROOF_PARAMS.eaveY - band;
       const y1 = roofDerived({ ...ROOF_PARAMS, hipInset: 0 }).ridgeY + band + 0.15;
-      const front = y0 + (y1 - y0) * easeInOutCubic(p);
+      const front = y0 + (y1 - y0) * easeInOutCubic(clock.p);
       s.wipe.old.wipe.front.value = front;
       s.wipe.nw.wipe.front.value = front;
-      if (p >= 1) {
+      if (clock.p >= 1) {
         finishWipe();
-        rebuild();
+        const next = s.pending;
+        s.pending = null;
+        if (next) {
+          swapTo(next);
+          busy = true;
+        } else rebuild();
       } else busy = true;
     }
 
     if (busy) invalidate();
   });
 
+  // Al desmontar: se invalida todo lo pendiente y se libera lo que sigue vivo.
   useEffect(() => {
-    const g = geo.current;
+    const s = sim.current;
+    s.mounted = true;
     return () => {
+      s.mounted = false;
+      s.token++;
+      for (const [id, h] of s.timers) {
+        clearTimeout(id);
+        releaseHandle(h);
+      }
+      s.timers.clear();
+      for (const h of [s.current, s.wipe?.old, s.wipe?.nw, s.pending]) if (h) releaseHandle(h);
+      s.current = null;
+      s.wipe = null;
+      s.pending = null;
+      s.fade = null;
+      s.ready = false;
+      const g = geo.current;
       g.roof?.dispose();
       g.ribs?.dispose();
+      for (const mesh of infill.current) mesh?.geometry.dispose();
     };
-  }, []);
+  }, [releaseHandle]);
+
+  // Las mallas de metal necesitan la geometría de los nervios en cuanto aparecen.
+  const metalShown = layers.current?.id === METAL_ID || layers.prev?.id === METAL_ID;
+  useLayoutEffect(() => {
+    if (metalShown && !geo.current.ribs) rebuild();
+  }, [metalShown, rebuild]);
 
   const renderSurface = (h: RoofMaterialHandle) => (
     <group key={h.id}>
@@ -360,7 +439,6 @@ export function RoofRig(props: RoofRigProps) {
             if (!m) return;
             ribMeshes.current.add(m);
             m.geometry = geo.current.ribs ?? geo.current.roof!;
-            if (!geo.current.ribs) queueMicrotask(rebuild);
           }}
           material={h.material}
           castShadow

@@ -3,6 +3,9 @@ import { expect, test } from '@playwright/test';
 import { APP, WEB, locales, openVisualizer, seriousViolations } from './helpers';
 import { me, mockApi } from './support/api';
 
+// La escena 3D tarda en cargar con WebGL por software (CI y equipos sin GPU): más margen que 30 s.
+test.describe.configure({ timeout: 90_000 });
+
 for (const l of locales) {
   for (const scheme of ['light', 'dark'] as const) {
     test(`visualizador ${l.code} (${scheme}): sin violaciones serious/critical, también tras cambiar`, async ({
@@ -81,7 +84,10 @@ for (const l of locales) {
     // El lienzo 3D se monta y es decorativo.
     const canvas = section.locator('[data-shape] canvas');
     await expect(canvas).toBeAttached({ timeout: 30_000 });
-    await expect(section.locator('[data-shape] [aria-hidden="true"]').first()).toBeAttached();
+    await expect(section.locator('[data-shape][data-webgl="ok"]')).toBeAttached();
+    await expect(
+      section.locator('[data-shape] [aria-hidden="true"] canvas').first(),
+    ).toBeAttached();
   });
 }
 

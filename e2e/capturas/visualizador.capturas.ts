@@ -25,7 +25,12 @@ const cases = [
     material: null,
     widths: [390, 1512],
   },
-  { id: '3-lenguetas', shape: 'Dos aguas', material: 'Teja asfáltica de 3 lengüetas', widths: [1512] },
+  {
+    id: '3-lenguetas',
+    shape: 'Dos aguas',
+    material: 'Teja asfáltica de 3 lengüetas',
+    widths: [1512],
+  },
   { id: 'metal', shape: 'Cuatro aguas', material: 'Metal de junta alzada', widths: [390, 1512] },
   { id: 'barro', shape: 'Cuatro aguas', material: 'Teja de barro o concreto', widths: [1512] },
   { id: 'pizarra', shape: 'Dos aguas', material: 'Pizarra', widths: [1512] },
@@ -35,7 +40,9 @@ const cases = [
 /** Espera a que la escena 3D termine de cargar y pinte algunos fotogramas. */
 async function sceneReady(page: Page) {
   const section = page.locator('#techos');
+  await expect(section.locator('[data-shape][data-webgl="ok"]')).toBeAttached({ timeout: 90_000 });
   await expect(section.locator('[role="progressbar"]')).toHaveCount(0, { timeout: 90_000 });
+  await expect(section.locator('[data-shape] canvas').first()).toBeVisible();
   await page.waitForTimeout(2500);
 }
 

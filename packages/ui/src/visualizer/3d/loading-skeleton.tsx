@@ -31,7 +31,7 @@ export function LoadingSkeleton({
             style={{ width: `${pct ?? 15}%` }}
           />
         </div>
-        <p className="text-sm font-semibold text-fg">
+        <p aria-hidden="true" className="text-sm font-semibold text-fg">
           {label}
           {pct === undefined ? '' : ` ${pct} %`}
         </p>
