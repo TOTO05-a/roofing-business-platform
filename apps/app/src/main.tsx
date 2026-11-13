@@ -6,6 +6,7 @@ import './i18n';
 import './index.css';
 import { RoleProvider } from './role';
 import { router } from './router';
+import { SessionProvider } from './session';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('No se encontró el elemento #root');
@@ -13,9 +14,11 @@ if (!root) throw new Error('No se encontró el elemento #root');
 createRoot(root).render(
   <StrictMode>
     <MotionProvider>
-      <RoleProvider>
-        <RouterProvider router={router} />
-      </RoleProvider>
+      <SessionProvider>
+        <RoleProvider>
+          <RouterProvider router={router} />
+        </RoleProvider>
+      </SessionProvider>
     </MotionProvider>
   </StrictMode>,
 );
