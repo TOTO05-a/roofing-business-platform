@@ -41,6 +41,13 @@ export interface Storage {
   }): Promise<PresignedUpload>;
   /** Metadatos del objeto subido, o null si no existe. */
   head(key: string): Promise<StoredObject | null>;
+  /** Sube bytes generados por la propia API (p. ej. el PDF de un presupuesto). */
+  put(input: {
+    key: string;
+    body: Uint8Array;
+    contentType: string;
+    sha256Hex: string;
+  }): Promise<void>;
   /** URL GET firmada de vida corta. */
   presignDownload(input: { key: string; downloadName?: string | undefined }): Promise<string>;
 }
@@ -101,6 +108,17 @@ export function createS3Storage(env: Env): Storage | null {
         },
         expiresInSeconds: SIGNED_URL_TTL_SECONDS,
       };
+    },
+    async put({ key, body, contentType, sha256Hex }) {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: body,
+          ContentType: contentType,
+          ChecksumSHA256: hexToBase64(sha256Hex),
+        }),
+      );
     },
     async head(key) {
       try {
