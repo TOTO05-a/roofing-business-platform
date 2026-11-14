@@ -1,0 +1,109 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import IntroSplash from '../components/IntroSplash.astro';
+import MobileBar from '../components/MobileBar.astro';
+import { alternatePath, getDict, locales, type Locale } from '../i18n/ui';
+import '../styles/global.css';
+
+interface Props {
+  locale: Locale;
+  title?: string;
+  description?: string;
+}
+const { locale } = Astro.props;
+const t = getDict(locale);
+const title = Astro.props.title ?? t.web.meta.title;
+const description = Astro.props.description ?? t.web.meta.description;
+
+const site = Astro.site ?? new URL('http://localhost:4321');
+const pathname = Astro.url.pathname;
+const abs = (p: string) => new URL(p, site).href;
+const canonical = abs(pathname);
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonical} />
+    {locales.map((l) => (
+      <link rel="alternate" hreflang={l} href={abs(alternatePath(pathname, l))} />
+    ))}
+    <link rel="alternate" hreflang="x-default" href={abs(alternatePath(pathname, 'es'))} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content={locale === 'es' ? 'es_US' : 'en_US'} />
+    <script is:inline>
+      // Aplica el tema guardado antes de pintar (y tras cada navegación con View Transitions).
+      function applyStoredTheme(doc) {
+        try {
+          const t = localStorage.getItem('theme');
+          if (t === 'light' || t === 'dark') doc.documentElement.setAttribute('data-theme', t);
+        } catch {
+          /* sin almacenamiento: se usa el tema del sistema */
+        }
+      }
+      applyStoredTheme(document);
+      document.addEventListener('astro:before-swap', function (e) {
+        applyStoredTheme(e.newDocument);
+      });
+    </script>
+    <script is:inline>
+      // Animación de entrada: una sola vez por sesión y nunca con "reducir movimiento".
+      try {
+        if (
+          !sessionStorage.getItem('intro-seen') &&
+          !matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+          sessionStorage.setItem('intro-seen', '1');
+          document.documentElement.setAttribute('data-intro', 'play');
+        }
+      } catch {
+        /* sin almacenamiento: no se muestra */
+      }
+    </script>
+    <script is:inline>
+      // Escena cinematográfica: se activa salvo con «reducir movimiento» o ahorro de datos
+      // (entonces queda la versión estática, solo CSS). Va antes de pintar para evitar saltos.
+      (function () {
+        let on = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+        try {
+          if (navigator.connection && navigator.connection.saveData) on = false;
+        } catch {
+          /* sin API: se mantiene */
+        }
+        document.documentElement.setAttribute('data-cine', on ? 'on' : 'off');
+      })();
+      document.addEventListener('astro:before-swap', function (ev) {
+        ev.newDocument.documentElement.setAttribute(
+          'data-cine',
+          document.documentElement.getAttribute('data-cine') || 'off',
+        );
+      });
+    </script>
+    <slot name="head" />
+    <ClientRouter />
+  </head>
+  <body class="min-h-dvh bg-[#0e151d] text-white">
+    <IntroSplash locale={locale} />
+    <a
+      href="#contenido"
+      class="fixed start-3 top-3 z-[60] -translate-y-20 rounded-md bg-primary px-4 py-3 font-display font-semibold text-primary-fg no-underline focus:translate-y-0"
+    >
+      {t.common.skipToContent}
+    </a>
+    <Header locale={locale} />
+    <main id="contenido" tabindex="-1" class="relative outline-none">
+      <slot />
+    </main>
+    <Footer locale={locale} />
+    <MobileBar locale={locale} />
+  </body>
+</html>

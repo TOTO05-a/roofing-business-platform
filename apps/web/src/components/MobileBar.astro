@@ -1,0 +1,37 @@
+---
+import { Phone } from '@lucide/astro';
+import { getDict, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const t = getDict(locale);
+---
+
+<div
+  role="region"
+  data-mobile-bar
+  aria-label={t.web.mobileBar.label}
+  class="on-brand mobile-bar fixed inset-x-0 bottom-0 z-40 flex gap-2 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:hidden"
+>
+  <a
+    href={`tel:${t.common.phoneHref}`}
+    class="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full border border-white/60 font-display font-semibold text-on-brand no-underline"
+  >
+    <Phone aria-hidden="true" class="size-5" />
+    {t.web.header.call}
+  </a>
+  <a
+    href={`/${locale}/#contacto`}
+    class="inline-flex min-h-12 flex-[1.6] items-center justify-center rounded-full bg-primary font-display font-semibold text-primary-fg no-underline"
+  >
+    {t.web.header.cta}
+  </a>
+</div>
+
+<style is:global>
+  .mobile-bar {
+    background: linear-gradient(to top, rgb(5 9 14 / 0.8), rgb(5 9 14 / 0));
+  }
+</style>

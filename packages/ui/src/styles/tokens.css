@@ -1,0 +1,164 @@
+/*
+ * Tokens de diseño de Cresta Roofing.
+ * Fuente única de verdad: las pruebas de contraste leen este archivo.
+ * Los colores se declaran siempre en hexadecimal (#rrggbb).
+ *
+ * Modo claro por defecto. El oscuro se activa con `prefers-color-scheme`
+ * (salvo que `data-theme="light"` lo impida) o con `data-theme="dark"`.
+ * Los dos bloques oscuros deben mantenerse idénticos (lo verifica una prueba).
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Marca */
+  --brand-slate: #1e2a38;
+  --brand-copper: #b45309;
+  --brand-copper-dark: #9a4a12;
+  --brand-sand: #f7f5f2;
+
+  /* Superficies */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-alt: #f7f5f2;
+  --surface-brand: #1e2a38;
+  --on-brand: #ffffff;
+  --on-brand-muted: #cbd5e1;
+  --on-brand-accent: #f4b27a;
+
+  /* Texto */
+  --fg: #1e2a38;
+  --fg-muted: #475467;
+
+  /* Acento y enlaces */
+  --primary: #b45309;
+  --primary-hover: #9a4a12;
+  --primary-fg: #ffffff;
+  --link: #9a4a12;
+  --link-hover: #7a3b0e;
+
+  /* Bordes y foco (componentes: contraste >= 3:1) */
+  --border: #e4e0d9;
+  --border-strong: #667085;
+  --ring: #b45309;
+  --ring-on-brand: #f4b27a;
+
+  /* Estados */
+  --success: #15803d;
+  --warning: #a16207;
+  --danger: #b91c1c;
+  --info: #1d4ed8;
+  --danger-fg: #ffffff;
+  --success-soft: #f0fdf4;
+  --warning-soft: #fefce8;
+  --danger-soft: #fef2f2;
+  --info-soft: #eff6ff;
+
+  /* Radios */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgb(30 42 56 / 0.08);
+  --shadow-md: 0 4px 12px rgb(30 42 56 / 0.1), 0 1px 3px rgb(30 42 56 / 0.06);
+  --shadow-lg: 0 16px 40px rgb(30 42 56 / 0.16), 0 2px 6px rgb(30 42 56 / 0.06);
+
+  /* Espaciado (escala de 4 px) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+
+  /* Movimiento */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --duration-slower: 500ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+
+  /* Tipografía */
+  --ff-display: 'Manrope Variable', 'Segoe UI', system-ui, sans-serif;
+  --ff-body: 'Source Sans 3 Variable', 'Segoe UI', system-ui, sans-serif;
+
+  /* Tamaño mínimo de objetivo táctil (objetivo del proyecto: 44 px) */
+  --target-min: 2.75rem;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0f1720;
+  --surface: #17212c;
+  --surface-alt: #1b2733;
+  --surface-brand: #0b1219;
+  --on-brand: #ffffff;
+  --on-brand-muted: #b6c2d1;
+  --on-brand-accent: #f4b27a;
+  --fg: #f2f4f7;
+  --fg-muted: #a9b4c2;
+  --primary: #b45309;
+  --primary-hover: #9a4a12;
+  --primary-fg: #ffffff;
+  --link: #f4b27a;
+  --link-hover: #ffd0a6;
+  --border: #2b3947;
+  --border-strong: #7c8a9b;
+  --ring: #f4b27a;
+  --ring-on-brand: #f4b27a;
+  --success: #4ade80;
+  --warning: #facc15;
+  --danger: #f87171;
+  --info: #7ca7ff;
+  --danger-fg: #0f1720;
+  --success-soft: #0f2a1a;
+  --warning-soft: #2b2408;
+  --danger-soft: #331414;
+  --info-soft: #11213f;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0f1720;
+    --surface: #17212c;
+    --surface-alt: #1b2733;
+    --surface-brand: #0b1219;
+    --on-brand: #ffffff;
+    --on-brand-muted: #b6c2d1;
+    --on-brand-accent: #f4b27a;
+    --fg: #f2f4f7;
+    --fg-muted: #a9b4c2;
+    --primary: #b45309;
+    --primary-hover: #9a4a12;
+    --primary-fg: #ffffff;
+    --link: #f4b27a;
+    --link-hover: #ffd0a6;
+    --border: #2b3947;
+    --border-strong: #7c8a9b;
+    --ring: #f4b27a;
+    --ring-on-brand: #f4b27a;
+    --success: #4ade80;
+    --warning: #facc15;
+    --danger: #f87171;
+    --info: #7ca7ff;
+    --danger-fg: #0f1720;
+    --success-soft: #0f2a1a;
+    --warning-soft: #2b2408;
+    --danger-soft: #331414;
+    --info-soft: #11213f;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.3);
+  }
+}

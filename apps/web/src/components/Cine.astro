@@ -1,0 +1,602 @@
+---
+import { ArrowRight } from '@lucide/astro';
+import { getDict, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const w = getDict(locale).web;
+
+const services = [
+  'shingle',
+  'metal',
+  'tile',
+  'flat',
+  'repair',
+  'inspection',
+  'windMitigation',
+] as const;
+const steps = ['one', 'two', 'three', 'four'] as const;
+const values = ['one', 'two', 'three'] as const;
+const points = ['one', 'two', 'three'] as const;
+
+const btnPrimary =
+  'inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-primary px-8 font-display text-lg font-semibold text-primary-fg no-underline shadow-lg transition-colors hover:bg-primary-hover';
+const btnGhost =
+  'inline-flex min-h-14 items-center justify-center rounded-full border border-white/70 px-8 font-display text-lg font-semibold text-on-brand no-underline transition-colors hover:bg-white/15';
+---
+
+<!--
+  Escena continua: un `<canvas>` fijo pinta una secuencia de fotogramas (video de stock de una casa
+  residencial) según el progreso del scroll. Las escenas de texto viven en un contenedor sticky y
+  entran y salen con GSAP ScrollTrigger. Sin JavaScript, con «reducir movimiento» o con ahorro de
+  datos, cada escena se muestra como una pantalla fija con su fotograma (versión estática).
+-->
+<div class="cine-fixed" aria-hidden="true" data-cine-fixed>
+  <canvas data-cine-canvas></canvas>
+  <div class="cine-grade cine-grade-warm" data-cine-warm></div>
+  <div class="cine-grade cine-grade-dim"></div>
+  <div class="cine-grade cine-grade-vignette"></div>
+  <div class="cine-grade cine-grade-scrim" data-cine-scrim></div>
+</div>
+
+<div
+  class="cine-track"
+  data-cine-track
+  data-frames="158"
+  aria-label={w.cine.stageLabel}
+  role="group"
+>
+  <div class="cine-stage" data-cine-stage>
+    <!-- 1 · Portada -->
+    <section class="cine-scene cine-still-1" data-scene="hero" aria-labelledby="hero-title">
+      <div class="cine-copy cine-copy-left">
+        <p class="cine-eyebrow" data-reveal>
+          {w.hero.eyebrow}
+        </p>
+        <h1 id="hero-title" class="cine-title cine-title-xl" data-reveal>
+          {w.hero.title}
+        </h1>
+        <p class="cine-lead" data-reveal>
+          {w.hero.subtitle}
+        </p>
+        <div class="mt-9 flex flex-wrap gap-3" data-reveal>
+          <a href={`/${locale}/#contacto`} class={btnPrimary}>
+            {w.hero.primaryCta}
+            <ArrowRight aria-hidden="true" class="size-5" />
+          </a>
+          <a href={`/${locale}/#servicios`} class={btnGhost}>
+            {w.hero.secondaryCta}
+          </a>
+        </div>
+        <ul class="cine-points" data-reveal>
+          {points.map((p) => (
+            <li>{w.hero.points[p]}</li>
+          ))}
+        </ul>
+        <p class="cine-note" data-reveal>
+          {w.hero.note}
+        </p>
+      </div>
+      <p class="cine-hint" data-cine-hint>
+        <span>{w.cine.scrollHint}</span>
+        <span class="cine-hint-line" aria-hidden="true"></span>
+      </p>
+    </section>
+
+    <!-- 2 · Servicios -->
+    <section
+      id="servicios"
+      class="cine-scene cine-still-2"
+      data-scene="services"
+      aria-labelledby="servicios-title"
+    >
+      <div class="cine-copy cine-copy-right">
+        <h2 id="servicios-title" class="cine-title" data-reveal>
+          {w.services.title}
+        </h2>
+        <p class="cine-lead" data-reveal>
+          {w.services.intro}
+        </p>
+        <ul class="cine-list">
+          {services.map((s) => (
+            <li data-reveal>
+              <h3>{w.services.items[s].title}</h3>
+              <p>{w.services.items[s].text}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <!-- 3 · Proceso -->
+    <section class="cine-scene cine-still-3" data-scene="process" aria-labelledby="proceso-title">
+      <div class="cine-copy cine-copy-left">
+        <h2 id="proceso-title" class="cine-title" data-reveal>
+          {w.process.title}
+        </h2>
+        <ol class="cine-steps">
+          {steps.map((s, i) => (
+            <li data-reveal>
+              <span class="cine-step-n" aria-hidden="true">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div>
+                <h3>{w.process.steps[s].title}</h3>
+                <p>{w.process.steps[s].text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    <!-- 4 · Nosotros -->
+    <section
+      id="nosotros"
+      class="cine-scene cine-still-4"
+      data-scene="about"
+      aria-labelledby="nosotros-title"
+    >
+      <div class="cine-copy cine-copy-center">
+        <h2 id="nosotros-title" class="cine-title" data-reveal>
+          {w.about.title}
+        </h2>
+        <p class="cine-lead mx-auto" data-reveal>
+          {w.about.text}
+        </p>
+        <ul class="cine-values">
+          {values.map((v) => (
+            <li data-reveal>
+              <h3>{w.about.values[v].title}</h3>
+              <p>{w.about.values[v].text}</p>
+            </li>
+          ))}
+        </ul>
+        <div class="mt-9" data-reveal>
+          <a href="#techos" class={btnGhost}>
+            {w.cine.viewerNote}
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  import { initCine } from '../scripts/cine';
+  document.addEventListener('astro:page-load', initCine);
+</script>
+
+<style is:global>
+  /* ---------- Capa fija: lienzo + gradación ---------- */
+  .cine-fixed {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: #0e151d url('/cine/d/f001.webp') center / cover no-repeat;
+    pointer-events: none;
+  }
+  @media (max-aspect-ratio: 9/10) {
+    .cine-fixed {
+      background-image: url('/cine/m/f001.webp');
+    }
+  }
+  .cine-fixed canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .cine-grade {
+    position: absolute;
+    inset: 0;
+  }
+  /* Luz cálida de «hora dorada» que crece con el recorrido. */
+  .cine-grade-warm {
+    opacity: 0;
+    mix-blend-mode: soft-light;
+    background: radial-gradient(
+      120% 90% at 85% 10%,
+      #ffb066 0%,
+      rgb(180 83 9 / 0.55) 45%,
+      transparent 75%
+    );
+  }
+  .cine-grade-dim {
+    background: #070b10;
+    opacity: var(--cine-dim);
+  }
+  .cine-grade-vignette {
+    background:
+      radial-gradient(130% 100% at 50% 40%, transparent 45%, rgb(5 9 14 / 0.55) 100%),
+      linear-gradient(to bottom, rgb(5 9 14 / 0.55), transparent 18%),
+      linear-gradient(to top, rgb(5 9 14 / 0.5), transparent 30%);
+  }
+  /* Oscurece el fondo cuando el contenido pasa a ser denso (después del recorrido). */
+  .cine-grade-scrim {
+    background: #070b10;
+    opacity: 0;
+  }
+  :root {
+    --cine-dim: 0.1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --cine-dim: 0.34;
+    }
+  }
+  :root[data-theme='dark'] {
+    --cine-dim: 0.34;
+  }
+
+  /* ---------- Pista y escenario (modo animado) ---------- */
+  .cine-track {
+    position: relative;
+    z-index: 1;
+    height: 900svh;
+  }
+  .cine-stage {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    overflow: hidden;
+  }
+  .cine-scene {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding: 5.5rem 1.25rem 3rem;
+    opacity: 0;
+    isolation: isolate;
+    will-change: opacity, transform;
+    /* Las escenas ocultas (opacidad 0) no deben tapar los clics de las activas. */
+    pointer-events: none;
+  }
+  .cine-scene a,
+  .cine-scene button {
+    pointer-events: auto;
+  }
+  @media (max-height: 700px) {
+    .cine-steps p,
+    .cine-values p {
+      display: none;
+    }
+  }
+  html:not([data-cine='on']) .cine-scene {
+    opacity: 1;
+  }
+  .cine-scene[data-scene='hero'] {
+    opacity: 1;
+  }
+  @media (max-width: 639.98px) {
+    /* La barra móvil fija ocupa la parte baja. */
+    .cine-scene {
+      padding-bottom: 5.75rem;
+    }
+  }
+  @media (min-width: 640px) {
+    .cine-scene {
+      padding-inline: 2.5rem;
+    }
+  }
+  /* Los textos se leen gracias a un degradado, no a recuadros. */
+  .cine-scene::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      rgb(5 9 14 / 0.82) 0%,
+      rgb(5 9 14 / 0.5) 45%,
+      rgb(5 9 14 / 0.15) 100%
+    );
+  }
+  @media (min-width: 900px) {
+    .cine-scene:has(.cine-copy-left)::before {
+      background: linear-gradient(
+        to right,
+        rgb(5 9 14 / 0.82) 0%,
+        rgb(5 9 14 / 0.5) 45%,
+        rgb(5 9 14 / 0) 78%
+      );
+    }
+    .cine-scene:has(.cine-copy-right)::before {
+      background: linear-gradient(
+        to left,
+        rgb(5 9 14 / 0.82) 0%,
+        rgb(5 9 14 / 0.5) 45%,
+        rgb(5 9 14 / 0) 78%
+      );
+    }
+    .cine-scene:has(.cine-copy-center)::before {
+      background: radial-gradient(
+        90% 90% at 50% 55%,
+        rgb(5 9 14 / 0.72),
+        rgb(5 9 14 / 0.3) 70%,
+        transparent
+      );
+    }
+  }
+  .cine-copy {
+    width: 100%;
+    max-width: 72rem;
+    margin-inline: auto;
+    color: #fff;
+    text-shadow: 0 1px 18px rgb(5 9 14 / 0.55);
+  }
+  .cine-copy > * {
+    max-width: 36rem;
+  }
+  .cine-copy-right > * {
+    margin-inline-start: auto;
+  }
+  .cine-copy-right {
+    text-align: left;
+  }
+  .cine-copy-center > * {
+    margin-inline: auto;
+    text-align: center;
+  }
+  .cine-copy-center {
+    max-width: 52rem;
+  }
+  .cine-eyebrow {
+    margin: 0;
+    font-family: var(--ff-display);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--on-brand-accent);
+  }
+  .cine-title {
+    margin: 0.75rem 0 0;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    color: #fff;
+  }
+  .cine-title-xl {
+    font-size: clamp(2.5rem, 7.5vw, 5.5rem);
+    letter-spacing: -0.03em;
+  }
+  .cine-lead {
+    margin: 1.25rem 0 0;
+    font-size: clamp(1.0625rem, 1.6vw, 1.3125rem);
+    color: #e8edf3;
+  }
+  .cine-points {
+    margin: 2.25rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.75rem;
+    font-family: var(--ff-display);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #fff;
+  }
+  .cine-points li::before {
+    content: '';
+    display: inline-block;
+    width: 0.4rem;
+    height: 0.4rem;
+    margin-inline-end: 0.6rem;
+    border-radius: 9999px;
+    background: var(--on-brand-accent);
+    vertical-align: middle;
+  }
+  .cine-note {
+    margin: 1rem 0 0;
+    font-size: 0.875rem;
+    color: #cbd5e1;
+  }
+  .cine-list,
+  .cine-steps,
+  .cine-values {
+    margin: 1.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .cine-list {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .cine-list li {
+    display: grid;
+    gap: 0.1rem 1.25rem;
+    border-top: 1px solid rgb(255 255 255 / 0.28);
+    padding-top: 0.5rem;
+  }
+  .cine-list h3,
+  .cine-steps h3,
+  .cine-values h3 {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .cine-list p,
+  .cine-steps p,
+  .cine-values p {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: #dfe6ee;
+  }
+  .cine-steps {
+    display: grid;
+    gap: 1.25rem;
+  }
+  .cine-steps li {
+    display: flex;
+    gap: 1.25rem;
+    align-items: baseline;
+  }
+  .cine-step-n {
+    font-family: var(--ff-display);
+    font-size: 2.75rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--on-brand-accent);
+  }
+  .cine-values {
+    display: grid;
+    gap: 1.25rem;
+    text-align: center;
+  }
+  @media (min-width: 900px) {
+    .cine-copy > .cine-values {
+      max-width: 52rem;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+    }
+    .cine-copy > .cine-list {
+      max-width: 34rem;
+    }
+  }
+  @media (min-width: 900px) and (min-height: 760px) {
+    .cine-list li {
+      grid-template-columns: 11rem 1fr;
+      align-items: baseline;
+    }
+  }
+  .cine-hint {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 1.5rem;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--ff-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #e8edf3;
+    text-shadow: 0 1px 12px rgb(5 9 14 / 0.7);
+  }
+  .cine-hint-line {
+    width: 1px;
+    height: 2.5rem;
+    background: linear-gradient(#fff, transparent);
+    transform-origin: top;
+    animation: cine-hint 1.8s var(--ease-standard) infinite;
+  }
+  @keyframes cine-hint {
+    0% {
+      transform: scaleY(0);
+    }
+    60% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scaleY(1);
+      opacity: 0;
+    }
+  }
+  @media (max-width: 899.98px), (max-height: 700px) {
+    .cine-copy {
+      align-self: flex-end;
+    }
+    .cine-scene {
+      align-items: flex-end;
+    }
+    .cine-list p {
+      display: none;
+    }
+    .cine-list li {
+      padding-top: 0.35rem;
+    }
+  }
+  @media (max-width: 899.98px) {
+    .cine-points {
+      display: none;
+    }
+    .cine-hint {
+      display: none;
+    }
+    .cine-lead {
+      margin-top: 0.9rem;
+    }
+  }
+
+  /* ---------- Versión estática (sin JavaScript, «reducir movimiento» o ahorro de datos) ---------- */
+  html:not([data-cine='on']) .cine-track {
+    height: auto;
+  }
+  html:not([data-cine='on']) .cine-stage {
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+  html:not([data-cine='on']) .cine-scene {
+    position: relative;
+    min-height: 100svh;
+    background-size: cover;
+    background-position: center;
+    background-image: var(--still);
+  }
+  html:not([data-cine='on']) .cine-hint {
+    display: none;
+  }
+  /* Sin canvas: la capa fija muestra el último fotograma, oscurecido, tras el contenido denso. */
+  html:not([data-cine='on']) .cine-fixed {
+    background: #0e151d url('/cine/d/f158.webp') center / cover no-repeat;
+  }
+  html:not([data-cine='on']) .cine-fixed canvas,
+  html:not([data-cine='on']) .cine-grade-warm {
+    display: none;
+  }
+  html:not([data-cine='on']) .cine-grade-scrim {
+    opacity: 0.8;
+  }
+  @media (max-width: 767.98px) {
+    html:not([data-cine='on']) .cine-fixed {
+      background-image: url('/cine/m/f158.webp');
+    }
+  }
+  .cine-still-1 {
+    --still: url('/cine/d/f001.webp');
+  }
+  .cine-still-2 {
+    --still: url('/cine/d/f052.webp');
+  }
+  .cine-still-3 {
+    --still: url('/cine/d/f095.webp');
+  }
+  .cine-still-4 {
+    --still: url('/cine/d/f150.webp');
+  }
+  @media (max-width: 767.98px) {
+    .cine-still-1 {
+      --still: url('/cine/m/f001.webp');
+    }
+    .cine-still-2 {
+      --still: url('/cine/m/f052.webp');
+    }
+    .cine-still-3 {
+      --still: url('/cine/m/f095.webp');
+    }
+    .cine-still-4 {
+      --still: url('/cine/m/f150.webp');
+    }
+  }
+</style>
+
+<noscript>
+  <style>
+    .cine-scene {
+      opacity: 1 !important;
+    }
+  </style>
+</noscript>

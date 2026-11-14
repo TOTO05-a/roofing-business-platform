@@ -1,0 +1,163 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { authContext, currentUser, requireAuth, requireRole } from '../auth/middleware.js';
+import { CONTACT_METHODS } from '../auth/roles.js';
+import { scopedWhere, visibleOr404 } from '../auth/scope.js';
+import { recordAudit, requestMeta } from '../lib/audit.js';
+import { rlsTransaction, withRls } from '../lib/rls.js';
+import { emailSchema, parseInput } from '../lib/validation.js';
+import type { AppServices } from '../services.js';
+
+const idParamsSchema = z.object({ id: z.uuid() });
+
+const createCustomerSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(100),
+    lastName: z.string().trim().min(1).max(100),
+    email: emailSchema.optional(),
+    // E.164, p. ej. +15551234567 (la base de datos aplica la misma regla).
+    phone: z
+      .string()
+      .trim()
+      .regex(/^\+[1-9][0-9]{6,14}$/, 'Usa el formato internacional, p. ej. +15551234567')
+      .optional(),
+    preferredContact: z.enum(CONTACT_METHODS).optional(),
+    marketingOptIn: z.boolean().default(false),
+  })
+  .strict();
+
+const listQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const employeesQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  active: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
+});
+
+const customerSelect = {
+  id: true,
+  userId: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  preferredContact: true,
+  marketingOptIn: true,
+  createdAt: true,
+} as const;
+
+const employeeSelect = {
+  id: true,
+  userId: true,
+  jobTypes: true,
+  phone: true,
+  isActive: true,
+  createdAt: true,
+  user: { select: { name: true, email: true } },
+} as const;
+
+/** Perfiles de clientes y empleados. Toda lectura pasa por el filtro de alcance. */
+export function profilesRouter(services: AppServices): Router {
+  const { db } = services;
+  const router = Router();
+  // requireAuth por ruta (no router.use): este router se monta en /api y no debe
+  // convertir en 401 las rutas que no le pertenecen.
+  const authed = requireAuth(services);
+
+  // Alta de clientes (oficina). Nace como contacto sin cuenta; se le invita después.
+  router.post('/customers', authed, requireRole('ADMIN', 'SUPERADMIN'), async (req, res) => {
+    const actor = currentUser(req);
+    const input = parseInput(createCustomerSchema, req.body);
+    const customer = await rlsTransaction(db, authContext(req), async (tx) => {
+      const created = await tx.customerProfile.create({
+        data: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email ?? null,
+          phone: input.phone ?? null,
+          preferredContact: input.preferredContact ?? null,
+          marketingOptIn: input.marketingOptIn,
+        },
+        select: customerSelect,
+      });
+      await recordAudit(tx, {
+        actorUserId: actor.id,
+        actorEmail: actor.email,
+        action: 'customer.create',
+        entityType: 'customer_profile',
+        entityId: created.id,
+        after: { hasEmail: created.email !== null, hasPhone: created.phone !== null },
+        ...requestMeta(req),
+      });
+      return created;
+    });
+    res.status(201).json({ customer });
+  });
+
+  router.get('/customers', authed, async (req, res) => {
+    const query = parseInput(listQuerySchema, req.query);
+    const context = authContext(req);
+    const where = scopedWhere('customerProfile', context);
+    const { customers, total } = await rlsTransaction(db, context, async (tx) => ({
+      customers: await tx.customerProfile.findMany({
+        where,
+        select: customerSelect,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      total: await tx.customerProfile.count({ where }),
+    }));
+    res.json({ customers, page: query.page, pageSize: query.pageSize, total });
+  });
+
+  router.get('/customers/:id', authed, async (req, res) => {
+    const { id } = parseInput(idParamsSchema, req.params);
+    const context = authContext(req);
+    const customer = await withRls(db, context).customerProfile.findFirst({
+      where: scopedWhere('customerProfile', context, { id }),
+      select: customerSelect,
+    });
+    res.json({ customer: visibleOr404(customer) });
+  });
+
+  // Empleados visibles según el alcance: la oficina ve a todos; un empleado, solo su perfil.
+  router.get('/employees', authed, async (req, res) => {
+    const query = parseInput(employeesQuerySchema, req.query);
+    const context = authContext(req);
+    const where = scopedWhere(
+      'employeeProfile',
+      context,
+      query.active === undefined ? {} : { isActive: query.active },
+    );
+    const { employees, total } = await rlsTransaction(db, context, async (tx) => ({
+      employees: await tx.employeeProfile.findMany({
+        where,
+        select: employeeSelect,
+        orderBy: [{ user: { name: 'asc' } }, { id: 'asc' }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      total: await tx.employeeProfile.count({ where }),
+    }));
+    res.json({ employees, page: query.page, pageSize: query.pageSize, total });
+  });
+
+  router.get('/employees/:id', authed, async (req, res) => {
+    const { id } = parseInput(idParamsSchema, req.params);
+    const context = authContext(req);
+    const employee = await withRls(db, context).employeeProfile.findFirst({
+      where: scopedWhere('employeeProfile', context, { id }),
+      select: employeeSelect,
+    });
+    res.json({ employee: visibleOr404(employee) });
+  });
+
+  return router;
+}

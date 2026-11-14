@@ -1,0 +1,72 @@
+/* Estilos base compartidos por la web y la app. */
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--ff-body);
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
+  }
+  /* La barra móvil fija (65 px + zona segura) no debe tapar un control con foco (WCAG 2.4.11). */
+  @media (max-width: 639.98px) {
+    html {
+      scroll-padding-bottom: calc(4.0625rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.55;
+    font-size: 1.0625rem;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--ff-display);
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+  ::selection {
+    background: var(--brand-copper);
+    color: #fff;
+  }
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+}
+
+/* "Reducir movimiento": todo es instantáneo. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* Foco visible sobre superficies de marca (pizarra). */
+.on-brand :focus-visible {
+  outline-color: var(--ring-on-brand);
+}

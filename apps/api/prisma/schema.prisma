@@ -1,0 +1,1080 @@
+// Esquema de identidad, acceso y perfiles (Etapa 2) y del CRM (propiedades, leads, citas,
+// inspecciones y archivos) y de catálogo y presupuestos, según docs/arquitectura/modelo-datos.md
+// §2.1–2.5 y §4.
+// La seguridad por fila (RLS), los roles de base de datos y las restricciones que Prisma no
+// expresa viven en las migraciones (ver prisma/sql/).
+// Los modelos User, Session, Account, Verification y TwoFactor siguen el esquema que
+// espera Better Auth (núcleo + plugin twoFactor). Los nombres de modelo y campo son los
+// que usa el adaptador de Prisma; las tablas y columnas se mapean a snake_case.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  runtime             = "nodejs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  EMPLOYEE
+  ADMIN
+  SUPERADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum EmployeeJobType {
+  SALES
+  INSPECTOR
+  CREW_LEAD
+}
+
+enum ContactMethod {
+  EMAIL
+  PHONE
+  SMS
+}
+
+model User {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  name             String
+  // Siempre en minúsculas (CHECK en la migración); Better Auth también lo normaliza.
+  email            String     @unique
+  emailVerified    Boolean    @default(false) @map("email_verified")
+  image            String?
+  role             Role       @default(CUSTOMER)
+  status           UserStatus @default(ACTIVE)
+  twoFactorEnabled Boolean    @default(false) @map("two_factor_enabled")
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  // Borrado lógico: un usuario con deleted_at no puede iniciar sesión.
+  deletedAt        DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  sessions           Session[]
+  accounts           Account[]
+  twoFactors         TwoFactor[]
+  invitationsSent    Invitation[]     @relation("InvitationInvitedBy")
+  invitationAccepted Invitation?      @relation("InvitationAcceptedUser")
+  auditLogs          AuditLog[]
+  customerProfile    CustomerProfile?
+  employeeProfile    EmployeeProfile?
+  filesUploaded      File[]
+  paymentsRecorded   Payment[]
+  quotesCreated      Quote[]          @relation("QuoteCreatedBy")
+  versionsCreated    QuoteVersion[]   @relation("QuoteVersionCreatedBy")
+  versionsSent       QuoteVersion[]   @relation("QuoteVersionSentBy")
+
+  // Listado paginado de usuarios (filtrado opcional por rol, más recientes primero).
+  @@index([role, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(3)
+  scope                 String?
+  // Hash scrypt de la contraseña (solo cuentas con providerId = "credential").
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verifications")
+}
+
+// Plugin twoFactor de Better Auth: el secreto TOTP y los códigos de respaldo se guardan
+// cifrados con BETTER_AUTH_SECRET.
+model TwoFactor {
+  id                      String    @id @default(uuid(7)) @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  secret                  String
+  backupCodes             String    @map("backup_codes")
+  verified                Boolean   @default(true)
+  // Bloqueo por intentos fallidos de verificación (accountLockout del plugin).
+  failedVerificationCount Int       @default(0) @map("failed_verification_count")
+  lockedUntil             DateTime? @map("locked_until") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Sin índice en `secret`: va cifrado y Better Auth busca por userId.
+  @@index([userId])
+  @@map("two_factors")
+}
+
+// Invitaciones: único camino de registro. El token en claro solo viaja en el correo;
+// aquí se guarda su SHA-256.
+// En SQL (migración) además:
+// - CHECK de correo en minúsculas;
+// - índice único parcial `invitations_email_pending_key` (una pendiente por correo);
+// - CHECK por rol: CUSTOMER exige customer_id; EMPLOYEE exige job types y, una vez aceptada,
+//   employee_id (el EmployeeProfile se crea al aceptar porque su user_id es obligatorio).
+model Invitation {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  email            String
+  role             Role
+  tokenHash        String            @unique @map("token_hash")
+  expiresAt        DateTime          @map("expires_at") @db.Timestamptz(3)
+  acceptedAt       DateTime?         @map("accepted_at") @db.Timestamptz(3)
+  revokedAt        DateTime?         @map("revoked_at") @db.Timestamptz(3)
+  invitedById      String?           @map("invited_by_id") @db.Uuid
+  acceptedUserId   String?           @unique @map("accepted_user_id") @db.Uuid
+  // Perfil destino: el cliente ya existe al invitar; el empleado se crea al aceptar.
+  customerId       String?           @map("customer_id") @db.Uuid
+  employeeId       String?           @map("employee_id") @db.Uuid
+  // Tipos de trabajo con los que se creará el EmployeeProfile (solo invitaciones EMPLOYEE).
+  employeeJobTypes EmployeeJobType[] @map("employee_job_types")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  invitedBy    User?            @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedUser User?            @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+  customer     CustomerProfile? @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  employee     EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([invitedById])
+  @@index([customerId])
+  @@index([employeeId])
+  @@map("invitations")
+}
+
+// Registro de auditoría: solo inserción. Un trigger (migración) rechaza UPDATE y DELETE.
+model AuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  // Nulo para acciones del sistema (seed, webhooks) o si el actor se anonimiza.
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  // Copia del correo del actor en el momento de la acción (se conserva aunque cambie).
+  actorEmail  String?  @map("actor_email")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  // Estado anterior y posterior de lo que cambió (nunca contraseñas, tokens ni secretos).
+  before      Json?
+  after       Json?
+  ip          String?
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// Cliente: nace como contacto sin cuenta (user_id nulo) y se enlaza al aceptar su invitación.
+// En SQL además: CHECK de correo en minúsculas, CHECK de teléfono E.164 y el índice único
+// parcial `customer_profiles_email_active_key` sobre lower(email) WHERE deleted_at IS NULL.
+model CustomerProfile {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  userId           String?        @unique @map("user_id") @db.Uuid
+  firstName        String         @map("first_name")
+  lastName         String         @map("last_name")
+  email            String?
+  phone            String?
+  preferredContact ContactMethod? @map("preferred_contact")
+  marketingOptIn   Boolean        @default(false) @map("marketing_opt_in")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations  Invitation[]
+  properties   Property[]
+  leads        Lead[]
+  appointments Appointment[]
+  quotes       Quote[]
+  projects     Project[]
+  invoices     Invoice[]
+
+  @@index([lastName, firstName])
+  @@map("customer_profiles")
+}
+
+// Empleado: siempre tiene cuenta. Puede tener varios tipos de trabajo (vende e inspecciona).
+// En SQL además: CHECK de al menos un tipo de trabajo y CHECK de teléfono E.164.
+model EmployeeProfile {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  userId    String            @unique @map("user_id") @db.Uuid
+  jobTypes  EmployeeJobType[] @map("job_types")
+  phone     String?
+  isActive  Boolean           @default(true) @map("is_active")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(3)
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations        Invitation[]
+  leadsAssigned      Lead[]
+  appointments       Appointment[]
+  inspections        Inspection[]
+  quotesAsSales      Quote[]
+  projectAssignments ProjectAssignment[]
+  projectPhotos      ProjectPhoto[]
+
+  @@map("employee_profiles")
+}
+
+// Límite de intentos de login por cuenta (además del de por IP de Better Auth). Clave: correo
+// normalizado, exista o no la cuenta, para no revelar cuáles existen.
+model LoginThrottle {
+  email       String    @id
+  failures    Int       @default(0)
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("login_throttles")
+}
+
+// ---------------------------------------------------------------------------------------
+// CRM: propiedades, leads, citas, inspecciones y archivos (modelo de datos §2.2, §2.3 y §3).
+// Las máquinas de estados viven en los servicios de la API; aquí solo los valores posibles.
+// ---------------------------------------------------------------------------------------
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  APPOINTMENT_SET
+  INSPECTED
+  QUOTED
+  WON
+  LOST
+  SPAM
+  DUPLICATE
+}
+
+enum LeadSource {
+  WEB_FORM
+  PHONE
+  REFERRAL
+  DOOR_KNOCK
+  OTHER
+}
+
+enum AppointmentType {
+  INSPECTION
+  FOLLOW_UP
+  ESTIMATE_PRESENTATION
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum InspectionStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum RoofType {
+  ASPHALT_SHINGLE
+  METAL
+  CLAY_TILE
+  CONCRETE_TILE
+  FLAT
+  OTHER
+}
+
+enum FileStatus {
+  PENDING
+  READY
+  DELETED
+}
+
+// Propiedad (vivienda) de un cliente. En SQL además: CHECK de estado de EE. UU., ZIP, año de
+// construcción y coordenadas.
+model Property {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  customerId   String    @map("customer_id") @db.Uuid
+  addressLine1 String    @map("address_line1")
+  addressLine2 String?   @map("address_line2")
+  city         String
+  state        String    @db.Char(2)
+  zip          String
+  lat          Decimal?  @db.Decimal(9, 6)
+  lng          Decimal?  @db.Decimal(9, 6)
+  yearBuilt    Int?      @map("year_built")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  customer     CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  leads        Lead[]
+  appointments Appointment[]
+  inspections  Inspection[]
+  quotes       Quote[]
+  projects     Project[]
+
+  // Destino de las claves compuestas (propiedad, cliente): una cita o un lead solo pueden
+  // apuntar a una propiedad del mismo cliente.
+  @@unique([id, customerId])
+  @@index([customerId])
+  @@map("properties")
+}
+
+// Lead: contacto en bruto. Al convertirse se enlaza (o crea) un CustomerProfile y una Property.
+// En SQL además: CHECK de contacto (correo o teléfono), correo en minúsculas, teléfono E.164,
+// motivo obligatorio en LOST y cliente y propiedad obligatorios desde APPOINTMENT_SET.
+model Lead {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  status       LeadStatus @default(NEW)
+  source       LeadSource
+  sourceDetail String?    @map("source_detail")
+  firstName    String     @map("first_name")
+  lastName     String?    @map("last_name")
+  email        String?
+  phone        String?
+  addressLine1 String?    @map("address_line1")
+  addressLine2 String?    @map("address_line2")
+  city         String?
+  state        String?    @db.Char(2)
+  zip          String?
+  message      String?
+  utm          Json?
+  // Motivo por el que el filtro anti-spam marcó el envío (campo trampa, tiempo, límite…).
+  spamReason   String?    @map("spam_reason")
+  assignedToId String?    @map("assigned_to_id") @db.Uuid
+  customerId   String?    @map("customer_id") @db.Uuid
+  propertyId   String?    @map("property_id") @db.Uuid
+  lostReason   String?    @map("lost_reason")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  assignedTo   EmployeeProfile? @relation(fields: [assignedToId], references: [id], onDelete: Restrict)
+  customer     CustomerProfile? @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  property     Property?        @relation(fields: [propertyId, customerId], references: [id, customerId], onDelete: Restrict)
+  appointments Appointment[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([assignedToId, status])
+  @@index([customerId])
+  @@index([propertyId, customerId])
+  // Límite de envíos del formulario por correo y búsqueda de duplicados.
+  @@index([email, createdAt(sort: Desc)])
+  @@map("leads")
+}
+
+// Cita con un empleado asignado. En SQL además: CHECK ends_at > starts_at (máx. 12 h) y la
+// restricción EXCLUDE appointments_no_overlap (btree_gist), que impide citas solapadas del
+// mismo empleado en estados activos (SCHEDULED, CONFIRMED, IN_PROGRESS).
+model Appointment {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  propertyId        String            @map("property_id") @db.Uuid
+  customerId        String            @map("customer_id") @db.Uuid
+  leadId            String?           @map("lead_id") @db.Uuid
+  assigneeId        String            @map("assignee_id") @db.Uuid
+  type              AppointmentType
+  startsAt          DateTime          @map("starts_at") @db.Timestamptz(3)
+  endsAt            DateTime          @map("ends_at") @db.Timestamptz(3)
+  status            AppointmentStatus @default(SCHEDULED)
+  cancelReason      String?           @map("cancel_reason")
+  notes             String?
+  // Al reprogramar se crea una cita nueva que apunta a la anterior (que queda RESCHEDULED).
+  rescheduledFromId String?           @unique @map("rescheduled_from_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?         @map("deleted_at") @db.Timestamptz(3)
+
+  property        Property        @relation(fields: [propertyId, customerId], references: [id, customerId], onDelete: Restrict)
+  customer        CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lead            Lead?           @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  assignee        EmployeeProfile @relation(fields: [assigneeId], references: [id], onDelete: Restrict)
+  rescheduledFrom Appointment?    @relation("AppointmentReschedule", fields: [rescheduledFromId], references: [id], onDelete: Restrict)
+  rescheduledTo   Appointment?    @relation("AppointmentReschedule")
+  inspection      Inspection?
+
+  // Destino de la clave compuesta (cita, propiedad) de Inspection.
+  @@unique([id, propertyId])
+  @@index([assigneeId, startsAt])
+  @@index([status, startsAt])
+  @@index([customerId, startsAt])
+  @@index([propertyId, customerId])
+  @@index([leadId])
+  @@map("appointments")
+}
+
+// Inspección de una cita (una por cita). En SQL además: CHECK completed_at ⇔ COMPLETED y edad
+// del techo.
+model Inspection {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  appointmentId String           @unique @map("appointment_id") @db.Uuid
+  propertyId    String           @map("property_id") @db.Uuid
+  inspectorId   String           @map("inspector_id") @db.Uuid
+  status        InspectionStatus @default(DRAFT)
+  completedAt   DateTime?        @map("completed_at") @db.Timestamptz(3)
+  roofType      RoofType?        @map("roof_type")
+  roofAgeYears  Int?             @map("roof_age_years")
+  findings      String?
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?        @map("deleted_at") @db.Timestamptz(3)
+
+  appointment Appointment         @relation(fields: [appointmentId, propertyId], references: [id, propertyId], onDelete: Restrict)
+  property    Property            @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  inspector   EmployeeProfile     @relation(fields: [inspectorId], references: [id], onDelete: Restrict)
+  sections    InspectionSection[]
+  photos      InspectionPhoto[]
+  quotes      Quote[]
+
+  @@unique([appointmentId, propertyId])
+  // Destino de la clave compuesta (inspección, propiedad) de Quote.
+  @@unique([id, propertyId])
+  @@index([inspectorId, status])
+  @@index([propertyId])
+  @@map("inspections")
+}
+
+// Medidas por sección del techo (área en planta en ft², pendiente rise/12 y longitudes en ft).
+// En SQL además: CHECK de área > 0, pendiente 0..24 y longitudes >= 0.
+model InspectionSection {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  inspectionId String   @map("inspection_id") @db.Uuid
+  name         String
+  areaSqft     Decimal  @map("area_sqft") @db.Decimal(10, 2)
+  pitchRise    Decimal  @map("pitch_rise") @db.Decimal(4, 1)
+  ridgeFt      Decimal  @default(0) @map("ridge_ft") @db.Decimal(8, 2)
+  eaveFt       Decimal  @default(0) @map("eave_ft") @db.Decimal(8, 2)
+  hipFt        Decimal  @default(0) @map("hip_ft") @db.Decimal(8, 2)
+  valleyFt     Decimal  @default(0) @map("valley_ft") @db.Decimal(8, 2)
+  gutterFt     Decimal  @default(0) @map("gutter_ft") @db.Decimal(8, 2)
+  sortOrder    Int      @default(0) @map("sort_order")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  inspection Inspection        @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  photos     InspectionPhoto[]
+
+  @@index([inspectionId, sortOrder])
+  @@map("inspection_sections")
+}
+
+// Puente tipado entre una inspección (y opcionalmente una de sus secciones) y su archivo.
+// En SQL además: un trigger exige que la sección pertenezca a la misma inspección.
+model InspectionPhoto {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  inspectionId String    @map("inspection_id") @db.Uuid
+  sectionId    String?   @map("section_id") @db.Uuid
+  fileId       String    @unique @map("file_id") @db.Uuid
+  caption      String?
+  takenAt      DateTime? @map("taken_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  inspection Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  section    InspectionSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  file       File               @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([inspectionId])
+  @@index([sectionId])
+  @@map("inspection_photos")
+}
+
+// Metadatos de un objeto del almacenamiento S3 (bucket privado). Los bytes nunca pasan por aquí.
+// En SQL además: CHECK de sha256 en hex, tamaño (1 B a 25 MB) y tipos MIME permitidos (imágenes y,
+// desde la Etapa 3, application/pdf para los presupuestos).
+model File {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  bucket       String
+  objectKey    String     @map("object_key")
+  mimeType     String     @map("mime_type")
+  sizeBytes    BigInt     @map("size_bytes")
+  sha256       String     @db.Char(64)
+  originalName String?    @map("original_name")
+  uploadedById String?    @map("uploaded_by_id") @db.Uuid
+  status       FileStatus @default(PENDING)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  uploadedBy      User?            @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  inspectionPhoto InspectionPhoto?
+  quoteVersionPdf QuoteVersion?
+  textureOptions  MaterialOption[]
+  projectPhoto    ProjectPhoto?
+
+  @@unique([bucket, objectKey])
+  @@index([uploadedById, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("files")
+}
+
+// ---------------------------------------------------------------------------------------
+// Catálogo y presupuestos (modelo de datos §2.4, §2.5 y §3; decisiones P3–P13 y N13).
+// Dinero en centavos (Int), porcentajes en puntos básicos (Int, 0..10 000), cantidades en
+// Numeric. Las CHECK, los disparadores de inmutabilidad y la RLS viven en
+// prisma/sql/presupuestos-extras.sql y prisma/sql/presupuestos-rls.sql.
+// ---------------------------------------------------------------------------------------
+
+enum CatalogKind {
+  MATERIAL
+  LABOR
+}
+
+enum CatalogUnit {
+  SQUARE
+  LINEAR_FT
+  UNIT
+  BUNDLE
+}
+
+enum MaterialOptionKind {
+  COLOR
+  TEXTURE
+}
+
+enum PackageTier {
+  BASIC
+  BETTER
+  PREMIUM
+}
+
+enum QuantityRule {
+  PER_SQUARE
+  PER_LINEAR_FT_RIDGE
+  PER_LINEAR_FT_EAVE
+  PER_LINEAR_FT_HIP
+  PER_LINEAR_FT_VALLEY
+  PER_LINEAR_FT_GUTTER
+  FIXED
+}
+
+// Estados de una versión (§3). APPROVED llega con la aceptación simple de la demo (N17); VOIDED
+// y la firma electrónica legal quedan pendientes (N15).
+enum QuoteStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  DECLINED
+  EXPIRED
+  SUPERSEDED
+}
+
+// Categoría del catálogo. Sus artículos son del mismo tipo (clave compuesta id + kind).
+model Category {
+  id        String      @id @default(uuid(7)) @db.Uuid
+  name      String      @unique
+  kind      CatalogKind
+  sortOrder Int         @default(0) @map("sort_order")
+  isActive  Boolean     @default(true) @map("is_active")
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  items CatalogItem[]
+
+  @@unique([id, kind])
+  @@map("categories")
+}
+
+// Artículo del catálogo con precio de venta (P12: sin margen) por unidad base. En SQL además:
+// precios 0..10 000 000 ¢, mano de obra con precio de material 0 y longitudes de texto.
+model CatalogItem {
+  id                 String      @id @default(uuid(7)) @db.Uuid
+  sku                String?     @unique
+  name               String
+  kind               CatalogKind
+  categoryId         String      @map("category_id") @db.Uuid
+  unit               CatalogUnit
+  materialPriceCents Int         @map("material_price_cents")
+  laborPriceCents    Int         @map("labor_price_cents")
+  description        String?
+  isActive           Boolean     @default(true) @map("is_active")
+  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?   @map("deleted_at") @db.Timestamptz(3)
+
+  category        Category         @relation(fields: [categoryId, kind], references: [id, kind], onDelete: Restrict)
+  purchaseUnits   PurchaseUnit[]
+  materialOptions MaterialOption[]
+  packageItems    PackageItem[]
+  quoteLines      QuoteLine[]
+
+  @@index([categoryId, kind])
+  @@index([kind, isActive])
+  @@map("catalog_items")
+}
+
+// Unidad de compra (rollo, caja, paquete): convierte la cantidad de obra en unidades enteras.
+// En SQL además: una sola unidad por defecto por artículo (índice único parcial).
+model PurchaseUnit {
+  id                       String   @id @default(uuid(7)) @db.Uuid
+  itemId                   String   @map("item_id") @db.Uuid
+  name                     String
+  baseUnitsPerPurchaseUnit Decimal  @map("base_units_per_purchase_unit") @db.Decimal(10, 3)
+  isDefault                Boolean  @default(false) @map("is_default")
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([itemId, name])
+  @@map("purchase_units")
+}
+
+// Color o textura de un artículo (lo usa también el visualizador). En SQL además: hex #RRGGBB.
+model MaterialOption {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  itemId        String             @map("item_id") @db.Uuid
+  kind          MaterialOptionKind
+  name          String
+  hex           String?            @db.Char(7)
+  textureFileId String?            @map("texture_file_id") @db.Uuid
+  visualizerKey String?            @map("visualizer_key")
+  isActive      Boolean            @default(true) @map("is_active")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  item         CatalogItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  textureFile  File?         @relation(fields: [textureFileId], references: [id], onDelete: SetNull)
+  packageItems PackageItem[]
+  quoteLines   QuoteLine[]
+
+  @@unique([itemId, kind, name])
+  @@index([textureFileId])
+  @@map("material_options")
+}
+
+// Paquete ofrecible (P3: varios por nivel, `tier` no es único). La garantía es la del motor.
+model Package {
+  id            String      @id @default(uuid(7)) @db.Uuid
+  tier          PackageTier
+  name          String
+  description   String?
+  warrantyText  String      @map("warranty_text")
+  warrantyYears Int         @map("warranty_years")
+  sortOrder     Int         @default(0) @map("sort_order")
+  isActive      Boolean     @default(true) @map("is_active")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  items        PackageItem[]
+  quoteOptions QuoteOption[]
+
+  @@index([tier, isActive])
+  @@map("packages")
+}
+
+// Línea de paquete. En SQL además: FIXED exige factor, factor 0..10 000 y un trigger que exige
+// que el color por defecto sea del mismo artículo.
+model PackageItem {
+  id                      String       @id @default(uuid(7)) @db.Uuid
+  packageId               String       @map("package_id") @db.Uuid
+  itemId                  String       @map("item_id") @db.Uuid
+  quantityRule            QuantityRule @map("quantity_rule")
+  factor                  Decimal?     @db.Decimal(10, 4)
+  defaultMaterialOptionId String?      @map("default_material_option_id") @db.Uuid
+  sortOrder               Int          @default(0) @map("sort_order")
+  createdAt               DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  package               Package         @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  item                  CatalogItem     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  defaultMaterialOption MaterialOption? @relation(fields: [defaultMaterialOptionId], references: [id], onDelete: SetNull)
+
+  @@unique([packageId, itemId])
+  @@index([itemId])
+  @@index([defaultMaterialOptionId])
+  @@map("package_items")
+}
+
+// Presupuesto: contenedor lógico (cliente + propiedad + inspección opcional). La versión vigente
+// es la de mayor `version_number` y su estado es el del presupuesto (no se guarda en caché).
+// `sales_rep_id` es el vendedor responsable: ve los precios de SUS presupuestos (P6).
+// En SQL además: `number` con secuencia (Q-AAAA-NNNNNN) y la inspección debe ser de la misma
+// propiedad (clave compuesta). La API (no la base) exige que el vendedor tenga el tipo SALES y
+// fija `first_sent_at` al enviar.
+model Quote {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  number       String    @unique @default(dbgenerated("next_quote_number()"))
+  customerId   String    @map("customer_id") @db.Uuid
+  propertyId   String    @map("property_id") @db.Uuid
+  inspectionId String?   @map("inspection_id") @db.Uuid
+  salesRepId   String?   @map("sales_rep_id") @db.Uuid
+  createdById  String    @map("created_by_id") @db.Uuid
+  // Primera vez que se envió una versión (lo fija la API al enviar). Desde ahí el cliente ve el
+  // presupuesto; antes, ni sabe que existe.
+  firstSentAt  DateTime? @map("first_sent_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  customer   CustomerProfile  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  property   Property         @relation(fields: [propertyId, customerId], references: [id, customerId], onDelete: Restrict)
+  inspection Inspection?      @relation(fields: [inspectionId, propertyId], references: [id, propertyId], onDelete: Restrict)
+  salesRep   EmployeeProfile? @relation(fields: [salesRepId], references: [id], onDelete: Restrict)
+  createdBy  User             @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  versions   QuoteVersion[]
+  projects   Project[]
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([propertyId, customerId])
+  @@index([inspectionId, propertyId])
+  @@index([salesRepId, createdAt(sort: Desc)])
+  @@index([createdById])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("quotes")
+}
+
+// Versión numerada con sus parámetros. Al enviarla (DRAFT -> SENT) se fijan `locked_at`, el PDF
+// y su sha256, y desde ahí la versión, sus opciones y sus líneas son inmutables (disparadores):
+// solo cambian el estado y sus marcas de tiempo, por transiciones válidas.
+// En SQL además: bps 0..10 000, coherencia estado/fechas y una sola versión DRAFT por presupuesto.
+model QuoteVersion {
+  id                   String      @id @default(uuid(7)) @db.Uuid
+  quoteId              String      @map("quote_id") @db.Uuid
+  versionNumber        Int         @map("version_number")
+  status               QuoteStatus @default(DRAFT)
+  // Idioma del PDF y de los textos para el cliente: es o en.
+  locale               String      @default("es") @db.VarChar(2)
+  wasteBps             Int         @map("waste_bps")
+  taxBps               Int         @map("tax_bps")
+  taxAppliesToLabor    Boolean     @default(false) @map("tax_applies_to_labor")
+  // Solo administración lo cambia (P10); se aplica antes del impuesto (P11).
+  discountBps          Int         @default(0) @map("discount_bps")
+  depositBps           Int         @map("deposit_bps")
+  // Copia de las medidas usadas (entrada del motor) y su resumen (área real y squares).
+  measurementsSnapshot Json        @map("measurements_snapshot")
+  notes                String?
+  validUntil           DateTime?   @map("valid_until") @db.Timestamptz(3)
+  sentAt               DateTime?   @map("sent_at") @db.Timestamptz(3)
+  sentById             String?     @map("sent_by_id") @db.Uuid
+  viewedAt             DateTime?   @map("viewed_at") @db.Timestamptz(3)
+  declinedAt           DateTime?   @map("declined_at") @db.Timestamptz(3)
+  declineReason        String?     @map("decline_reason")
+  // Aceptación simple de la demo (N17): sin firma legal. La opción elegida es de esta versión.
+  approvedAt           DateTime?   @map("approved_at") @db.Timestamptz(3)
+  approvedOptionId     String?     @map("approved_option_id") @db.Uuid
+  expiredAt            DateTime?   @map("expired_at") @db.Timestamptz(3)
+  supersededAt         DateTime?   @map("superseded_at") @db.Timestamptz(3)
+  pdfFileId            String?     @unique @map("pdf_file_id") @db.Uuid
+  pdfSha256            String?     @map("pdf_sha256") @db.Char(64)
+  lockedAt             DateTime?   @map("locked_at") @db.Timestamptz(3)
+  createdById          String      @map("created_by_id") @db.Uuid
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  quote          Quote         @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  pdfFile        File?         @relation(fields: [pdfFileId], references: [id], onDelete: Restrict)
+  createdBy      User          @relation("QuoteVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  sentBy         User?         @relation("QuoteVersionSentBy", fields: [sentById], references: [id], onDelete: Restrict)
+  options        QuoteOption[]
+  approvedOption QuoteOption?  @relation("QuoteVersionApprovedOption", fields: [approvedOptionId], references: [id], onDelete: Restrict)
+  project        Project?
+
+  @@unique([quoteId, versionNumber])
+  @@index([status, sentAt])
+  @@index([status, validUntil])
+  @@index([createdById])
+  @@index([sentById])
+  @@index([approvedOptionId])
+  @@map("quote_versions")
+}
+
+// Opción ofrecida en una versión: una por paquete (P3: puede haber varias del mismo nivel).
+// Instantánea del paquete (nombre, nivel, garantía) y de los totales del motor.
+// En SQL además: importes >= 0, total = material + mano de obra - descuento + impuesto y
+// anticipo + saldo = total.
+model QuoteOption {
+  id                    String      @id @default(uuid(7)) @db.Uuid
+  versionId             String      @map("version_id") @db.Uuid
+  packageId             String      @map("package_id") @db.Uuid
+  tier                  PackageTier
+  title                 String
+  warrantyText          String      @map("warranty_text")
+  warrantyYears         Int         @map("warranty_years")
+  sortOrder             Int         @default(0) @map("sort_order")
+  materialSubtotalCents Int         @map("material_subtotal_cents")
+  laborSubtotalCents    Int         @map("labor_subtotal_cents")
+  discountCents         Int         @map("discount_cents")
+  taxCents              Int         @map("tax_cents")
+  totalCents            Int         @map("total_cents")
+  depositCents          Int         @map("deposit_cents")
+  balanceCents          Int         @map("balance_cents")
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  version    QuoteVersion   @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  package    Package        @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  lines      QuoteLine[]
+  approvedIn QuoteVersion[] @relation("QuoteVersionApprovedOption")
+  projects   Project[]
+
+  @@unique([versionId, packageId])
+  @@index([packageId])
+  @@map("quote_options")
+}
+
+// Partida calculada y congelada. `item_id` y `material_option_id` son solo referencias
+// informativas (SetNull); lo que vale es la instantánea. En SQL además: importes de línea
+// = material + mano de obra (el redondeo half-up por línea lo hace el motor, no la base).
+model QuoteLine {
+  id                     String      @id @default(uuid(7)) @db.Uuid
+  optionId               String      @map("option_id") @db.Uuid
+  sortOrder              Int         @map("sort_order")
+  itemId                 String?     @map("item_id") @db.Uuid
+  materialOptionId       String?     @map("material_option_id") @db.Uuid
+  name                   String
+  sku                    String?
+  kind                   CatalogKind
+  unit                   CatalogUnit
+  quantity               Decimal     @db.Decimal(12, 3)
+  purchaseUnitName       String?     @map("purchase_unit_name")
+  purchaseQuantity       Decimal     @map("purchase_quantity") @db.Decimal(12, 3)
+  unitMaterialPriceCents Int         @map("unit_material_price_cents")
+  unitLaborPriceCents    Int         @map("unit_labor_price_cents")
+  lineMaterialCents      Int         @map("line_material_cents")
+  lineLaborCents         Int         @map("line_labor_cents")
+  lineTotalCents         Int         @map("line_total_cents")
+  colorName              String?     @map("color_name")
+  textureName            String?     @map("texture_name")
+  createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  option         QuoteOption     @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  item           CatalogItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  materialOption MaterialOption? @relation(fields: [materialOptionId], references: [id], onDelete: SetNull)
+
+  @@unique([optionId, sortOrder])
+  @@index([itemId])
+  @@index([materialOptionId])
+  @@map("quote_lines")
+}
+
+// ---------------------------------------------------------------------------------------
+// Proyectos, facturas y pagos SIMULADOS (modelo de datos §2.7 y §2.8; decisiones N17 y T34).
+// La demo no cobra nada: un Payment es solo un registro marcado como simulado. Stripe, la firma
+// legal y el aviso de cancelación quedan pendientes (N15). Las CHECK y la RLS viven en
+// prisma/sql/demo-cierre-extras.sql.
+// ---------------------------------------------------------------------------------------
+
+enum ProjectStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+enum StageStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+enum ProjectRole {
+  CREW_LEAD
+  CREW_MEMBER
+}
+
+enum PhotoPhase {
+  BEFORE
+  DURING
+  AFTER
+}
+
+enum InvoiceKind {
+  DEPOSIT
+  BALANCE
+}
+
+enum InvoiceStatus {
+  ISSUED
+  PAID
+  VOID
+}
+
+// Proyecto: nace al aceptar una versión de presupuesto (1 versión aprobada = 1 proyecto).
+model Project {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  number             String        @unique @default(dbgenerated("next_project_number()"))
+  quoteId            String        @map("quote_id") @db.Uuid
+  quoteVersionId     String        @unique @map("quote_version_id") @db.Uuid
+  optionId           String        @map("option_id") @db.Uuid
+  customerId         String        @map("customer_id") @db.Uuid
+  propertyId         String        @map("property_id") @db.Uuid
+  title              String
+  status             ProjectStatus @default(SCHEDULED)
+  scheduledStart     DateTime?     @map("scheduled_start") @db.Timestamptz(3)
+  scheduledEnd       DateTime?     @map("scheduled_end") @db.Timestamptz(3)
+  actualStart        DateTime?     @map("actual_start") @db.Timestamptz(3)
+  actualEnd          DateTime?     @map("actual_end") @db.Timestamptz(3)
+  contractTotalCents Int           @map("contract_total_cents")
+  acceptedAt         DateTime      @map("accepted_at") @db.Timestamptz(3)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  quote        Quote               @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  quoteVersion QuoteVersion        @relation(fields: [quoteVersionId], references: [id], onDelete: Restrict)
+  option       QuoteOption         @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  customer     CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  property     Property            @relation(fields: [propertyId, customerId], references: [id, customerId], onDelete: Restrict)
+  stages       ProjectStage[]
+  assignments  ProjectAssignment[]
+  photos       ProjectPhoto[]
+  invoices     Invoice[]
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([propertyId, customerId])
+  @@index([quoteId])
+  @@index([optionId])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("projects")
+}
+
+// Etapa de un proyecto (plantilla fija en código, N17).
+model ProjectStage {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  projectId   String      @map("project_id") @db.Uuid
+  name        String
+  sortOrder   Int         @map("sort_order")
+  status      StageStatus @default(PENDING)
+  startedAt   DateTime?   @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime?   @map("completed_at") @db.Timestamptz(3)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  photos  ProjectPhoto[]
+
+  @@unique([projectId, sortOrder])
+  @@map("project_stages")
+}
+
+// Cuadrilla asignada a un proyecto.
+model ProjectAssignment {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  projectId    String      @map("project_id") @db.Uuid
+  employeeId   String      @map("employee_id") @db.Uuid
+  role         ProjectRole @default(CREW_MEMBER)
+  assignedAt   DateTime    @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  unassignedAt DateTime?   @map("unassigned_at") @db.Timestamptz(3)
+
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, employeeId])
+  @@index([employeeId])
+  @@map("project_assignments")
+}
+
+// Foto de un proyecto (el archivo vive en el almacenamiento S3 como File).
+model ProjectPhoto {
+  id                String     @id @default(uuid(7)) @db.Uuid
+  projectId         String     @map("project_id") @db.Uuid
+  stageId           String?    @map("stage_id") @db.Uuid
+  fileId            String     @unique @map("file_id") @db.Uuid
+  phase             PhotoPhase
+  caption           String?
+  takenById         String?    @map("taken_by_id") @db.Uuid
+  takenAt           DateTime?  @map("taken_at") @db.Timestamptz(3)
+  visibleToCustomer Boolean    @default(true) @map("visible_to_customer")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage   ProjectStage?    @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  file    File             @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  takenBy EmployeeProfile? @relation(fields: [takenById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([stageId])
+  @@index([takenById])
+  @@map("project_photos")
+}
+
+// Factura simulada: anticipo y saldo de un proyecto. Una activa por tipo (índice único parcial).
+model Invoice {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  number     String        @unique @default(dbgenerated("next_invoice_number()"))
+  projectId  String        @map("project_id") @db.Uuid
+  customerId String        @map("customer_id") @db.Uuid
+  kind       InvoiceKind
+  status     InvoiceStatus @default(ISSUED)
+  totalCents Int           @map("total_cents")
+  issuedAt   DateTime      @map("issued_at") @db.Timestamptz(3)
+  dueAt      DateTime      @map("due_at") @db.Timestamptz(3)
+  paidAt     DateTime?     @map("paid_at") @db.Timestamptz(3)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@index([projectId])
+  @@index([customerId, issuedAt(sort: Desc)])
+  @@index([status, dueAt])
+  @@map("invoices")
+}
+
+// Pago SIMULADO: solo un registro (sin tarjeta, sin pasarela, sin cobro real).
+model Payment {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  invoiceId    String   @map("invoice_id") @db.Uuid
+  amountCents  Int      @map("amount_cents")
+  simulated    Boolean  @default(true)
+  method       String   @default("Pago simulado")
+  paidAt       DateTime @map("paid_at") @db.Timestamptz(3)
+  recordedById String?  @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  recordedBy User?   @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([recordedById])
+  @@map("payments")
+}

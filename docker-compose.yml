@@ -1,0 +1,70 @@
+name: roofing-business-platform
+
+# Todos los puertos se publican solo en 127.0.0.1 (no quedan expuestos a la red local).
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-roofing}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-roofing_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-roofing}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.33
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+
+  # Almacenamiento compatible con S3 para las fotos en desarrollo (decisiones T28 y T29). Un solo
+  # nodo, bucket privado. Primera vez: `pnpm --filter @roofing/api storage:init` (ver README).
+  garage:
+    image: dxflrs/garage:v2.1.0
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${GARAGE_S3_PORT:-3900}:3900'
+    volumes:
+      - ./docker/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+    healthcheck:
+      test: ['CMD', '/garage', 'status']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # Interfaz visual de PostgreSQL (opcional): docker compose --profile tools up -d pgadmin
+  # Abre http://localhost:5050. Modo escritorio, sin login, solo escucha en 127.0.0.1.
+  pgadmin:
+    image: dpage/pgadmin4:9.19.0
+    profiles: ['tools']
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-dev@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-pgadmin_dev_password}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - '127.0.0.1:${PGADMIN_PORT:-5050}:80'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  garage_meta:
+  garage_data:

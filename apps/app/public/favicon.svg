@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Cresta Roofing">
+  <style>
+    .bg { fill: #1e2a38; }
+    .a { stroke: #ffffff; }
+    .b { stroke: #f4b27a; }
+  </style>
+  <rect class="bg" width="48" height="48" rx="10" />
+  <g fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path class="a" d="M7 27 24 11l17 16" />
+    <path class="b" d="M14 38l10-9 10 9" />
+  </g>
+</svg>
