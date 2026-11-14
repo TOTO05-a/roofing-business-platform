@@ -2,6 +2,8 @@
 
 Plataforma web para una empresa de roofing residencial en EE. UU.: sitio público bilingüe (español/inglés) y plataforma interna con portal de clientes, herramientas para empleados y administración.
 
+> **¿Primera vez?** Abre la demo con [`COMO-INICIAR.md`](COMO-INICIAR.md) (un solo comando: `pnpm demo`) y entra con los usuarios de [`CREDENCIALES.md`](CREDENCIALES.md).
+
 - Planificación y decisiones: [`docs/planificacion/`](docs/planificacion/)
 - Ramas: `main` (estable) · `dev` (integración) · ramas de trabajo desde `dev`
 - Commits: convencionales en español, p. ej. `feat(presupuestos): agrega cálculo de paquetes`
