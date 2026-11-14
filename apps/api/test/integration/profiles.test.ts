@@ -257,3 +257,17 @@ describe('auditoría de solo inserción', () => {
     expect((await db.auditLog.findUniqueOrThrow({ where: { id: entry.id } })).action).toBe('test');
   });
 });
+
+describe('lista de empleados', () => {
+  it('la oficina lista a todos los empleados; un empleado solo ve su perfil', async () => {
+    const admin = (await signInWithTwoFactor(ctx, 'ADMIN')).agent;
+    const one = await createUser(db, { role: 'EMPLOYEE' });
+    await createUser(db, { role: 'EMPLOYEE' });
+    const all = await admin.get('/api/employees?active=true');
+    expect(all.status).toBe(200);
+    expect(all.body.total).toBe(2);
+    const own = await (await signedIn(one)).get('/api/employees');
+    expect(own.body.total).toBe(1);
+    expect(own.body.employees[0].id).toBe(one.employeeId);
+  });
+});

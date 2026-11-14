@@ -578,6 +578,26 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 
 **Por qué:** aplica W11, C31 y la experiencia del CRM (W16, C58).
 
+### C62. Datos en la app → T31
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **TanStack Query** | Caché, recargas, reintentos y cambios optimistas ya resueltos; estándar con React; ligero | Una dependencia nueva |
+| Hooks propios con `fetch` | Sin dependencias | Hay que escribir y probar caché, duplicados y recargas |
+| SWR | Más pequeño | Menos soporte para mutaciones y cambios optimistas |
+
+**Por qué:** las pantallas del CRM comparten listas y fichas que cambian a menudo; la caché evita código propio frágil.
+
+### C63. Agenda de citas → D10
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Agenda propia** con `packages/ui` | Mismo diseño y modo oscuro; control total de accesibilidad; sin peso extra | Menos funciones (rejilla horaria y arrastre quedan para después) |
+| FullCalendar | Muy completo | Pesado, estilos propios difíciles de integrar en el tema y en WCAG |
+| react-big-calendar | Más ligero | Estilos y accesibilidad por adaptar |
+
+**Por qué:** demostración que se ampliará; reprogramar con formulario cumple WCAG 2.5.7 sin arrastre.
+
 ## Cierre de la demo (14-11-2026)
 
 ### C64. ¿Qué alcance damos por «demo terminada»? → N14, N15

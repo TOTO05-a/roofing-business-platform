@@ -1,7 +1,9 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { vi } from 'vitest';
+import { RoleProvider } from './role';
 import { SessionProvider } from './session';
 
 export interface MockResponse {
@@ -71,14 +73,19 @@ export function renderPage(
     initial = path,
   }: { path?: string; initial?: string | { pathname: string; state?: unknown } } = {},
 ) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <SessionProvider>
-      <MemoryRouter initialEntries={[initial]}>
-        <Routes>
-          <Route path={path} element={element} />
-          <Route path="*" element={<LocationProbe />} />
-        </Routes>
-      </MemoryRouter>
-    </SessionProvider>,
+    <QueryClientProvider client={queryClient}>
+      <SessionProvider>
+        <RoleProvider>
+          <MemoryRouter initialEntries={[initial]}>
+            <Routes>
+              <Route path={path} element={element} />
+              <Route path="*" element={<LocationProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </RoleProvider>
+      </SessionProvider>
+    </QueryClientProvider>,
   );
 }
