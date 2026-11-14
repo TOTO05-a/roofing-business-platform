@@ -1,25 +1,19 @@
 import type { Dictionary } from '@roofing/shared/i18n';
 import {
   CalendarDays,
+  ClipboardCheck,
   ClipboardList,
-  FileText,
   FolderKanban,
-  HardHat,
   Home,
   LayoutGrid,
-  LifeBuoy,
+  MapPin,
   Package,
   Receipt,
-  ScrollText,
-  Settings,
   ShieldCheck,
-  Timer,
   UserCog,
-  Users,
-  BarChart3,
-  ClipboardCheck,
-  MapPin,
   UserPlus,
+  Users,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { showcaseEnabled } from './config';
@@ -49,18 +43,19 @@ const staff = ['administrador', 'superadministrador'] as const;
 export const navItems: readonly NavItem[] = [
   { id: 'home', to: '/', labelKey: 'home', icon: Home, roles },
   // Cliente
-  {
-    id: 'projects',
-    to: '/proyectos',
-    labelKey: 'projects',
-    icon: FolderKanban,
-    roles: ['cliente'],
-  },
+  { id: 'projects', to: '/proyectos', labelKey: 'projects', icon: FolderKanban, roles },
   {
     id: 'quotes',
     to: '/cotizaciones',
     labelKey: 'quotes',
     icon: Receipt,
+    roles: ['cliente', 'empleado', ...staff],
+  },
+  {
+    id: 'invoices',
+    to: '/facturas',
+    labelKey: 'invoices',
+    icon: Wallet,
     roles: ['cliente', ...staff],
   },
   {
@@ -70,8 +65,6 @@ export const navItems: readonly NavItem[] = [
     icon: CalendarDays,
     roles: ['cliente'],
   },
-  { id: 'documents', to: '/documentos', labelKey: 'documents', icon: FileText, roles: ['cliente'] },
-  { id: 'support', to: '/soporte', labelKey: 'support', icon: LifeBuoy, roles: ['cliente'] },
   // Empleado
   {
     id: 'schedule',
@@ -94,7 +87,7 @@ export const navItems: readonly NavItem[] = [
     to: '/propiedades',
     labelKey: 'properties',
     icon: MapPin,
-    roles: ['empleado', ...staff],
+    roles: ['cliente', 'empleado', ...staff],
   },
   {
     id: 'inspections',
@@ -108,33 +101,16 @@ export const navItems: readonly NavItem[] = [
     to: '/materiales',
     labelKey: 'materials',
     icon: Package,
-    roles: ['empleado', ...staff],
+    roles: staff,
   },
-  { id: 'timesheets', to: '/horas', labelKey: 'timesheets', icon: Timer, roles: ['empleado'] },
   // Administración
-  { id: 'jobs', to: '/trabajos', labelKey: 'jobs', icon: HardHat, roles: staff },
   { id: 'employees', to: '/empleados', labelKey: 'employees', icon: UserCog, roles: staff },
-  { id: 'reports', to: '/reportes', labelKey: 'reports', icon: BarChart3, roles: staff },
   // Superadministración
   {
     id: 'users',
     to: '/usuarios',
     labelKey: 'users',
     icon: ShieldCheck,
-    roles: ['superadministrador'],
-  },
-  {
-    id: 'settings',
-    to: '/configuracion',
-    labelKey: 'settings',
-    icon: Settings,
-    roles: ['superadministrador'],
-  },
-  {
-    id: 'audit',
-    to: '/auditoria',
-    labelKey: 'audit',
-    icon: ScrollText,
     roles: ['superadministrador'],
   },
   // Desarrollo

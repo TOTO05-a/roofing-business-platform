@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { createBrowserRouter } from 'react-router';
 import { AppShell } from './components/AppShell';
 import { showcaseEnabled } from './config';
-import { canAccess, navItems, placeholderItems, type NavItem } from './navigation';
-import { ForbiddenPage, HomePage, NotFoundPage, PlaceholderPage } from './pages/Basic';
+import { canAccess, navItems, type NavItem } from './navigation';
+import { ForbiddenPage, NotFoundPage } from './pages/Basic';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { InvitationPage } from './pages/auth/InvitationPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
@@ -21,6 +21,12 @@ import {
 import { InspectionDetailPage, InspectionsPage } from './pages/crm/InspectionPages';
 import { LeadDetailPage } from './pages/crm/LeadDetailPage';
 import { LeadsPage } from './pages/crm/LeadsPage';
+import { EmployeesPage, UsersPage } from './pages/sim/AdminPages';
+import { CatalogPage } from './pages/sim/CatalogPage';
+import { DashboardPage } from './pages/sim/DashboardPage';
+import { InvoicesPage } from './pages/sim/InvoicesPage';
+import { ProjectDetailPage, ProjectsPage } from './pages/sim/ProjectsPages';
+import { QuoteDetailPage, QuotesPage } from './pages/sim/QuotesPages';
 import { useRole } from './role';
 import { RequireSession, SessionLoading } from './session';
 
@@ -48,6 +54,15 @@ const crmRoutes = [
   crmRoute('appointments', 'citas', <AgendaPage />),
   crmRoute('inspections', 'inspecciones', <InspectionsPage />),
   crmRoute('inspections', 'inspecciones/:id', <InspectionDetailPage />),
+  // Demo simulada (N17): catálogo, presupuestos, proyectos, facturas y administración.
+  crmRoute('materials', 'materiales', <CatalogPage />),
+  crmRoute('quotes', 'cotizaciones', <QuotesPage />),
+  crmRoute('quotes', 'cotizaciones/:id', <QuoteDetailPage />),
+  crmRoute('projects', 'proyectos', <ProjectsPage />),
+  crmRoute('projects', 'proyectos/:id', <ProjectDetailPage />),
+  crmRoute('invoices', 'facturas', <InvoicesPage />),
+  crmRoute('employees', 'empleados', <EmployeesPage />),
+  crmRoute('users', 'usuarios', <UsersPage />),
 ];
 
 const showcaseItem = navItems.find((item) => item.id === 'components');
@@ -81,7 +96,7 @@ export const router = createBrowserRouter([
     ),
     hydrateFallbackElement: <SessionLoading />,
     children: [
-      { index: true, element: <HomePage /> },
+      { index: true, element: <DashboardPage /> },
       ...(showcaseEnabled && showcaseItem
         ? [
             {
@@ -100,14 +115,6 @@ export const router = createBrowserRouter([
           ]
         : []),
       ...crmRoutes,
-      ...placeholderItems.map((item) => ({
-        path: item.to.slice(1),
-        element: (
-          <RequireRole item={item}>
-            <PlaceholderPage />
-          </RequireRole>
-        ),
-      })),
       { path: '*', element: <NotFoundPage /> },
     ],
   },
