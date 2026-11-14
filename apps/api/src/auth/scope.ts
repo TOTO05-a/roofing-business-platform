@@ -111,11 +111,43 @@ export const scopes = {
           { uploadedById: context.userId },
           { inspectionPhoto: { inspection: scopes.inspection(context) } },
           { quoteVersionPdf: { quote: scopes.quote(context) } },
+          { projectPhoto: { project: scopes.project(context) } },
         ],
       };
     }
     if (context.role === 'CUSTOMER' && context.customerId) {
-      return { ...base, quoteVersionPdf: { quote: scopes.quote(context) } };
+      return {
+        ...base,
+        OR: [
+          { quoteVersionPdf: { quote: scopes.quote(context) } },
+          { projectPhoto: { visibleToCustomer: true, project: scopes.project(context) } },
+        ],
+      };
+    }
+    return NOTHING;
+  },
+
+  /** Proyectos: oficina todos; el cliente los suyos; la cuadrilla los que tiene asignados. */
+  project(context: AuthContext): Prisma.ProjectWhereInput {
+    const base = { deletedAt: null };
+    if (isStaff(context)) return base;
+    if (context.role === 'CUSTOMER' && context.customerId) {
+      return { ...base, customerId: context.customerId };
+    }
+    if (context.role === 'EMPLOYEE' && context.employeeId) {
+      return {
+        ...base,
+        assignments: { some: { employeeId: context.employeeId, unassignedAt: null } },
+      };
+    }
+    return NOTHING;
+  },
+
+  /** Facturas (simuladas): oficina todas; el cliente las suyas; la cuadrilla no las ve. */
+  invoice(context: AuthContext): Prisma.InvoiceWhereInput {
+    if (isStaff(context)) return {};
+    if (context.role === 'CUSTOMER' && context.customerId) {
+      return { customerId: context.customerId };
     }
     return NOTHING;
   },

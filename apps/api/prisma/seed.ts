@@ -4,15 +4,19 @@
  * Con SEED_DEMO=true crea además un usuario de demostración por rol (@cresta-roofing.example),
  * con contraseñas de SEED_DEMO_*_PASSWORD. Es idempotente: nunca modifica usuarios existentes.
  * También crea datos demo del CRM (prisma/seed-crm.ts) y de catálogo y presupuestos
- * (prisma/seed-presupuestos.ts; los enviados necesitan el almacenamiento S3). Los administradores y superadministradores demo siguen obligados a activar 2FA al entrar.
+ * (prisma/seed-presupuestos.ts; los enviados necesitan el almacenamiento S3) y el seed demo rico
+ * (prisma/seed-demo-rico.ts). Solo en la demo local, el administrador y el superadministrador demo
+ * quedan con el 2FA precargado (prisma/demo-2fa.ts).
  * Ejecuta: pnpm --filter @roofing/api db:seed
  */
 import { randomUUID } from 'node:crypto';
-import { hashPassword } from 'better-auth/crypto';
+import { hashPassword, symmetricEncrypt } from 'better-auth/crypto';
 import { z } from 'zod';
 import { createDb } from '../src/lib/db.js';
 import { emailSchema } from '../src/lib/validation.js';
 import { seedDemoCrm } from './seed-crm.js';
+import { DEMO_2FA_EMAILS, DEMO_BACKUP_CODES, DEMO_TOTP_SECRET_BASE32 } from './demo-2fa.js';
+import { seedDemoRich } from './seed-demo-rico.js';
 import { seedDemoQuotes } from './seed-presupuestos.js';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../src/auth/better-auth.js';
 
@@ -24,6 +28,8 @@ const seedEnvSchema = z.object({
   SEED_SUPERADMIN_PASSWORD: z.string().min(PASSWORD_MIN_LENGTH).max(PASSWORD_MAX_LENGTH),
   SEED_SUPERADMIN_NAME: z.string().trim().min(1).max(100).default('Superadministrador'),
   SEED_DEMO: z.enum(['true', 'false']).default('false'),
+  // Solo para precargar el 2FA de la demo (se guarda cifrado con esta misma clave).
+  BETTER_AUTH_SECRET: z.string().min(32).optional(),
   SEED_DEMO_CUSTOMER_PASSWORD: z
     .string()
     .min(PASSWORD_MIN_LENGTH)
@@ -128,7 +134,11 @@ async function seedDemoUsers(db: Db, env: z.infer<typeof seedEnvSchema>): Promis
       }
       if (demo.role === 'EMPLOYEE') {
         await tx.employeeProfile.create({
-          data: { userId: id, jobTypes: ['SALES', 'INSPECTOR'], phone: '+13055550144' },
+          data: {
+            userId: id,
+            jobTypes: ['SALES', 'INSPECTOR', 'CREW_LEAD'],
+            phone: '+13055550144',
+          },
         });
       }
       await tx.auditLog.create({
@@ -142,9 +152,35 @@ async function seedDemoUsers(db: Db, env: z.infer<typeof seedEnvSchema>): Promis
     });
     console.log(`Usuario demo ${demo.email} creado (rol ${demo.role}).`);
   }
-  console.log(
-    'Administrador y superadministrador demo deben activar 2FA (TOTP) en su primer acceso; la regla no se desactiva.',
-  );
+}
+
+/**
+ * 2FA precargado SOLO en la demo local: el administrador y el superadministrador demo quedan con
+ * el 2FA activo, un secreto TOTP fijo (prisma/demo-2fa.ts, documentado en CREDENCIALES.md) y
+ * códigos de respaldo fijos, guardados en el formato cifrado de Better Auth. Se reescribe en
+ * cada ejecución para que coincida siempre con el BETTER_AUTH_SECRET actual. No afecta a los
+ * usuarios reales ni cambia el flujo de 2FA de la aplicación.
+ */
+async function seedDemoTwoFactor(db: Db, env: z.infer<typeof seedEnvSchema>): Promise<void> {
+  const key = env.BETTER_AUTH_SECRET;
+  if (!key) {
+    console.log('Sin BETTER_AUTH_SECRET: no se precarga el 2FA de la demo (se pedirá activarlo).');
+    return;
+  }
+  const secret = await symmetricEncrypt({ key, data: `base32:${DEMO_TOTP_SECRET_BASE32}` });
+  const backupCodes = await symmetricEncrypt({ key, data: JSON.stringify(DEMO_BACKUP_CODES) });
+  for (const email of DEMO_2FA_EMAILS) {
+    const user = await db.user.findUnique({ where: { email }, select: { id: true } });
+    if (!user) continue;
+    await db.$transaction(async (tx) => {
+      await tx.twoFactor.deleteMany({ where: { userId: user.id } });
+      await tx.twoFactor.create({
+        data: { userId: user.id, secret, backupCodes, verified: true },
+      });
+      await tx.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true } });
+    });
+    console.log(`2FA de la demo precargado para ${email} (ver CREDENCIALES.md).`);
+  }
 }
 
 async function main(): Promise<void> {
@@ -167,8 +203,10 @@ async function main(): Promise<void> {
     }
     if (env.SEED_DEMO === 'true') {
       await seedDemoUsers(db, env);
+      await seedDemoTwoFactor(db, env);
       await seedDemoCrm(db);
       await seedDemoQuotes(db);
+      await seedDemoRich(db);
     }
   } finally {
     await db.$disconnect();
@@ -199,7 +237,9 @@ async function seedSuperadmin(db: Db, env: z.infer<typeof seedEnvSchema>): Promi
     });
   });
   console.log(
-    `Superadministrador ${env.SEED_SUPERADMIN_EMAIL} creado. Al entrar deberá activar 2FA.`,
+    env.SEED_DEMO === 'true'
+      ? `Superadministrador ${env.SEED_SUPERADMIN_EMAIL} creado.`
+      : `Superadministrador ${env.SEED_SUPERADMIN_EMAIL} creado. Al entrar deberá activar 2FA.`,
   );
 }
 

@@ -31,6 +31,7 @@ docker compose up -d      # PostgreSQL y Mailpit
 pnpm --filter @roofing/api db:deploy   # migraciones (con el dueño, DATABASE_URL)
 pnpm --filter @roofing/api db:roles    # da LOGIN a app_user y app_system (seguridad por fila)
 pnpm --filter @roofing/api db:seed     # opcional: superadmin y datos demo (SEED_DEMO=true)
+pnpm demo:codigo                      # código 2FA de la demo (administrador y superadministrador)
 pnpm dev                  # web, app y API en paralelo
 ```
 

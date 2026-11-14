@@ -15,6 +15,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:roles": "tsx --env-file-if-exists=.env prisma/setup-db-roles.ts",
     "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
+    "demo:codigo": "tsx prisma/demo-codigo.ts",
     "db:studio": "prisma studio",
     "storage:init": "tsx --env-file-if-exists=.env scripts/storage-init.ts"
   },

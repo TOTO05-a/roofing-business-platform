@@ -15,6 +15,9 @@ import { filesRouter } from './routes/files.js';
 import { inspectionsRouter } from './routes/inspections.js';
 import { leadsRouter } from './routes/leads.js';
 import { propertiesRouter } from './routes/properties.js';
+import { dashboardRouter } from './routes/dashboard.js';
+import { invoicesRouter } from './routes/invoices.js';
+import { projectsRouter } from './routes/projects.js';
 import { quotesRouter } from './routes/quotes.js';
 import { publicRouter } from './routes/public.js';
 import type { AppServices } from './services.js';
@@ -125,6 +128,9 @@ export function createApp(services: AppServices): Express {
   app.use('/api', filesRouter(services));
   app.use('/api', catalogRouter(services));
   app.use('/api', quotesRouter(services));
+  app.use('/api', projectsRouter(services));
+  app.use('/api', invoicesRouter(services));
+  app.use('/api', dashboardRouter(services));
 
   app.use(notFound);
   app.use(createErrorHandler(env.NODE_ENV === 'production'));

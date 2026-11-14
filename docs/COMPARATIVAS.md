@@ -622,6 +622,48 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 
 **Por qué:** el brief pide una casa protagonista que evolucione de forma continua con el scroll y con aspecto fotográfico; un video real es lo único gratuito que da ambas cosas (W15: la calidad visual va antes que el peso).
 
+## Demo simulada (14-11-2026)
+
+### C68. Cómo se acepta un presupuesto en la demo → N17, T34
+
+| Opción                                     | A favor                                              | En contra                                  |
+| ------------------------------------------ | ---------------------------------------------------- | ------------------------------------------ |
+| ✅ **Aceptación simple («Aceptar»)**       | Un clic; crea el proyecto y las facturas; sin riesgo | No es un contrato con valor legal          |
+| Firma electrónica propia + aviso de 3 días | Cumple ESIGN y la regla de la FTC                    | Mucho trabajo y no aporta a una demo (N15) |
+| Que solo la oficina marque «aprobado»      | Más simple de construir                              | El cliente no puede probar su portal       |
+
+**Por qué:** el portal del cliente debe poder cerrar el ciclo; la firma legal queda pendiente a futuro (N15) y la pantalla lo avisa.
+
+### C69. Facturas y pagos en la demo → N17, T34
+
+| Opción                                        | A favor                                              | En contra                                          |
+| --------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| ✅ **Registros simulados (anticipo y saldo)** | Cero riesgo y cero costo; la oficina «registra» pago | No cobra de verdad                                 |
+| Stripe en modo de prueba                      | Flujo real de pasarela                               | Webhooks, claves y mantenimiento sin necesidad aún |
+| Sin facturas                                  | Menos trabajo                                        | El ciclo del negocio queda cojo                    |
+
+**Por qué:** la app no se lanza; un `CHECK simulated` en la base garantiza que ningún pago pueda marcarse como real. Stripe sigue pendiente (N15).
+
+### C70. 2FA del administrador en la demo local → T35
+
+| Opción                                                      | A favor                                              | En contra                                  |
+| ----------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| ✅ **2FA precargado con secreto fijo y `pnpm demo:codigo`** | Entrar sin QR tras cada reinicio; sigue habiendo 2FA | El secreto es público (solo vale en local) |
+| Escanear el QR cada vez                                     | Idéntico al flujo real                               | Fricción cada vez que se rehace la base    |
+| Desactivar el 2FA en la demo                                | Lo más simple                                        | Se prueba un flujo distinto del real       |
+
+**Por qué:** mantiene la regla de seguridad (los roles de oficina siempre usan 2FA) sin molestar; solo con `SEED_DEMO=true` y nunca en producción.
+
+### C71. Fotos de proyectos y verificación del cierre → D13, W19
+
+| Opción                                            | A favor                                    | En contra                                      |
+| ------------------------------------------------- | ------------------------------------------ | ---------------------------------------------- |
+| ✅ **PNG generados en código (casa esquemática)** | Sin derechos, sin dependencias y sin costo | Aspecto de ilustración, no de foto             |
+| Fotos de stock                                    | Más realistas                              | Licencias y peso; no hay fotos propias todavía |
+| Generación con IA                                 | A medida                                   | Gasta créditos de pago                         |
+
+**Por qué:** las fotos del seed son marcadores creíbles del «antes, durante y después»; se sustituyen fácilmente por reales. El cierre se verifica a mano por rol y con los checks existentes, sin pruebas nuevas (W19).
+
 ### C66. Técnica del video controlado por scroll → T32
 
 | Opción                                           | A favor                                                                                  | En contra                                                           |

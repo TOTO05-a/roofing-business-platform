@@ -67,6 +67,7 @@ model User {
   customerProfile    CustomerProfile?
   employeeProfile    EmployeeProfile?
   filesUploaded      File[]
+  paymentsRecorded   Payment[]
   quotesCreated      Quote[]          @relation("QuoteCreatedBy")
   versionsCreated    QuoteVersion[]   @relation("QuoteVersionCreatedBy")
   versionsSent       QuoteVersion[]   @relation("QuoteVersionSentBy")
@@ -231,6 +232,8 @@ model CustomerProfile {
   leads        Lead[]
   appointments Appointment[]
   quotes       Quote[]
+  projects     Project[]
+  invoices     Invoice[]
 
   @@index([lastName, firstName])
   @@map("customer_profiles")
@@ -248,12 +251,14 @@ model EmployeeProfile {
   updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(3)
 
-  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  invitations   Invitation[]
-  leadsAssigned Lead[]
-  appointments  Appointment[]
-  inspections   Inspection[]
-  quotesAsSales Quote[]
+  user               User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations        Invitation[]
+  leadsAssigned      Lead[]
+  appointments       Appointment[]
+  inspections        Inspection[]
+  quotesAsSales      Quote[]
+  projectAssignments ProjectAssignment[]
+  projectPhotos      ProjectPhoto[]
 
   @@map("employee_profiles")
 }
@@ -353,6 +358,7 @@ model Property {
   appointments Appointment[]
   inspections  Inspection[]
   quotes       Quote[]
+  projects     Project[]
 
   // Destino de las claves compuestas (propiedad, cliente): una cita o un lead solo pueden
   // apuntar a una propiedad del mismo cliente.
@@ -540,6 +546,7 @@ model File {
   inspectionPhoto InspectionPhoto?
   quoteVersionPdf QuoteVersion?
   textureOptions  MaterialOption[]
+  projectPhoto    ProjectPhoto?
 
   @@unique([bucket, objectKey])
   @@index([uploadedById, createdAt(sort: Desc)])
@@ -587,12 +594,13 @@ enum QuantityRule {
   FIXED
 }
 
-// Estados de una versión (§3). APPROVED y VOIDED llegan con la aprobación y la firma (etapa
-// siguiente, N7): se añadirán con una migración aditiva.
+// Estados de una versión (§3). APPROVED llega con la aceptación simple de la demo (N17); VOIDED
+// y la firma electrónica legal quedan pendientes (N15).
 enum QuoteStatus {
   DRAFT
   SENT
   VIEWED
+  APPROVED
   DECLINED
   EXPIRED
   SUPERSEDED
@@ -752,6 +760,7 @@ model Quote {
   salesRep   EmployeeProfile? @relation(fields: [salesRepId], references: [id], onDelete: Restrict)
   createdBy  User             @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   versions   QuoteVersion[]
+  projects   Project[]
 
   @@index([customerId, createdAt(sort: Desc)])
   @@index([propertyId, customerId])
@@ -788,6 +797,9 @@ model QuoteVersion {
   viewedAt             DateTime?   @map("viewed_at") @db.Timestamptz(3)
   declinedAt           DateTime?   @map("declined_at") @db.Timestamptz(3)
   declineReason        String?     @map("decline_reason")
+  // Aceptación simple de la demo (N17): sin firma legal. La opción elegida es de esta versión.
+  approvedAt           DateTime?   @map("approved_at") @db.Timestamptz(3)
+  approvedOptionId     String?     @map("approved_option_id") @db.Uuid
   expiredAt            DateTime?   @map("expired_at") @db.Timestamptz(3)
   supersededAt         DateTime?   @map("superseded_at") @db.Timestamptz(3)
   pdfFileId            String?     @unique @map("pdf_file_id") @db.Uuid
@@ -797,17 +809,20 @@ model QuoteVersion {
   createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  quote     Quote         @relation(fields: [quoteId], references: [id], onDelete: Restrict)
-  pdfFile   File?         @relation(fields: [pdfFileId], references: [id], onDelete: Restrict)
-  createdBy User          @relation("QuoteVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  sentBy    User?         @relation("QuoteVersionSentBy", fields: [sentById], references: [id], onDelete: Restrict)
-  options   QuoteOption[]
+  quote          Quote         @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  pdfFile        File?         @relation(fields: [pdfFileId], references: [id], onDelete: Restrict)
+  createdBy      User          @relation("QuoteVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  sentBy         User?         @relation("QuoteVersionSentBy", fields: [sentById], references: [id], onDelete: Restrict)
+  options        QuoteOption[]
+  approvedOption QuoteOption?  @relation("QuoteVersionApprovedOption", fields: [approvedOptionId], references: [id], onDelete: Restrict)
+  project        Project?
 
   @@unique([quoteId, versionNumber])
   @@index([status, sentAt])
   @@index([status, validUntil])
   @@index([createdById])
   @@index([sentById])
+  @@index([approvedOptionId])
   @@map("quote_versions")
 }
 
@@ -833,9 +848,11 @@ model QuoteOption {
   balanceCents          Int         @map("balance_cents")
   createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  version QuoteVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  package Package      @relation(fields: [packageId], references: [id], onDelete: Restrict)
-  lines   QuoteLine[]
+  version    QuoteVersion   @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  package    Package        @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  lines      QuoteLine[]
+  approvedIn QuoteVersion[] @relation("QuoteVersionApprovedOption")
+  projects   Project[]
 
   @@unique([versionId, packageId])
   @@index([packageId])
@@ -875,4 +892,189 @@ model QuoteLine {
   @@index([itemId])
   @@index([materialOptionId])
   @@map("quote_lines")
+}
+
+// ---------------------------------------------------------------------------------------
+// Proyectos, facturas y pagos SIMULADOS (modelo de datos §2.7 y §2.8; decisiones N17 y T34).
+// La demo no cobra nada: un Payment es solo un registro marcado como simulado. Stripe, la firma
+// legal y el aviso de cancelación quedan pendientes (N15). Las CHECK y la RLS viven en
+// prisma/sql/demo-cierre-extras.sql.
+// ---------------------------------------------------------------------------------------
+
+enum ProjectStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+enum StageStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+enum ProjectRole {
+  CREW_LEAD
+  CREW_MEMBER
+}
+
+enum PhotoPhase {
+  BEFORE
+  DURING
+  AFTER
+}
+
+enum InvoiceKind {
+  DEPOSIT
+  BALANCE
+}
+
+enum InvoiceStatus {
+  ISSUED
+  PAID
+  VOID
+}
+
+// Proyecto: nace al aceptar una versión de presupuesto (1 versión aprobada = 1 proyecto).
+model Project {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  number             String        @unique @default(dbgenerated("next_project_number()"))
+  quoteId            String        @map("quote_id") @db.Uuid
+  quoteVersionId     String        @unique @map("quote_version_id") @db.Uuid
+  optionId           String        @map("option_id") @db.Uuid
+  customerId         String        @map("customer_id") @db.Uuid
+  propertyId         String        @map("property_id") @db.Uuid
+  title              String
+  status             ProjectStatus @default(SCHEDULED)
+  scheduledStart     DateTime?     @map("scheduled_start") @db.Timestamptz(3)
+  scheduledEnd       DateTime?     @map("scheduled_end") @db.Timestamptz(3)
+  actualStart        DateTime?     @map("actual_start") @db.Timestamptz(3)
+  actualEnd          DateTime?     @map("actual_end") @db.Timestamptz(3)
+  contractTotalCents Int           @map("contract_total_cents")
+  acceptedAt         DateTime      @map("accepted_at") @db.Timestamptz(3)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  quote        Quote               @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  quoteVersion QuoteVersion        @relation(fields: [quoteVersionId], references: [id], onDelete: Restrict)
+  option       QuoteOption         @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  customer     CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  property     Property            @relation(fields: [propertyId, customerId], references: [id, customerId], onDelete: Restrict)
+  stages       ProjectStage[]
+  assignments  ProjectAssignment[]
+  photos       ProjectPhoto[]
+  invoices     Invoice[]
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([propertyId, customerId])
+  @@index([quoteId])
+  @@index([optionId])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("projects")
+}
+
+// Etapa de un proyecto (plantilla fija en código, N17).
+model ProjectStage {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  projectId   String      @map("project_id") @db.Uuid
+  name        String
+  sortOrder   Int         @map("sort_order")
+  status      StageStatus @default(PENDING)
+  startedAt   DateTime?   @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime?   @map("completed_at") @db.Timestamptz(3)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  photos  ProjectPhoto[]
+
+  @@unique([projectId, sortOrder])
+  @@map("project_stages")
+}
+
+// Cuadrilla asignada a un proyecto.
+model ProjectAssignment {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  projectId    String      @map("project_id") @db.Uuid
+  employeeId   String      @map("employee_id") @db.Uuid
+  role         ProjectRole @default(CREW_MEMBER)
+  assignedAt   DateTime    @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  unassignedAt DateTime?   @map("unassigned_at") @db.Timestamptz(3)
+
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, employeeId])
+  @@index([employeeId])
+  @@map("project_assignments")
+}
+
+// Foto de un proyecto (el archivo vive en el almacenamiento S3 como File).
+model ProjectPhoto {
+  id                String     @id @default(uuid(7)) @db.Uuid
+  projectId         String     @map("project_id") @db.Uuid
+  stageId           String?    @map("stage_id") @db.Uuid
+  fileId            String     @unique @map("file_id") @db.Uuid
+  phase             PhotoPhase
+  caption           String?
+  takenById         String?    @map("taken_by_id") @db.Uuid
+  takenAt           DateTime?  @map("taken_at") @db.Timestamptz(3)
+  visibleToCustomer Boolean    @default(true) @map("visible_to_customer")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage   ProjectStage?    @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  file    File             @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  takenBy EmployeeProfile? @relation(fields: [takenById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([stageId])
+  @@index([takenById])
+  @@map("project_photos")
+}
+
+// Factura simulada: anticipo y saldo de un proyecto. Una activa por tipo (índice único parcial).
+model Invoice {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  number     String        @unique @default(dbgenerated("next_invoice_number()"))
+  projectId  String        @map("project_id") @db.Uuid
+  customerId String        @map("customer_id") @db.Uuid
+  kind       InvoiceKind
+  status     InvoiceStatus @default(ISSUED)
+  totalCents Int           @map("total_cents")
+  issuedAt   DateTime      @map("issued_at") @db.Timestamptz(3)
+  dueAt      DateTime      @map("due_at") @db.Timestamptz(3)
+  paidAt     DateTime?     @map("paid_at") @db.Timestamptz(3)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@index([projectId])
+  @@index([customerId, issuedAt(sort: Desc)])
+  @@index([status, dueAt])
+  @@map("invoices")
+}
+
+// Pago SIMULADO: solo un registro (sin tarjeta, sin pasarela, sin cobro real).
+model Payment {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  invoiceId    String   @map("invoice_id") @db.Uuid
+  amountCents  Int      @map("amount_cents")
+  simulated    Boolean  @default(true)
+  method       String   @default("Pago simulado")
+  paidAt       DateTime @map("paid_at") @db.Timestamptz(3)
+  recordedById String?  @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  recordedBy User?   @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([recordedById])
+  @@map("payments")
 }
