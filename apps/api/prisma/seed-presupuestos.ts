@@ -325,6 +325,22 @@ const QUOTES: DemoQuote[] = [
   },
 ];
 
+/**
+ * Almacenamiento S3 del seed (Garage en local) o null si no está configurado. Solo lee las
+ * variables S3_*; el seed no valida el resto del entorno de la API.
+ */
+export function seedStorage(): Storage | null {
+  const s3 = {
+    S3_ENDPOINT: process.env.S3_ENDPOINT || undefined,
+    S3_REGION: process.env.S3_REGION || 'garage',
+    S3_BUCKET: process.env.S3_BUCKET || 'roofing-files',
+    S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID || undefined,
+    S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY || undefined,
+    S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE !== 'false',
+  };
+  return createS3Storage(s3 as unknown as Env);
+}
+
 export async function seedDemoQuotes(db: Db): Promise<void> {
   if (await db.category.findUnique({ where: { name: MARKER_CATEGORY } })) {
     console.log('Los datos demo de catálogo y presupuestos ya existen; no se modifican.');
@@ -344,16 +360,7 @@ export async function seedDemoQuotes(db: Db): Promise<void> {
     select: { id: true },
   });
   // Los presupuestos enviados guardan su PDF en S3 (Garage en local). Sin él, solo borradores.
-  // createS3Storage solo lee las variables S3_*; el seed no valida el resto del entorno de la API.
-  const s3 = {
-    S3_ENDPOINT: process.env.S3_ENDPOINT || undefined,
-    S3_REGION: process.env.S3_REGION || 'garage',
-    S3_BUCKET: process.env.S3_BUCKET || 'roofing-files',
-    S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID || undefined,
-    S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY || undefined,
-    S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE !== 'false',
-  };
-  const storage: Storage | null = createS3Storage(s3 as unknown as Env);
+  const storage = seedStorage();
 
   await db.$transaction(
     async (tx) => {
