@@ -27,6 +27,7 @@ Cada fila dice **qué** se decidió, **por qué** y **cuándo**. Si una decisió
 | N10 | Mientras no haya datos reales, el sitio y la app usan **datos ficticios de demostración** (licencia, seguro, teléfono, correo, servicios, área, garantías), siempre con el aviso «Empresa y datos ficticios de demostración». Los datos **reales** siguen pendientes. | No inventar datos del negocio como si fueran reales, pero probar con datos verosímiles. | 13-11-2026 | ⏳ (datos reales) |
 | N11 | La empresa ficticia se simula en el **Sur de Florida** (Miami-Dade, Broward y Palm Beach). Ver C32. | Licencia estatal única, impuesto solo sobre material y encaje con el sitio en español. | 13-11-2026 | ✅ |
 | N12 | **Backend del CRM completo:** propiedades, leads (con conversión a cliente y propiedad), citas, inspecciones con medidas y fotos, archivos, formulario de contacto del sitio conectado y datos demo del CRM. Ver C53. | Los presupuestos necesitan inspecciones con medidas; hacer las fotos ahora evita reabrir el código. | 13-11-2026 | ✅ |
+| N13 | **Etapa 3 en paralelo:** backend de catálogo y presupuestos (cálculo con el motor, versiones con instantánea inmutable, PDF, estados hasta enviado/visto/rechazado/caducado/sustituido) y pantallas del CRM. La aprobación con firma electrónica y el aviso de 3 días van en la etapa siguiente (revisión legal, N7). Ver C59. | Las dos partes no comparten archivos y el CRM ya tiene backend. | 13-11-2026 | ✅ |
 
 ## 2. Reglas de presupuestos y datos del negocio
 
@@ -95,6 +96,7 @@ Aprobadas junto con el modelo de datos.
 | T27 | **Sin citas solapadas** por empleado: restricción EXCLUDE (`btree_gist`) en estados activos más comprobación previa en la API con error bilingüe. Ver C56. | Solo la base de datos garantiza que no haya dobles reservas simultáneas. | 13-11-2026 | ✅ |
 | T28 | **Fotos en desarrollo** en un almacenamiento compatible con S3 dentro de `docker compose`, con el AWS SDK v3; bucket privado y URL firmadas de vida corta tras comprobar el acceso; validación de tipo, tamaño y sha256. R2 sigue sin activarse. Ver C57. | El mismo código servirá con R2, sin cuentas externas ni costo. | 13-11-2026 | ✅ |
 | T29 | El almacenamiento S3 de desarrollo es **Garage** (imagen oficial `dxflrs/garage`, modo de un solo nodo). SeaweedFS también está mantenido, pero consume más memoria (arranca maestro, volumen, filer y S3). Ver C57. | El equipo de desarrollo tiene poca RAM; Garage es más ligero y basta con un bucket. | 13-11-2026 | ✅ |
+| T30 | **PDF de presupuestos con `@react-pdf/renderer`** en la API: marca Cresta (Manrope y Source Sans 3, pizarra y cobre), es/en, guardado en el almacenamiento S3 como `File` con su sha256 y descargable con URL firmada. Ver C60. | Ligero (sin navegador), cabe en Render gratuito y se escribe con componentes React. | 13-11-2026 | ✅ |
 
 ## 5. Infraestructura y costos
 
@@ -129,3 +131,4 @@ Aprobadas junto con el modelo de datos.
 | W14 | El ruleset de `main` y `dev` exige los checks **`verify` y `e2e`** para fusionar. Ver C34. | Evitar fusiones con pruebas de navegador o accesibilidad en rojo (como el PR #10). | 13-11-2026 | ✅ |
 | W15 | Como la app no se lanzará (W13), **la calidad visual realista tiene prioridad sobre el peso** (sin dejar de ser fluida en un portátil normal). Ver C36. | Decisión del cliente. | 13-11-2026 | ✅ |
 | W16 | Backend del CRM en dos fases: **Opus alto** hace esquema, migraciones, RLS y sus pruebas; **Sonnet medio** (`general-purpose`) hace rutas, servicios, formulario, fotos y seed; al final, auditoría de **`security-auditor`** (Opus alto) antes del PR. Ver C58. | Opus donde un error es caro; Sonnet para lo acotado (W11, C31). | 13-11-2026 | ✅ |
+| W17 | Etapa 3: **presupuestos en dos fases** como el CRM (Opus alto: esquema, migraciones, disparadores, RLS y pruebas; Sonnet medio: rutas, servicios, PDF y seed; auditoría de `security-auditor`) y **pantallas del CRM con Sonnet medio** y revisión. Ver C61. | Opus donde un error es caro; Sonnet para lo acotado (W11, C31). | 13-11-2026 | ✅ |

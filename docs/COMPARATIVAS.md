@@ -544,3 +544,37 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Todo con Sonnet y auditoría de Opus | Lo más barato | La RLS y las migraciones son donde un error cuesta más |
 
 **Por qué:** aplica W11 y C31: Opus donde un error es caro (seguridad y datos), Sonnet para la implementación acotada.
+
+---
+
+## Etapa 3 · Presupuestos y pantallas del CRM (13-11-2026)
+
+### C59. Siguiente etapa tras el CRM → N13
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Backend de presupuestos y pantallas del CRM en paralelo** | Avanzan las dos cosas a la vez sin tocar los mismos archivos; el CRM ya tiene backend | Dos sesiones que coordinar |
+| Solo presupuestos | Una sola línea de trabajo | El CRM sigue sin pantallas |
+| Solo pantallas del CRM | Se ve el progreso antes | Los presupuestos, el núcleo del negocio, se retrasan |
+
+**Por qué:** el backend del CRM ya está fusionado y el motor de cálculo existe; las pantallas (`apps/app`) y el backend de presupuestos (`apps/api`) no se pisan. La aprobación con firma y el aviso de 3 días quedan para la etapa siguiente por la revisión legal (N7).
+
+### C60. PDF de presupuestos → T30
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **`@react-pdf/renderer`** | Sin navegador: poca memoria; componentes React; fuentes propias incrustadas | Diseño con un subconjunto de CSS (flexbox) |
+| Navegador sin ventana (Playwright/Chromium) | HTML y CSS completos | Unos 300 MB de RAM; no cabe en Render gratuito |
+| `pdfkit` / `pdf-lib` a mano | Muy ligero | Maquetar a mano (coordenadas) es lento y frágil |
+
+**Por qué:** el PDF debe generarse en la API al enviar el presupuesto y caber en el plan gratuito; React PDF es ligero y permite reutilizar la marca. El archivo se guarda en el almacenamiento S3 como `File` con su sha256.
+
+### C61. Quién implementa la Etapa 3 → W17
+
+| Opción | A favor | En contra |
+| --- | --- | --- |
+| ✅ **Presupuestos en dos fases como el CRM y pantallas con Sonnet medio y revisión** | Opus en lo caro de equivocarse (datos, RLS, inmutabilidad); Sonnet en lo acotado; auditoría y revisión antes del PR | Coordinación en fases |
+| Todo con Opus alto | Máxima calidad | Gasta mucho más límite de uso en código rutinario |
+| Todo con Sonnet y auditoría | Lo más barato | La RLS y la inmutabilidad son donde un error cuesta más |
+
+**Por qué:** aplica W11, C31 y la experiencia del CRM (W16, C58).
