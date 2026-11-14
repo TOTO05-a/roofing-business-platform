@@ -20,12 +20,13 @@ import { HttpError } from '../lib/http-error.js';
 import { rlsTransaction, type RlsTx } from '../lib/rls.js';
 import { idParamsSchema, omitUndefined, optionalText, paginationSchema } from '../lib/schemas.js';
 import { parseInput } from '../lib/validation.js';
+import { projectFromApproval } from '../domain/projects.js';
 import { renderQuotePdf } from '../pdf/quote-pdf.js';
 import type { AppServices } from '../services.js';
 
 /**
- * Presupuestos (modelo §2.5 y §3; P3–P13). Estados de la demo (N16): DRAFT → SENT → VIEWED,
- * DECLINED, EXPIRED y SUPERSEDED. La aprobación con firma electrónica no está en esta etapa (N7).
+ * Presupuestos (modelo §2.5 y §3; P3–P13). Estados de la demo (N16, N17): DRAFT → SENT → VIEWED,
+ * APPROVED (aceptación simple, sin firma legal: N15), DECLINED, EXPIRED y SUPERSEDED.
  *
  * Quién puede qué: la oficina (ADMIN/SUPERADMIN) crea, calcula, aplica descuento (P10) y envía;
  * ventas ve los precios de SUS presupuestos; la cuadrilla no ve ninguno; el cliente ve los suyos
@@ -79,7 +80,9 @@ const versionParams = z.object({ id: z.uuid(), versionId: z.uuid() });
 
 const listQuery = paginationSchema.extend({
   customerId: z.uuid().optional(),
-  status: z.enum(['DRAFT', 'SENT', 'VIEWED', 'DECLINED', 'EXPIRED', 'SUPERSEDED']).optional(),
+  status: z
+    .enum(['DRAFT', 'SENT', 'VIEWED', 'APPROVED', 'DECLINED', 'EXPIRED', 'SUPERSEDED'])
+    .optional(),
 });
 
 const versionSummarySelect = {
@@ -91,6 +94,8 @@ const versionSummarySelect = {
   sentAt: true,
   viewedAt: true,
   declinedAt: true,
+  approvedAt: true,
+  approvedOptionId: true,
   expiredAt: true,
   supersededAt: true,
   lockedAt: true,
@@ -479,6 +484,9 @@ export function quotesRouter(services: AppServices): Router {
       if (latest.status === 'DRAFT') {
         throw new HttpError(409, 'DRAFT_EXISTS', 'Ya hay una versión en borrador');
       }
+      if (latest.status === 'APPROVED') {
+        throw new HttpError(409, 'ALREADY_APPROVED', 'El presupuesto ya fue aceptado');
+      }
       const { measurements } = measurementsSnapshotSchema.parse(latest.measurementsSnapshot);
       const parameters = {
         wasteBps: latest.wasteBps,
@@ -656,6 +664,71 @@ export function quotesRouter(services: AppServices): Router {
         await audit(tx, req, 'quote.view', id, { versionId });
       });
       res.json(await readQuoteVersion(id, versionId, context));
+    },
+  );
+
+  // Aceptación SIMULADA de la demo (N17): sin firma legal (pendiente, N15). Pasa la versión a
+  // APPROVED y crea el proyecto con sus etapas y las facturas simuladas de anticipo y saldo.
+  router.post(
+    '/quotes/:id/versions/:versionId/approve',
+    authed,
+    requireRole('CUSTOMER'),
+    async (req, res) => {
+      const { id, versionId } = parseInput(versionParams, req.params);
+      const input = parseInput(z.object({ optionId: z.uuid() }).strict(), req.body ?? {});
+      const context = authContext(req);
+      const project = await rlsTransaction(db, context, async (tx) => {
+        const version = await versionOr404(tx, context, id, versionId);
+        if (version.status !== 'SENT' && version.status !== 'VIEWED') {
+          throw invalidTransition(version.status, 'APPROVED');
+        }
+        if (version.validUntil && version.validUntil < new Date()) {
+          throw new HttpError(409, 'QUOTE_EXPIRED', 'El presupuesto ya venció');
+        }
+        const option = visibleOr404(
+          await tx.quoteOption.findFirst({
+            where: { id: input.optionId, versionId },
+            select: {
+              id: true,
+              title: true,
+              totalCents: true,
+              depositCents: true,
+              balanceCents: true,
+            },
+          }),
+        );
+        const quote = await tx.quote.findFirstOrThrow({
+          where: scopedWhere('quote', context, { id }),
+          select: {
+            id: true,
+            customerId: true,
+            propertyId: true,
+            property: { select: { addressLine1: true, city: true } },
+          },
+        });
+        const now = new Date();
+        const updated = await tx.quoteVersion.updateMany({
+          where: { id: versionId, status: { in: ['SENT', 'VIEWED'] } },
+          data: { status: 'APPROVED', approvedAt: now, approvedOptionId: option.id },
+        });
+        if (updated.count !== 1) throw invalidTransition(version.status, 'APPROVED');
+        const created = await projectFromApproval(tx, {
+          quoteId: quote.id,
+          versionId,
+          customerId: quote.customerId,
+          propertyId: quote.propertyId,
+          address: `${quote.property.addressLine1}, ${quote.property.city}`,
+          option,
+          now,
+        });
+        await audit(tx, req, 'quote.approve_simulated', id, {
+          versionId,
+          optionId: option.id,
+          projectId: created.id,
+        });
+        return created;
+      });
+      res.status(201).json({ project, simulated: true });
     },
   );
 

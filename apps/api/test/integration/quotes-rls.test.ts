@@ -417,7 +417,8 @@ describe('inmutabilidad de las versiones enviadas (todos los roles, también el 
       owner.query(`UPDATE quote_versions SET status = '${status}' WHERE id = '${version}'`);
     await rejectsWith(move(v3, 'VIEWED'), INTEGRITY); // DRAFT -> VIEWED
     await rejectsWith(move(v1, 'DRAFT'), INTEGRITY); // SENT -> DRAFT
-    await rejectsWith(move(v1, 'APPROVED'), '22P02'); // aún no existe en el enum
+    // APPROVED exige fecha y opción aprobada (aceptación simple de la demo, N17)
+    await rejectsWith(move(v1, 'APPROVED'), CHECK_VIOLATION);
   });
 
   it('una versión se envía solo con PDF y hash, y no se borra', async () => {
