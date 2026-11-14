@@ -21,3 +21,4 @@ Los originales están en `apps/web/src/assets/proyectos/` (JPEG de calidad alta,
 - Son fotos de stock de demostración: no muestran trabajos de la empresa ni las casas son de clientes. Algunas no son del Sur de Florida (la casa de estuco es de Los Angeles y la cuadrilla de Texas); se eligieron por el tipo de techo.
 - La licencia no exige atribución; se da el crédito igualmente. Paragon Exterior pide enlazar a su sitio (paragonexterior.com) al usar su foto: queda indicado arriba.
 - Al llegar las fotos reales, se sustituyen los archivos y los textos `web.projects.items` de `packages/shared/src/i18n/`, y se borra este documento.
+- El video de la portada cinematográfica (clips de Pexels) está documentado en [`video-demo.md`](video-demo.md).

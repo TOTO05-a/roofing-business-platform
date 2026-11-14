@@ -50,6 +50,12 @@ export const es = {
       call: 'Llamar',
       callUs: 'Llámenos',
     },
+    cine: {
+      scrollHint: 'Desplácese para recorrer la casa',
+      stageLabel: 'Recorrido por una casa, de la calle al techo',
+      viewerNote: 'Pruebe colores y formas de techo en 3D',
+      videoCredit: 'Video de stock de demostración: Jaxon Matthew Willis, Pexels.',
+    },
     hero: {
       eyebrow: 'Roofing residencial en el Sur de Florida',
       title: 'Un techo firme sobre lo que más quiere.',
