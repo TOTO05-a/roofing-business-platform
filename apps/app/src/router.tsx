@@ -11,6 +11,16 @@ import { SetupTwoFactorPage } from './pages/auth/SetupTwoFactorPage';
 import { SignInPage } from './pages/auth/SignInPage';
 import { VerifyTwoFactorPage } from './pages/auth/VerifyTwoFactorPage';
 import { AuthLayout } from './pages/auth/shared';
+import { AgendaPage } from './pages/crm/AgendaPage';
+import {
+  CustomerDetailPage,
+  CustomersPage,
+  PropertiesPage,
+  PropertyDetailPage,
+} from './pages/crm/CustomersPages';
+import { InspectionDetailPage, InspectionsPage } from './pages/crm/InspectionPages';
+import { LeadDetailPage } from './pages/crm/LeadDetailPage';
+import { LeadsPage } from './pages/crm/LeadsPage';
 import { useRole } from './role';
 import { RequireSession, SessionLoading } from './session';
 
@@ -19,6 +29,26 @@ function RequireRole({ item, children }: { item: Pick<NavItem, 'roles'>; childre
   const { role } = useRole();
   return canAccess(role, item) ? children : <ForbiddenPage />;
 }
+
+/** Ruta del CRM protegida por el rol de su elemento de navegación (la API autoriza de verdad). */
+function crmRoute(id: string, path: string, element: ReactNode) {
+  const item = navItems.find((i) => i.id === id);
+  if (!item) throw new Error(`Falta el elemento de navegación ${id}`);
+  return { path, element: <RequireRole item={item}>{element}</RequireRole> };
+}
+
+const crmRoutes = [
+  crmRoute('leads', 'leads', <LeadsPage />),
+  crmRoute('leads', 'leads/:id', <LeadDetailPage />),
+  crmRoute('customers', 'clientes', <CustomersPage />),
+  crmRoute('customers', 'clientes/:id', <CustomerDetailPage />),
+  crmRoute('properties', 'propiedades', <PropertiesPage />),
+  crmRoute('properties', 'propiedades/:id', <PropertyDetailPage />),
+  crmRoute('schedule', 'agenda', <AgendaPage />),
+  crmRoute('appointments', 'citas', <AgendaPage />),
+  crmRoute('inspections', 'inspecciones', <InspectionsPage />),
+  crmRoute('inspections', 'inspecciones/:id', <InspectionDetailPage />),
+];
 
 const showcaseItem = navItems.find((item) => item.id === 'components');
 
@@ -69,6 +99,7 @@ export const router = createBrowserRouter([
             },
           ]
         : []),
+      ...crmRoutes,
       ...placeholderItems.map((item) => ({
         path: item.to.slice(1),
         element: (

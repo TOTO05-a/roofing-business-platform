@@ -19,7 +19,14 @@ export type SessionState =
   /** `signedOut`: la persona cerró sesión ella misma (no es una sesión caducada). */
   | { status: 'unauthenticated'; signedOut?: true }
   | { status: 'error' }
-  | { status: 'authenticated'; user: SessionUser; twoFactorRequired: boolean };
+  | {
+      status: 'authenticated';
+      user: SessionUser;
+      twoFactorRequired: boolean;
+      /** Perfil de empleado o de cliente enlazado a la cuenta (la API lo devuelve en `/api/me`). */
+      employeeId: string | null;
+      customerId: string | null;
+    };
 
 interface SessionContextValue {
   session: SessionState;
@@ -34,7 +41,13 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 async function loadSession(signal?: AbortSignal): Promise<SessionState> {
   try {
     const me = await fetchMe(signal);
-    return { status: 'authenticated', user: me.user, twoFactorRequired: me.twoFactorRequired };
+    return {
+      status: 'authenticated',
+      user: me.user,
+      twoFactorRequired: me.twoFactorRequired,
+      employeeId: me.employeeId ?? null,
+      customerId: me.customerId ?? null,
+    };
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
     // 401 = sin sesión; 403 = cuenta desactivada. En ambos casos hay que volver al acceso.

@@ -12,6 +12,8 @@ const meSchema = z.object({
     role: z.enum(apiRoles),
     twoFactorEnabled: z.boolean(),
   }),
+  customerId: z.string().nullish(),
+  employeeId: z.string().nullish(),
   twoFactorRequired: z.boolean(),
 });
 export type Me = z.infer<typeof meSchema>;
