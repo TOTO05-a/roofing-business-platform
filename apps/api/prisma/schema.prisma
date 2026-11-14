@@ -1,5 +1,6 @@
 // Esquema de identidad, acceso y perfiles (Etapa 2) y del CRM (propiedades, leads, citas,
-// inspecciones y archivos), según docs/arquitectura/modelo-datos.md §2.1–2.3 y §4.
+// inspecciones y archivos) y de catálogo y presupuestos, según docs/arquitectura/modelo-datos.md
+// §2.1–2.5 y §4.
 // La seguridad por fila (RLS), los roles de base de datos y las restricciones que Prisma no
 // expresa viven en las migraciones (ver prisma/sql/).
 // Los modelos User, Session, Account, Verification y TwoFactor siguen el esquema que
@@ -66,6 +67,9 @@ model User {
   customerProfile    CustomerProfile?
   employeeProfile    EmployeeProfile?
   filesUploaded      File[]
+  quotesCreated      Quote[]          @relation("QuoteCreatedBy")
+  versionsCreated    QuoteVersion[]   @relation("QuoteVersionCreatedBy")
+  versionsSent       QuoteVersion[]   @relation("QuoteVersionSentBy")
 
   // Listado paginado de usuarios (filtrado opcional por rol, más recientes primero).
   @@index([role, createdAt(sort: Desc), id(sort: Desc)])
@@ -226,6 +230,7 @@ model CustomerProfile {
   properties   Property[]
   leads        Lead[]
   appointments Appointment[]
+  quotes       Quote[]
 
   @@index([lastName, firstName])
   @@map("customer_profiles")
@@ -248,6 +253,7 @@ model EmployeeProfile {
   leadsAssigned Lead[]
   appointments  Appointment[]
   inspections   Inspection[]
+  quotesAsSales Quote[]
 
   @@map("employee_profiles")
 }
@@ -346,6 +352,7 @@ model Property {
   leads        Lead[]
   appointments Appointment[]
   inspections  Inspection[]
+  quotes       Quote[]
 
   // Destino de las claves compuestas (propiedad, cliente): una cita o un lead solo pueden
   // apuntar a una propiedad del mismo cliente.
@@ -457,8 +464,11 @@ model Inspection {
   inspector   EmployeeProfile     @relation(fields: [inspectorId], references: [id], onDelete: Restrict)
   sections    InspectionSection[]
   photos      InspectionPhoto[]
+  quotes      Quote[]
 
   @@unique([appointmentId, propertyId])
+  // Destino de la clave compuesta (inspección, propiedad) de Quote.
+  @@unique([id, propertyId])
   @@index([inspectorId, status])
   @@index([propertyId])
   @@map("inspections")
@@ -510,7 +520,8 @@ model InspectionPhoto {
 }
 
 // Metadatos de un objeto del almacenamiento S3 (bucket privado). Los bytes nunca pasan por aquí.
-// En SQL además: CHECK de sha256 en hex, tamaño (1 B a 25 MB) y tipos MIME permitidos.
+// En SQL además: CHECK de sha256 en hex, tamaño (1 B a 25 MB) y tipos MIME permitidos (imágenes y,
+// desde la Etapa 3, application/pdf para los presupuestos).
 model File {
   id           String     @id @default(uuid(7)) @db.Uuid
   bucket       String
@@ -527,9 +538,341 @@ model File {
 
   uploadedBy      User?            @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
   inspectionPhoto InspectionPhoto?
+  quoteVersionPdf QuoteVersion?
+  textureOptions  MaterialOption[]
 
   @@unique([bucket, objectKey])
   @@index([uploadedById, createdAt(sort: Desc)])
   @@index([status, createdAt])
   @@map("files")
+}
+
+// ---------------------------------------------------------------------------------------
+// Catálogo y presupuestos (modelo de datos §2.4, §2.5 y §3; decisiones P3–P13 y N13).
+// Dinero en centavos (Int), porcentajes en puntos básicos (Int, 0..10 000), cantidades en
+// Numeric. Las CHECK, los disparadores de inmutabilidad y la RLS viven en
+// prisma/sql/presupuestos-extras.sql y prisma/sql/presupuestos-rls.sql.
+// ---------------------------------------------------------------------------------------
+
+enum CatalogKind {
+  MATERIAL
+  LABOR
+}
+
+enum CatalogUnit {
+  SQUARE
+  LINEAR_FT
+  UNIT
+  BUNDLE
+}
+
+enum MaterialOptionKind {
+  COLOR
+  TEXTURE
+}
+
+enum PackageTier {
+  BASIC
+  BETTER
+  PREMIUM
+}
+
+enum QuantityRule {
+  PER_SQUARE
+  PER_LINEAR_FT_RIDGE
+  PER_LINEAR_FT_EAVE
+  PER_LINEAR_FT_HIP
+  PER_LINEAR_FT_VALLEY
+  PER_LINEAR_FT_GUTTER
+  FIXED
+}
+
+// Estados de una versión (§3). APPROVED y VOIDED llegan con la aprobación y la firma (etapa
+// siguiente, N7): se añadirán con una migración aditiva.
+enum QuoteStatus {
+  DRAFT
+  SENT
+  VIEWED
+  DECLINED
+  EXPIRED
+  SUPERSEDED
+}
+
+// Categoría del catálogo. Sus artículos son del mismo tipo (clave compuesta id + kind).
+model Category {
+  id        String      @id @default(uuid(7)) @db.Uuid
+  name      String      @unique
+  kind      CatalogKind
+  sortOrder Int         @default(0) @map("sort_order")
+  isActive  Boolean     @default(true) @map("is_active")
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  items CatalogItem[]
+
+  @@unique([id, kind])
+  @@map("categories")
+}
+
+// Artículo del catálogo con precio de venta (P12: sin margen) por unidad base. En SQL además:
+// precios 0..10 000 000 ¢, mano de obra con precio de material 0 y longitudes de texto.
+model CatalogItem {
+  id                 String      @id @default(uuid(7)) @db.Uuid
+  sku                String?     @unique
+  name               String
+  kind               CatalogKind
+  categoryId         String      @map("category_id") @db.Uuid
+  unit               CatalogUnit
+  materialPriceCents Int         @map("material_price_cents")
+  laborPriceCents    Int         @map("labor_price_cents")
+  description        String?
+  isActive           Boolean     @default(true) @map("is_active")
+  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?   @map("deleted_at") @db.Timestamptz(3)
+
+  category        Category         @relation(fields: [categoryId, kind], references: [id, kind], onDelete: Restrict)
+  purchaseUnits   PurchaseUnit[]
+  materialOptions MaterialOption[]
+  packageItems    PackageItem[]
+  quoteLines      QuoteLine[]
+
+  @@index([categoryId, kind])
+  @@index([kind, isActive])
+  @@map("catalog_items")
+}
+
+// Unidad de compra (rollo, caja, paquete): convierte la cantidad de obra en unidades enteras.
+// En SQL además: una sola unidad por defecto por artículo (índice único parcial).
+model PurchaseUnit {
+  id                       String   @id @default(uuid(7)) @db.Uuid
+  itemId                   String   @map("item_id") @db.Uuid
+  name                     String
+  baseUnitsPerPurchaseUnit Decimal  @map("base_units_per_purchase_unit") @db.Decimal(10, 3)
+  isDefault                Boolean  @default(false) @map("is_default")
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([itemId, name])
+  @@map("purchase_units")
+}
+
+// Color o textura de un artículo (lo usa también el visualizador). En SQL además: hex #RRGGBB.
+model MaterialOption {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  itemId        String             @map("item_id") @db.Uuid
+  kind          MaterialOptionKind
+  name          String
+  hex           String?            @db.Char(7)
+  textureFileId String?            @map("texture_file_id") @db.Uuid
+  visualizerKey String?            @map("visualizer_key")
+  isActive      Boolean            @default(true) @map("is_active")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  item         CatalogItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  textureFile  File?         @relation(fields: [textureFileId], references: [id], onDelete: SetNull)
+  packageItems PackageItem[]
+  quoteLines   QuoteLine[]
+
+  @@unique([itemId, kind, name])
+  @@index([textureFileId])
+  @@map("material_options")
+}
+
+// Paquete ofrecible (P3: varios por nivel, `tier` no es único). La garantía es la del motor.
+model Package {
+  id            String      @id @default(uuid(7)) @db.Uuid
+  tier          PackageTier
+  name          String
+  description   String?
+  warrantyText  String      @map("warranty_text")
+  warrantyYears Int         @map("warranty_years")
+  sortOrder     Int         @default(0) @map("sort_order")
+  isActive      Boolean     @default(true) @map("is_active")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  items        PackageItem[]
+  quoteOptions QuoteOption[]
+
+  @@index([tier, isActive])
+  @@map("packages")
+}
+
+// Línea de paquete. En SQL además: FIXED exige factor, factor 0..10 000 y un trigger que exige
+// que el color por defecto sea del mismo artículo.
+model PackageItem {
+  id                      String       @id @default(uuid(7)) @db.Uuid
+  packageId               String       @map("package_id") @db.Uuid
+  itemId                  String       @map("item_id") @db.Uuid
+  quantityRule            QuantityRule @map("quantity_rule")
+  factor                  Decimal?     @db.Decimal(10, 4)
+  defaultMaterialOptionId String?      @map("default_material_option_id") @db.Uuid
+  sortOrder               Int          @default(0) @map("sort_order")
+  createdAt               DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  package               Package         @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  item                  CatalogItem     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  defaultMaterialOption MaterialOption? @relation(fields: [defaultMaterialOptionId], references: [id], onDelete: SetNull)
+
+  @@unique([packageId, itemId])
+  @@index([itemId])
+  @@index([defaultMaterialOptionId])
+  @@map("package_items")
+}
+
+// Presupuesto: contenedor lógico (cliente + propiedad + inspección opcional). La versión vigente
+// es la de mayor `version_number` y su estado es el del presupuesto (no se guarda en caché).
+// `sales_rep_id` es el vendedor responsable: ve los precios de SUS presupuestos (P6).
+// En SQL además: `number` con secuencia (Q-AAAA-NNNNNN), la inspección debe ser de la misma
+// propiedad (clave compuesta), el vendedor debe tener el tipo de trabajo SALES y, desde la
+// primera versión enviada, cliente, propiedad e inspección no cambian.
+model Quote {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  number       String    @unique @default(dbgenerated("next_quote_number()"))
+  customerId   String    @map("customer_id") @db.Uuid
+  propertyId   String    @map("property_id") @db.Uuid
+  inspectionId String?   @map("inspection_id") @db.Uuid
+  salesRepId   String?   @map("sales_rep_id") @db.Uuid
+  createdById  String    @map("created_by_id") @db.Uuid
+  // Primera vez que se envió una versión (lo fija un disparador). Desde ahí el cliente ve el
+  // presupuesto; antes, ni sabe que existe.
+  firstSentAt  DateTime? @map("first_sent_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  customer   CustomerProfile  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  property   Property         @relation(fields: [propertyId, customerId], references: [id, customerId], onDelete: Restrict)
+  inspection Inspection?      @relation(fields: [inspectionId, propertyId], references: [id, propertyId], onDelete: Restrict)
+  salesRep   EmployeeProfile? @relation(fields: [salesRepId], references: [id], onDelete: Restrict)
+  createdBy  User             @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  versions   QuoteVersion[]
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([propertyId, customerId])
+  @@index([inspectionId, propertyId])
+  @@index([salesRepId, createdAt(sort: Desc)])
+  @@index([createdById])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("quotes")
+}
+
+// Versión numerada con sus parámetros. Al enviarla (DRAFT -> SENT) se fijan `locked_at`, el PDF
+// y su sha256, y desde ahí la versión, sus opciones y sus líneas son inmutables (disparadores):
+// solo cambian el estado y sus marcas de tiempo, por transiciones válidas.
+// En SQL además: bps 0..10 000, coherencia estado/fechas y una sola versión DRAFT por presupuesto.
+model QuoteVersion {
+  id                   String      @id @default(uuid(7)) @db.Uuid
+  quoteId              String      @map("quote_id") @db.Uuid
+  versionNumber        Int         @map("version_number")
+  status               QuoteStatus @default(DRAFT)
+  // Idioma del PDF y de los textos para el cliente: es o en.
+  locale               String      @default("es") @db.VarChar(2)
+  wasteBps             Int         @map("waste_bps")
+  taxBps               Int         @map("tax_bps")
+  taxAppliesToLabor    Boolean     @default(false) @map("tax_applies_to_labor")
+  // Solo administración lo cambia (P10); se aplica antes del impuesto (P11).
+  discountBps          Int         @default(0) @map("discount_bps")
+  depositBps           Int         @map("deposit_bps")
+  // Copia de las medidas usadas (entrada del motor) y su resumen (área real y squares).
+  measurementsSnapshot Json        @map("measurements_snapshot")
+  notes                String?
+  validUntil           DateTime?   @map("valid_until") @db.Timestamptz(3)
+  sentAt               DateTime?   @map("sent_at") @db.Timestamptz(3)
+  sentById             String?     @map("sent_by_id") @db.Uuid
+  viewedAt             DateTime?   @map("viewed_at") @db.Timestamptz(3)
+  declinedAt           DateTime?   @map("declined_at") @db.Timestamptz(3)
+  declineReason        String?     @map("decline_reason")
+  expiredAt            DateTime?   @map("expired_at") @db.Timestamptz(3)
+  supersededAt         DateTime?   @map("superseded_at") @db.Timestamptz(3)
+  pdfFileId            String?     @unique @map("pdf_file_id") @db.Uuid
+  pdfSha256            String?     @map("pdf_sha256") @db.Char(64)
+  lockedAt             DateTime?   @map("locked_at") @db.Timestamptz(3)
+  createdById          String      @map("created_by_id") @db.Uuid
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  quote     Quote         @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  pdfFile   File?         @relation(fields: [pdfFileId], references: [id], onDelete: Restrict)
+  createdBy User          @relation("QuoteVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  sentBy    User?         @relation("QuoteVersionSentBy", fields: [sentById], references: [id], onDelete: Restrict)
+  options   QuoteOption[]
+
+  @@unique([quoteId, versionNumber])
+  @@index([status, sentAt])
+  @@index([status, validUntil])
+  @@index([createdById])
+  @@index([sentById])
+  @@map("quote_versions")
+}
+
+// Opción ofrecida en una versión: una por paquete (P3: puede haber varias del mismo nivel).
+// Instantánea del paquete (nombre, nivel, garantía) y de los totales del motor.
+// En SQL además: importes >= 0, total = material + mano de obra - descuento + impuesto y
+// anticipo + saldo = total.
+model QuoteOption {
+  id                    String      @id @default(uuid(7)) @db.Uuid
+  versionId             String      @map("version_id") @db.Uuid
+  packageId             String      @map("package_id") @db.Uuid
+  tier                  PackageTier
+  title                 String
+  warrantyText          String      @map("warranty_text")
+  warrantyYears         Int         @map("warranty_years")
+  sortOrder             Int         @default(0) @map("sort_order")
+  materialSubtotalCents Int         @map("material_subtotal_cents")
+  laborSubtotalCents    Int         @map("labor_subtotal_cents")
+  discountCents         Int         @map("discount_cents")
+  taxCents              Int         @map("tax_cents")
+  totalCents            Int         @map("total_cents")
+  depositCents          Int         @map("deposit_cents")
+  balanceCents          Int         @map("balance_cents")
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  version QuoteVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  package Package      @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  lines   QuoteLine[]
+
+  @@unique([versionId, packageId])
+  @@index([packageId])
+  @@map("quote_options")
+}
+
+// Partida calculada y congelada. `item_id` y `material_option_id` son solo referencias
+// informativas (SetNull); lo que vale es la instantánea. En SQL además: importes de línea
+// = round(cantidad x precio unitario) half-up y total = material + mano de obra.
+model QuoteLine {
+  id                     String      @id @default(uuid(7)) @db.Uuid
+  optionId               String      @map("option_id") @db.Uuid
+  sortOrder              Int         @map("sort_order")
+  itemId                 String?     @map("item_id") @db.Uuid
+  materialOptionId       String?     @map("material_option_id") @db.Uuid
+  name                   String
+  sku                    String?
+  kind                   CatalogKind
+  unit                   CatalogUnit
+  quantity               Decimal     @db.Decimal(12, 3)
+  purchaseUnitName       String?     @map("purchase_unit_name")
+  purchaseQuantity       Decimal     @map("purchase_quantity") @db.Decimal(12, 3)
+  unitMaterialPriceCents Int         @map("unit_material_price_cents")
+  unitLaborPriceCents    Int         @map("unit_labor_price_cents")
+  lineMaterialCents      Int         @map("line_material_cents")
+  lineLaborCents         Int         @map("line_labor_cents")
+  lineTotalCents         Int         @map("line_total_cents")
+  colorName              String?     @map("color_name")
+  textureName            String?     @map("texture_name")
+  createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  option         QuoteOption     @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  item           CatalogItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  materialOption MaterialOption? @relation(fields: [materialOptionId], references: [id], onDelete: SetNull)
+
+  @@unique([optionId, sortOrder])
+  @@index([itemId])
+  @@index([materialOptionId])
+  @@map("quote_lines")
 }
