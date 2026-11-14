@@ -1,0 +1,15 @@
+# Garage (almacenamiento compatible con S3) de UN solo nodo, solo para desarrollo local.
+# El rpc_secret es un valor de ejemplo público: nunca uses este archivo fuera de tu máquina.
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+replication_factor = 1
+
+rpc_bind_addr = "127.0.0.1:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "5c1e4a0b7d2f9e386a1b4c7d0e3f6a9b2c5d8e1f4a7b0c3d6e9f2a5b8c1d4e70"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "0.0.0.0:3900"
+root_domain = ".s3.garage.localhost"

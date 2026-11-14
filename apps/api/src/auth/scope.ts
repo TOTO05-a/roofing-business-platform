@@ -44,6 +44,77 @@ export const scopes = {
     if (context.employeeId) return { ...base, id: context.employeeId };
     return NOTHING;
   },
+
+  property(context: AuthContext): Prisma.PropertyWhereInput {
+    const base = { deletedAt: null };
+    if (isStaff(context)) return base;
+    if (context.role === 'CUSTOMER' && context.customerId) {
+      return { ...base, customerId: context.customerId };
+    }
+    if (context.role === 'EMPLOYEE' && context.employeeId) {
+      // Propiedades de sus citas y de sus leads.
+      return {
+        ...base,
+        OR: [
+          { appointments: { some: { assigneeId: context.employeeId, deletedAt: null } } },
+          { leads: { some: { assignedToId: context.employeeId, deletedAt: null } } },
+        ],
+      };
+    }
+    return NOTHING;
+  },
+
+  lead(context: AuthContext): Prisma.LeadWhereInput {
+    const base = { deletedAt: null };
+    if (isStaff(context)) return base;
+    if (context.role === 'EMPLOYEE' && context.employeeId) {
+      return { ...base, assignedToId: context.employeeId };
+    }
+    return NOTHING;
+  },
+
+  appointment(context: AuthContext): Prisma.AppointmentWhereInput {
+    const base = { deletedAt: null };
+    if (isStaff(context)) return base;
+    if (context.role === 'CUSTOMER' && context.customerId) {
+      return { ...base, customerId: context.customerId };
+    }
+    if (context.role === 'EMPLOYEE' && context.employeeId) {
+      return { ...base, assigneeId: context.employeeId };
+    }
+    return NOTHING;
+  },
+
+  /** Las inspecciones son internas: el cliente nunca las ve. */
+  inspection(context: AuthContext): Prisma.InspectionWhereInput {
+    const base = { deletedAt: null };
+    if (isStaff(context)) return base;
+    if (context.role === 'EMPLOYEE' && context.employeeId) {
+      return {
+        ...base,
+        OR: [
+          { inspectorId: context.employeeId },
+          { appointment: { assigneeId: context.employeeId } },
+        ],
+      };
+    }
+    return NOTHING;
+  },
+
+  file(context: AuthContext): Prisma.FileWhereInput {
+    const base = { deletedAt: null };
+    if (isStaff(context)) return base;
+    if (context.role === 'EMPLOYEE' && context.employeeId) {
+      return {
+        ...base,
+        OR: [
+          { uploadedById: context.userId },
+          { inspectionPhoto: { inspection: scopes.inspection(context) } },
+        ],
+      };
+    }
+    return NOTHING;
+  },
 } as const;
 
 export type ScopedModel = keyof typeof scopes;

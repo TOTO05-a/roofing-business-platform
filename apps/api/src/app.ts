@@ -9,6 +9,12 @@ import { adminRouter } from './routes/admin.js';
 import { invitationsRouter } from './routes/invitations.js';
 import { meRouter } from './routes/me.js';
 import { profilesRouter } from './routes/profiles.js';
+import { appointmentsRouter } from './routes/appointments.js';
+import { filesRouter } from './routes/files.js';
+import { inspectionsRouter } from './routes/inspections.js';
+import { leadsRouter } from './routes/leads.js';
+import { propertiesRouter } from './routes/properties.js';
+import { publicRouter } from './routes/public.js';
 import type { AppServices } from './services.js';
 
 export { HttpError } from './lib/http-error.js';
@@ -90,6 +96,10 @@ export function createApp(services: AppServices): Express {
     res.json(body);
   });
 
+  // Formulario público de contacto: sin sesión, con su propia lista de orígenes y CORS; por eso
+  // va antes del CSRF global (que solo admite los orígenes de la app autenticada).
+  app.use('/api/public', publicRouter(services));
+
   // CSRF: toda petición que cambia estado (incluido /api/auth, p. ej. el primer login, que
   // aún no lleva cookies y Better Auth solo frena con cabeceras Sec-Fetch) debe traer un
   // Origin (o Referer) de confianza.
@@ -106,6 +116,11 @@ export function createApp(services: AppServices): Express {
   app.use('/api/invitations', invitationsRouter(services));
   app.use('/api/admin', adminRouter(services));
   app.use('/api', profilesRouter(services));
+  app.use('/api', propertiesRouter(services));
+  app.use('/api', leadsRouter(services));
+  app.use('/api', appointmentsRouter(services));
+  app.use('/api', inspectionsRouter(services));
+  app.use('/api', filesRouter(services));
 
   app.use(notFound);
   app.use(createErrorHandler(env.NODE_ENV === 'production'));

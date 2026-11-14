@@ -11,6 +11,7 @@
     "test",
     "prisma",
     "prisma.config.ts",
+    "scripts",
     "vitest.config.ts",
     "vitest.integration.config.ts"
   ]

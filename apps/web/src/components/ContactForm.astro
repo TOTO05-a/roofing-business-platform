@@ -1,0 +1,281 @@
+---
+import { getDict, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const f = getDict(locale).web.contact.form;
+const required = getDict(locale).common.required;
+// URL de la API (opcional en el build): sin ella el formulario muestra un error claro al enviar.
+const apiUrl = (import.meta.env.PUBLIC_API_URL ?? '').replace(/\/+$/, '');
+
+const field =
+  'min-h-11 w-full rounded-md border border-border-strong bg-surface px-3.5 py-2 text-fg placeholder:text-fg-muted hover:border-fg focus-visible:border-ring aria-[invalid=true]:border-2 aria-[invalid=true]:border-danger';
+const label = 'font-display text-sm leading-snug font-semibold text-fg';
+const error = 'hidden text-sm font-medium text-danger';
+---
+
+<div class="contact-card mx-auto mt-12 max-w-xl rounded-lg bg-surface p-6 text-left text-fg shadow-md sm:p-8">
+  <h3 class="font-display text-xl font-bold">{f.title}</h3>
+  <form
+    novalidate
+    data-contact-form
+    data-api-url={apiUrl}
+    data-messages={JSON.stringify(f)}
+    class="mt-5 grid gap-5"
+  >
+    <p
+      data-form-status
+      role="status"
+      aria-live="polite"
+      class="hidden rounded-md border-2 px-4 py-3 text-sm font-medium"
+      tabindex="-1"
+    ></p>
+
+    <div class="flex flex-col gap-1.5">
+      <label for={`cf-name-${locale}`} class={label}>
+        {f.name}
+        <span aria-hidden="true" class="ms-0.5 text-danger">
+          *
+        </span>
+        <span class="sr-only">({required})</span>
+      </label>
+      <input
+        id={`cf-name-${locale}`}
+        name="name"
+        type="text"
+        autocomplete="name"
+        aria-required="true"
+        aria-describedby={`cf-name-${locale}-error`}
+        class={field}
+      />
+      <p id={`cf-name-${locale}-error`} data-error-for="name" class={error}></p>
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for={`cf-email-${locale}`} class={label}>
+        {f.email}
+        <span aria-hidden="true" class="ms-0.5 text-danger">
+          *
+        </span>
+        <span class="sr-only">({required})</span>
+      </label>
+      <input
+        id={`cf-email-${locale}`}
+        name="email"
+        type="email"
+        autocomplete="email"
+        aria-required="true"
+        aria-describedby={`cf-email-${locale}-error`}
+        class={field}
+      />
+      <p id={`cf-email-${locale}-error`} data-error-for="email" class={error}></p>
+    </div>
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div class="flex flex-col gap-1.5">
+        <label for={`cf-phone-${locale}`} class={label}>
+          {f.phone}
+        </label>
+        <input
+          id={`cf-phone-${locale}`}
+          name="phone"
+          type="tel"
+          inputmode="tel"
+          autocomplete="tel"
+          aria-describedby={`cf-phone-${locale}-error`}
+          class={field}
+        />
+        <p id={`cf-phone-${locale}-error`} data-error-for="phone" class={error}></p>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label for={`cf-zip-${locale}`} class={label}>
+          {f.zip}
+        </label>
+        <input
+          id={`cf-zip-${locale}`}
+          name="zip"
+          type="text"
+          inputmode="numeric"
+          autocomplete="postal-code"
+          aria-describedby={`cf-zip-${locale}-error`}
+          class={field}
+        />
+        <p id={`cf-zip-${locale}-error`} data-error-for="zip" class={error}></p>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for={`cf-message-${locale}`} class={label}>
+        {f.message}
+      </label>
+      <textarea
+        id={`cf-message-${locale}`}
+        name="message"
+        rows="4"
+        maxlength="5000"
+        class={`${field} min-h-28 py-2.5`}
+      ></textarea>
+    </div>
+
+    <!-- Campo trampa: invisible para personas y lectores de pantalla; los bots lo rellenan. -->
+    <div
+      aria-hidden="true"
+      class="absolute -start-[9999px] h-px w-px overflow-hidden"
+      data-form-trap
+    >
+      <input type="text" name="website_url" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <div class="flex min-h-11 items-center gap-3">
+        <input
+          id={`cf-consent-${locale}`}
+          name="consent"
+          type="checkbox"
+          aria-required="true"
+          aria-describedby={`cf-consent-${locale}-error`}
+          class="size-6 shrink-0 accent-primary"
+        />
+        <label for={`cf-consent-${locale}`} class="text-sm text-fg">
+          {f.consent}
+        </label>
+      </div>
+      <p id={`cf-consent-${locale}-error`} data-error-for="consent" class={error}></p>
+    </div>
+
+    <button
+      type="submit"
+      class="inline-flex min-h-14 items-center justify-center gap-2 rounded-md bg-primary px-8 font-display text-lg font-semibold text-primary-fg shadow-md transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {f.submit}
+    </button>
+  </form>
+</div>
+
+<style>
+  /* Dentro de la sección de marca el anillo de foco claro no contrasta con la tarjeta blanca. */
+  .contact-card :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+</style>
+
+<script>
+  import {
+    buildPayload,
+    fetchToken,
+    submitLead,
+    validate,
+    type FormMessages,
+    type FormValues,
+  } from '../lib/contact-form';
+
+  function init() {
+    document.querySelectorAll<HTMLFormElement>('form[data-contact-form]').forEach((form) => {
+      if (form.dataset.bound === 'true') return;
+      form.dataset.bound = 'true';
+      const apiUrl = form.dataset.apiUrl ?? '';
+      const m = JSON.parse(form.dataset.messages ?? '{}') as FormMessages;
+      const status = form.querySelector<HTMLElement>('[data-form-status]')!;
+      const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+      const idleLabel = button.textContent ?? '';
+      let token: string | null = null;
+      let tokenRequested = false;
+
+      // El token lleva la hora de emisión: se pide al acercarse al formulario, para que haya
+      // pasado el tiempo mínimo de llenado cuando la persona termine de escribir.
+      const ensureToken = async () => {
+        if (!apiUrl || tokenRequested) return;
+        tokenRequested = true;
+        token = await fetchToken(apiUrl);
+        if (!token) tokenRequested = false;
+      };
+      form.addEventListener('focusin', () => void ensureToken(), { once: true });
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            observer.disconnect();
+            void ensureToken();
+          }
+        });
+        observer.observe(form);
+      }
+
+      const field = (name: string) =>
+        form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement;
+
+      const showStatus = (kind: 'success' | 'error', text: string) => {
+        status.textContent = text;
+        status.className =
+          'rounded-md border-2 px-4 py-3 text-sm font-medium ' +
+          (kind === 'success'
+            ? 'border-success bg-success-soft text-fg'
+            : 'border-danger bg-danger-soft text-fg');
+        // Los errores se anuncian al instante; el éxito, con cortesía.
+        status.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+        status.setAttribute('aria-live', kind === 'error' ? 'assertive' : 'polite');
+      };
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        status.className = 'hidden';
+        const values: FormValues = {
+          name: field('name').value,
+          email: field('email').value,
+          phone: field('phone').value,
+          zip: field('zip').value,
+          message: field('message').value,
+          consent: (field('consent') as HTMLInputElement).checked,
+        };
+        const errors = validate(values, m);
+        let firstInvalid: HTMLElement | null = null;
+        form.querySelectorAll<HTMLElement>('[data-error-for]').forEach((slot) => {
+          const name = slot.dataset.errorFor as keyof FormValues;
+          const control = field(name);
+          const text = errors[name];
+          slot.textContent = text ?? '';
+          slot.classList.toggle('hidden', !text);
+          if (text) {
+            control.setAttribute('aria-invalid', 'true');
+            firstInvalid ??= control;
+          } else {
+            control.removeAttribute('aria-invalid');
+          }
+        });
+        if (firstInvalid) {
+          (firstInvalid as HTMLElement).focus();
+          showStatus('error', m.summary);
+          return;
+        }
+        if (!apiUrl) {
+          showStatus('error', m.errorUnavailable);
+          return;
+        }
+
+        button.disabled = true;
+        button.textContent = m.submitting;
+        button.setAttribute('aria-busy', 'true');
+        if (!token) await ensureToken();
+        const trap = form.querySelector<HTMLInputElement>('[data-form-trap] input')!.value;
+        const result = await submitLead(apiUrl, buildPayload(values, token ?? '', trap));
+        button.disabled = false;
+        button.textContent = idleLabel;
+        button.removeAttribute('aria-busy');
+
+        if (result === 'ok') {
+          form.reset();
+          // Cada envío necesita un token nuevo (y de nuevo el tiempo mínimo de llenado).
+          token = null;
+          tokenRequested = false;
+          void ensureToken();
+          showStatus('success', m.success);
+        } else {
+          showStatus('error', result === 'tooMany' ? m.errorTooMany : m.errorGeneric);
+        }
+      });
+    });
+  }
+  document.addEventListener('astro:page-load', init);
+</script>

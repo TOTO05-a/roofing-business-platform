@@ -298,6 +298,13 @@ Defensa en dos capas; la segunda es la garantía real.
    - Pruebas automatizadas de RLS (matriz rol × tabla × operación) en CI contra un Postgres efímero antes de cada despliegue.
 3. **Archivos**: el acceso a objetos de R2 siempre vía URL prefirmada de vida corta emitida tras consultar la fila `File` bajo RLS; el bucket es privado.
 
+**Implementación (13-11-2026, decisión T25)** — `apps/api/prisma/sql/rls.sql`, `apps/api/src/lib/rls.ts`, pruebas en `apps/api/test/integration/rls.test.ts`:
+- Tres roles: el dueño (migraciones y seed, `DATABASE_URL`), `app_user` (`APP_DATABASE_URL`) y `app_system` (`SYSTEM_DATABASE_URL`). La migración crea los dos últimos sin LOGIN; `db:roles` les pone contraseña. La API se niega a arrancar si su conexión es superusuario, tiene BYPASSRLS o es dueña de tablas.
+- `app_system` atiende Better Auth, la aceptación de invitaciones, el límite de intentos de login, la carga del AuthContext y el formulario público. No ve el CRM salvo los leads `WEB_FORM` de las últimas 24 h (límite por correo). `app_user` nunca lee `accounts`, `two_factors`, `verifications`, `login_throttles` ni el token de `sessions`.
+- Contexto por transacción: `app.user_id`, `app.role`, `app.customer_id` y `app.employee_id`. Diferencia con el borrador: los ids de perfil los fija la API (ya los resolvió para el AuthContext) en lugar de buscarlos por `user_id` dentro de la política; así las funciones de `app` siguen siendo `SECURITY INVOKER` sin recursión de RLS. `current_role` es palabra reservada: la función se llama `app.current_app_role()`.
+- Sin borrado físico para `app_user` en las tablas del CRM y de personas (solo `deleted_at`), excepto secciones y fotos de una inspección en borrador. La auditoría se inserta sin `RETURNING` (`createMany`) porque solo la oficina puede leerla.
+- Toda tabla nueva de `public` necesita GRANT explícito, `ENABLE` + `FORCE` RLS y sus casos en la matriz; una prueba falla si alguna tabla no tiene la RLS forzada.
+
 ---
 
 ## 5. Alcance por versión

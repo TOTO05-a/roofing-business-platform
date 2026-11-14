@@ -13,10 +13,14 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:roles": "tsx --env-file-if-exists=.env prisma/setup-db-roles.ts",
     "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "storage:init": "tsx --env-file-if-exists=.env scripts/storage-init.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1160.0",
+    "@aws-sdk/s3-request-presigner": "3.1160.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "@roofing/shared": "workspace:*",
@@ -32,7 +36,9 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
     "@types/nodemailer": "^8.0.2",
+    "@types/pg": "8.23.1",
     "@types/supertest": "^7.2.1",
+    "pg": "8.23.1",
     "prisma": "7.10.1",
     "supertest": "^7.3.2",
     "tsx": "^4.23.15",

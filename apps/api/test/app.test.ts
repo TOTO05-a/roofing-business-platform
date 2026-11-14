@@ -1,13 +1,14 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
-import { parseEnv } from '../src/env.js';
+import { EXAMPLE_S3_SECRET, parseEnv } from '../src/env.js';
 import { createServices } from '../src/services.js';
 
 // Estas pruebas no tocan la base de datos: Prisma solo conecta en la primera consulta.
 const env = parseEnv({
   NODE_ENV: 'test',
-  DATABASE_URL: 'postgresql://user:pass@127.0.0.1:1/unused',
+  APP_DATABASE_URL: 'postgresql://user:pass@127.0.0.1:1/unused',
+  SYSTEM_DATABASE_URL: 'postgresql://user:pass@127.0.0.1:1/unused',
   BETTER_AUTH_SECRET: 'unit-test-secret-unit-test-secret-1234',
 });
 const app = createApp(createServices(env, { mailer: { send: async () => {} } }));
@@ -85,7 +86,8 @@ describe('protección CSRF de las rutas propias', () => {
 describe('parseEnv', () => {
   const required = {
     NODE_ENV: 'development',
-    DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+    APP_DATABASE_URL: 'postgresql://app_user:p@localhost:5432/db',
+    SYSTEM_DATABASE_URL: 'postgresql://app_system:p@localhost:5432/db',
     BETTER_AUTH_SECRET: 'x'.repeat(32),
   };
 
@@ -113,8 +115,8 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...required, PORT: 'abc' })).toThrow(/PORT/);
   });
 
-  it('exige NODE_ENV, DATABASE_URL y un secreto de al menos 32 caracteres', () => {
-    expect(() => parseEnv({})).toThrow(/NODE_ENV[\s\S]*DATABASE_URL/);
+  it('exige NODE_ENV, las dos conexiones y un secreto de al menos 32 caracteres', () => {
+    expect(() => parseEnv({})).toThrow(/NODE_ENV[\s\S]*APP_DATABASE_URL[\s\S]*SYSTEM_DATABASE_URL/);
     expect(() => parseEnv({ ...required, BETTER_AUTH_SECRET: 'corto' })).toThrow(
       /BETTER_AUTH_SECRET/,
     );
@@ -132,6 +134,31 @@ describe('parseEnv', () => {
       parseEnv({ ...production, BETTER_AUTH_SECRET: 'cambia-esto-por-un-secreto-aleatorio-de-32' }),
     ).toThrow(/BETTER_AUTH_SECRET/);
     expect(parseEnv(production).NODE_ENV).toBe('production');
+  });
+
+  it('rechaza en producción las contraseñas y la clave S3 de .env.example', () => {
+    const production = {
+      ...required,
+      NODE_ENV: 'production',
+      BETTER_AUTH_URL: 'https://app.example.com',
+      APP_URL: 'https://app.example.com',
+      SMTP_HOST: 'smtp.example.com',
+    };
+    expect(() =>
+      parseEnv({
+        ...production,
+        APP_DATABASE_URL: 'postgresql://app_user:app_user_dev_password@db.example.com:5432/db',
+      }),
+    ).toThrow(/APP_DATABASE_URL/);
+    expect(() =>
+      parseEnv({
+        ...production,
+        SYSTEM_DATABASE_URL: 'postgresql://app_system:app_system_dev_password@db.example.com/db',
+      }),
+    ).toThrow(/SYSTEM_DATABASE_URL/);
+    expect(() => parseEnv({ ...production, S3_SECRET_ACCESS_KEY: EXAMPLE_S3_SECRET })).toThrow(
+      /S3_SECRET_ACCESS_KEY/,
+    );
   });
 
   it('exige https y SMTP real en producción', () => {

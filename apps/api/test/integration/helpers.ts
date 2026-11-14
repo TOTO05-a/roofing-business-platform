@@ -8,24 +8,31 @@ import type { Role, UserStatus } from '../../src/auth/roles.js';
 import { parseEnv, type Env } from '../../src/env.js';
 import { createDb, type Db } from '../../src/lib/db.js';
 import type { MailMessage } from '../../src/lib/mailer.js';
+import type { Storage } from '../../src/lib/storage.js';
 import { createServices } from '../../src/services.js';
-import { testDatabaseUrl } from './database-url.js';
+import { appTestDatabaseUrl, systemTestDatabaseUrl, testDatabaseUrl } from './database-url.js';
 
 export const APP_ORIGIN = 'http://localhost:5173';
 export const DEFAULT_PASSWORD = 'contraseña-de-prueba-123';
 
 export interface TestContext {
   app: Express;
+  /** Conexión del dueño (salta la RLS): solo para preparar datos y comprobar resultados. */
   db: Db;
   env: Env;
   /** Correos "enviados" durante la prueba (el mailer de pruebas los guarda aquí). */
   mail: MailMessage[];
 }
 
-export function createTestContext(db: Db, overrides: Record<string, string> = {}): TestContext {
+export function createTestContext(
+  db: Db,
+  overrides: Record<string, string> = {},
+  options: { storage?: Storage | null } = {},
+): TestContext {
   const env = parseEnv({
     NODE_ENV: 'test',
-    DATABASE_URL: testDatabaseUrl(),
+    APP_DATABASE_URL: appTestDatabaseUrl(),
+    SYSTEM_DATABASE_URL: systemTestDatabaseUrl(),
     BETTER_AUTH_SECRET: 'integration-test-secret-0123456789abcdef',
     BETTER_AUTH_URL: APP_ORIGIN,
     APP_URL: APP_ORIGIN,
@@ -34,8 +41,12 @@ export function createTestContext(db: Db, overrides: Record<string, string> = {}
     ...overrides,
   });
   const mail: MailMessage[] = [];
+  // La API usa los roles reales (app_user / app_system), como en producción; `db` (dueño) solo
+  // prepara y comprueba datos.
   const services = createServices(env, {
-    db,
+    db: appTestDb(),
+    systemDb: systemTestDb(),
+    storage: options.storage ?? null,
     mailer: {
       send: async (message) => {
         mail.push(message);
@@ -49,6 +60,22 @@ export function createTestDb(): Db {
   return createDb(testDatabaseUrl());
 }
 
+// Una sola conexión por rol para toda la suite (se cierran al terminar el proceso de Vitest).
+let appDb: Db | undefined;
+let systemDb: Db | undefined;
+
+/** Cliente con el rol app_user (sin contexto RLS no ve nada). */
+export function appTestDb(): Db {
+  appDb ??= createDb(appTestDatabaseUrl());
+  return appDb;
+}
+
+/** Cliente con el rol app_system. */
+export function systemTestDb(): Db {
+  systemDb ??= createDb(systemTestDatabaseUrl());
+  return systemDb;
+}
+
 /**
  * Vacía la base de pruebas. audit_logs bloquea TRUNCATE con un trigger; solo aquí (base
  * desechable de pruebas) se desactiva un instante, dentro de la misma transacción.
@@ -57,7 +84,7 @@ export async function resetDatabase(db: Db): Promise<void> {
   await db.$transaction([
     db.$executeRawUnsafe('ALTER TABLE audit_logs DISABLE TRIGGER audit_logs_no_truncate'),
     db.$executeRawUnsafe(
-      'TRUNCATE TABLE audit_logs, login_throttles, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
+      'TRUNCATE TABLE inspection_photos, inspection_sections, inspections, files, appointments, leads, properties, audit_logs, login_throttles, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
     ),
     db.$executeRawUnsafe('ALTER TABLE audit_logs ENABLE TRIGGER audit_logs_no_truncate'),
   ]);
@@ -236,4 +263,37 @@ export async function waitForMail(ctx: TestContext, email: string): Promise<Mail
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   throw new Error(`No llegó ningún correo a ${email}`);
+}
+
+/** Inicia sesión con una cuenta ya creada (sin 2FA: para CUSTOMER y EMPLOYEE). */
+export async function loginAs(ctx: TestContext, user: CreatedUser): Promise<Agent> {
+  const agent = newAgent(ctx.app);
+  const res = await signIn(agent, user.email, user.password);
+  expect(res.status, JSON.stringify(res.body)).toBe(200);
+  return agent;
+}
+
+/** Una propiedad válida de un cliente (la crea el dueño, saltando la RLS). */
+export async function createProperty(
+  db: Db,
+  customerId: string,
+  overrides: { addressLine1?: string; city?: string; zip?: string } = {},
+): Promise<string> {
+  const property = await db.property.create({
+    data: {
+      customerId,
+      addressLine1: overrides.addressLine1 ?? '100 Calle Ficticia',
+      city: overrides.city ?? 'Miami',
+      state: 'FL',
+      zip: overrides.zip ?? '33101',
+    },
+    select: { id: true },
+  });
+  return property.id;
+}
+
+/** Empleado con cuenta y perfil, listo para iniciar sesión. */
+export async function createEmployee(db: Db): Promise<CreatedUser & { employeeId: string }> {
+  const user = await createUser(db, { role: 'EMPLOYEE' });
+  return user as CreatedUser & { employeeId: string };
 }

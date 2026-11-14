@@ -3,7 +3,7 @@
  * Las credenciales se leen de SEED_SUPERADMIN_* (ver .env.example); nunca del código.
  * Con SEED_DEMO=true crea además un usuario de demostración por rol (@cresta-roofing.example),
  * con contraseñas de SEED_DEMO_*_PASSWORD. Es idempotente: nunca modifica usuarios existentes.
- * Los administradores y superadministradores demo siguen obligados a activar 2FA al entrar.
+ * También crea datos demo del CRM (prisma/seed-crm.ts). Los administradores y superadministradores demo siguen obligados a activar 2FA al entrar.
  * Ejecuta: pnpm --filter @roofing/api db:seed
  */
 import { randomUUID } from 'node:crypto';
@@ -11,6 +11,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { z } from 'zod';
 import { createDb } from '../src/lib/db.js';
 import { emailSchema } from '../src/lib/validation.js';
+import { seedDemoCrm } from './seed-crm.js';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../src/auth/better-auth.js';
 
 const seedEnvSchema = z.object({
@@ -164,6 +165,7 @@ async function main(): Promise<void> {
     }
     if (env.SEED_DEMO === 'true') {
       await seedDemoUsers(db, env);
+      await seedDemoCrm(db);
     }
   } finally {
     await db.$disconnect();
