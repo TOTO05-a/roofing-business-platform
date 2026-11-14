@@ -378,7 +378,7 @@ Respuestas a las preguntas de la sección 6, aprobadas por el usuario como valor
 
 **Descuento (aprobado):** `discount_bps` se aplica al subtotal (material + mano de obra) ANTES del impuesto y se reparte de forma proporcional entre material y mano de obra; la base imponible se calcula sobre los subtotales ya descontados. El motor lo implementa en `packages/shared/src/presupuestos/discount.ts`.
 
-## 8. Implementación de catálogo y presupuestos (14-11-2026, decisiones N13, N14 y T30)
+## 8. Implementación de catálogo y presupuestos (14-11-2026, decisiones N13, N16 y T30)
 
 Archivos: `apps/api/prisma/schema.prisma`, migración `20261114120000_presupuestos` (fuente de las CHECK, disparadores y RLS: `apps/api/prisma/sql/presupuestos-extras.sql`), `apps/api/src/routes/{catalog,quotes}.ts`, `apps/api/src/domain/quote-calc.ts`, `apps/api/src/pdf/quote-pdf.ts`. Guía de uso de la API: [`presupuestos-api.md`](presupuestos-api.md).
 

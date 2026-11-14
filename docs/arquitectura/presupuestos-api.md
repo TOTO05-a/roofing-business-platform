@@ -1,6 +1,6 @@
 # API de catálogo y presupuestos
 
-Estado: implementada (Etapa 3, decisiones N13, N14 y T30). Todas las rutas cuelgan de `/api`, exigen sesión y usan la RLS de PostgreSQL (T25). Si algo existe pero no es visible, la respuesta es 404, nunca 403. Detalle del modelo en [`modelo-datos.md`](modelo-datos.md) §8.
+Estado: implementada (Etapa 3, decisiones N13, N16 y T30). Todas las rutas cuelgan de `/api`, exigen sesión y usan la RLS de PostgreSQL (T25). Si algo existe pero no es visible, la respuesta es 404, nunca 403. Detalle del modelo en [`modelo-datos.md`](modelo-datos.md) §8.
 
 ## Quién puede qué
 
@@ -32,7 +32,7 @@ Estado: implementada (Etapa 3, decisiones N13, N14 y T30). Todas las rutas cuelg
 | `POST /quotes/:id/versions`           | Nueva versión (revisión): copia parámetros, medidas y paquetes de la última y **recalcula con el catálogo vigente**; solo si no hay otra en borrador                                                                                                                                                 |
 | `POST …/versions/:versionId/send`     | Envía: bloquea la fila, recalcula con el catálogo vigente, genera el PDF, lo guarda en S3 con su sha256, fija `locked_at`, congela y pasa las versiones anteriores a SUPERSEDED                                                                                                                      |
 | `POST …/view`, `POST …/decline`       | El cliente marca vista (idempotente) o rechaza; la oficina también puede rechazar                                                                                                                                                                                                                    |
-| `POST …/expire`                       | Caducidad manual, solo si ya pasó `valid_until` (la automática queda pendiente, N14)                                                                                                                                                                                                                 |
+| `POST …/expire`                       | Caducidad manual, solo si ya pasó `valid_until` (la automática queda pendiente, N16)                                                                                                                                                                                                                 |
 | `GET …/pdf`                           | URL firmada de 5 minutos para descargar el PDF                                                                                                                                                                                                                                                       |
 
 Errores propios: `INVALID_TRANSITION` (409), `VERSION_LOCKED` (409), `DRAFT_EXISTS` (409), `NOT_EXPIRED_YET` (409), `STORAGE_NOT_CONFIGURED` (503) y los del motor (`QUOTE_INPUT_INVALID`, `UNKNOWN_ITEM`… 422).

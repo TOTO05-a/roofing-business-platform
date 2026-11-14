@@ -24,7 +24,7 @@ import { renderQuotePdf } from '../pdf/quote-pdf.js';
 import type { AppServices } from '../services.js';
 
 /**
- * Presupuestos (modelo §2.5 y §3; P3–P13). Estados de la demo (N14): DRAFT → SENT → VIEWED,
+ * Presupuestos (modelo §2.5 y §3; P3–P13). Estados de la demo (N16): DRAFT → SENT → VIEWED,
  * DECLINED, EXPIRED y SUPERSEDED. La aprobación con firma electrónica no está en esta etapa (N7).
  *
  * Quién puede qué: la oficina (ADMIN/SUPERADMIN) crea, calcula, aplica descuento (P10) y envía;
@@ -680,7 +680,7 @@ export function quotesRouter(services: AppServices): Router {
     res.json(await readQuoteVersion(id, versionId, context));
   });
 
-  // Caducidad manual (la automática queda para después, N14): solo si ya pasó `valid_until`.
+  // Caducidad manual (la automática queda para después, N16): solo si ya pasó `valid_until`.
   router.post('/quotes/:id/versions/:versionId/expire', authed, office, async (req, res) => {
     const { id, versionId } = parseInput(versionParams, req.params);
     const context = authContext(req);

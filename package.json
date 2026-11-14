@@ -9,6 +9,8 @@
     "node": ">=24"
   },
   "scripts": {
+    "demo": "node scripts/demo.mjs",
+    "demo:preparar": "node scripts/demo.mjs --solo-preparar",
     "dev": "pnpm build:shared && pnpm --parallel --filter \"./apps/*\" run dev",
     "build:shared": "pnpm --filter @roofing/shared build",
     "build": "pnpm build:shared && pnpm -r run build",
