@@ -13,13 +13,14 @@ import {
   snapshotOf,
   storeOptions,
 } from '../domain/quote-calc.js';
+import { toPdfData } from '../domain/quote-pdf-data.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { recordAudit, requestMeta } from '../lib/audit.js';
 import { HttpError } from '../lib/http-error.js';
 import { rlsTransaction, type RlsTx } from '../lib/rls.js';
 import { idParamsSchema, omitUndefined, optionalText, paginationSchema } from '../lib/schemas.js';
 import { parseInput } from '../lib/validation.js';
-import { renderQuotePdf, type QuotePdfData } from '../pdf/quote-pdf.js';
+import { renderQuotePdf } from '../pdf/quote-pdf.js';
 import type { AppServices } from '../services.js';
 
 /**
@@ -530,49 +531,7 @@ export function quotesRouter(services: AppServices): Router {
           (version.validUntil && version.validUntil > sentAt
             ? version.validUntil
             : new Date(sentAt.getTime() + DEFAULT_VALIDITY_DAYS * 86_400_000));
-        const snapshot = measurementsSnapshotSchema.parse(version.measurementsSnapshot);
-        const address = [quote.property.addressLine1, quote.property.addressLine2]
-          .filter(Boolean)
-          .join(', ');
-        const pdfData: QuotePdfData = {
-          number: quote.number,
-          versionNumber: version.versionNumber,
-          locale: version.locale === 'en' ? 'en' : 'es',
-          sentAt,
-          validUntil,
-          customerName: `${quote.customer.firstName} ${quote.customer.lastName}`,
-          propertyAddress: `${address}, ${quote.property.city}, ${quote.property.state} ${quote.property.zip}`,
-          roofSquares: snapshot.roof.squares,
-          roofAreaSqFt: snapshot.roof.surfaceAreaSqFt,
-          taxBps: version.taxBps,
-          taxAppliesToLabor: version.taxAppliesToLabor,
-          discountBps: version.discountBps,
-          depositBps: version.depositBps,
-          notes: version.notes,
-          options: version.options.map((o) => ({
-            title: o.title,
-            tier: o.tier,
-            warrantyText: o.warrantyText,
-            warrantyYears: o.warrantyYears,
-            materialSubtotalCents: o.materialSubtotalCents,
-            laborSubtotalCents: o.laborSubtotalCents,
-            discountCents: o.discountCents,
-            taxCents: o.taxCents,
-            totalCents: o.totalCents,
-            depositCents: o.depositCents,
-            balanceCents: o.balanceCents,
-            lines: o.lines.map((l) => ({
-              name: l.name,
-              kind: l.kind,
-              unit: l.unit,
-              quantity: l.quantity.toNumber(),
-              purchaseQuantity: l.purchaseQuantity.toNumber(),
-              purchaseUnitName: l.purchaseUnitName,
-              colorName: l.colorName,
-              lineTotalCents: l.lineTotalCents,
-            })),
-          })),
-        };
+        const pdfData = toPdfData(quote, version, sentAt, validUntil);
         const pdf = await renderQuotePdf(pdfData);
         const sha256 = createHash('sha256').update(pdf).digest('hex');
         const objectKey = `quotes/${id}/${randomUUID()}.pdf`;

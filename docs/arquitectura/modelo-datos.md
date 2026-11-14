@@ -364,3 +364,17 @@ Respuestas a las preguntas de la sección 6, aprobadas por el usuario como valor
 | 10 | Precios y descuentos | Solo administración modifica el catálogo. Se añade `discount_bps` en `QuoteVersion`, aplicable solo por administración. |
 
 **Descuento (aprobado):** `discount_bps` se aplica al subtotal (material + mano de obra) ANTES del impuesto y se reparte de forma proporcional entre material y mano de obra; la base imponible se calcula sobre los subtotales ya descontados. El motor lo implementa en `packages/shared/src/presupuestos/discount.ts`.
+
+## 8. Implementación de catálogo y presupuestos (14-11-2026, decisiones N13, N14 y T30)
+
+Archivos: `apps/api/prisma/schema.prisma`, migración `20261114120000_presupuestos` (fuente de las CHECK, disparadores y RLS: `apps/api/prisma/sql/presupuestos-extras.sql`), `apps/api/src/routes/{catalog,quotes}.ts`, `apps/api/src/domain/quote-calc.ts`, `apps/api/src/pdf/quote-pdf.ts`. Guía de uso de la API: [`presupuestos-api.md`](presupuestos-api.md).
+
+Diferencias con el borrador de §2.4–2.5:
+
+- **`Quote`**: añade `sales_rep_id` (vendedor responsable: ve los precios de SUS presupuestos, P6) y `first_sent_at` (desde ahí el cliente lo ve). No guarda `status` ni `current_version_id`: el estado es el de la versión de mayor `version_number`. `number` sale de una secuencia (`Q-AAAA-NNNNNN`, con huecos por rollbacks).
+- **`QuoteVersion`**: añade `locale` (es/en, idioma del PDF), `notes`, `sent_by_id`, `declined_at`/`decline_reason`, `superseded_at`; `expires_at` se llama `expired_at`. `measurements_snapshot` guarda las medidas de entrada del motor y su resumen. Estados: `DRAFT, SENT, VIEWED, DECLINED, EXPIRED, SUPERSEDED` (`APPROVED` y `VOIDED` llegan con la aprobación y la firma, N7, con una migración aditiva del enum).
+- **`QuoteOption`/`QuoteLine`**: la opción copia nombre, nivel y garantía del paquete; la línea copia nombre, sku, unidad, precios y color elegido. `Package` guarda `warranty_text` y `warranty_years` (el motor los exige).
+- **Inmutabilidad (disparadores, rigen para todos los roles, también el dueño)**: una versión con `locked_at` solo cambia `status` y las marcas de ese cambio; sus opciones y líneas no se crean, editan ni borran; las transiciones de estado se validan en la base (DRAFT→SENT→VIEWED/DECLINED/EXPIRED/SUPERSEDED). Una versión no se borra. Una sola versión DRAFT por presupuesto. Pasar a SENT exige PDF y sha256 (CHECK).
+- **RLS (T25)**: catálogo solo oficina (lleva precios: ventas, cuadrilla y clientes no lo ven); presupuestos: oficina todo, ventas los suyos, cliente los suyos ya enviados (los borradores solo la oficina), cuadrilla nada. Solo la oficina crea y edita (el descuento es de administración, P10). El cliente solo puede pasar su versión a VIEWED o DECLINED. El PDF (`files`) lo ve quien ve la versión. Pruebas: `apps/api/test/integration/quotes-rls.test.ts`.
+- **PDF**: se genera en la API al enviar (`@react-pdf/renderer`), se guarda en S3 (`quotes/{quoteId}/{uuid}.pdf`) como `File` (se añade `application/pdf` a los tipos permitidos) y se descarga con URL firmada de 5 minutos.
+

@@ -241,7 +241,7 @@ describe('presupuestos: enviar, PDF e inmutabilidad', () => {
     expect(sent.body.version.pdfSha256).toMatch(/^[0-9a-f]{64}$/);
 
     // El PDF existe en el almacenamiento, es un PDF y su hash coincide.
-    const [[key, bytes]] = [...storage.blobs.entries()];
+    const [key, bytes] = [...storage.blobs.entries()][0]!;
     expect(key).toMatch(new RegExp(`^quotes/${quote.id}/.+\\.pdf$`));
     expect(Buffer.from(bytes!).subarray(0, 5).toString()).toBe('%PDF-');
     expect(createHash('sha256').update(bytes!).digest('hex')).toBe(sent.body.version.pdfSha256);

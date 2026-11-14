@@ -1,6 +1,15 @@
 import { createRequire } from 'node:module';
 import { createElement as h, type ReactElement } from 'react';
-import { Document, Font, type DocumentProps, Page, renderToBuffer, StyleSheet, Text, View } from '@react-pdf/renderer';
+import {
+  Document,
+  Font,
+  type DocumentProps,
+  Page,
+  renderToBuffer,
+  StyleSheet,
+  Text,
+  View,
+} from '@react-pdf/renderer';
 
 /**
  * PDF de un presupuesto (decisión T30): `@react-pdf/renderer`, sin navegador. Marca provisional
