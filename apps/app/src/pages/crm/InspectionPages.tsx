@@ -363,7 +363,6 @@ function SectionsCard({ inspection, locked }: { inspection: InspectionDetail; lo
           key={editing === 'new' ? 'new' : editing.id}
           inspectionId={inspection.id}
           section={editing === 'new' ? null : editing}
-          nextOrder={inspection.sections.length}
           onClose={() => setEditing(null)}
         />
       ) : null}
@@ -402,12 +401,10 @@ function SectionsCard({ inspection, locked }: { inspection: InspectionDetail; lo
 function SectionDialog({
   inspectionId,
   section,
-  nextOrder,
   onClose,
 }: {
   inspectionId: string;
   section: InspectionSection | null;
-  nextOrder: number;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -476,7 +473,6 @@ function SectionDialog({
         onClose();
       },
     });
-    void nextOrder;
   };
 
   const req = t('common.required');
@@ -540,6 +536,8 @@ function SectionDialog({
 interface UploadItem {
   key: string;
   file: File;
+  /** Sección elegida al subir: el reintento la conserva. */
+  sectionId: string;
   preview: string;
   stage: UploadStage | 'error';
   progress: number;
@@ -593,6 +591,7 @@ function PhotosCard({ inspection, locked }: { inspection: InspectionDetail; lock
       const item: UploadItem = {
         key: `${file.name}-${file.size}-${crypto.randomUUID()}`,
         file,
+        sectionId,
         preview,
         stage: invalid ? 'error' : 'preparing',
         progress: 0,

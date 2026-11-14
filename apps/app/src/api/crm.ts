@@ -563,7 +563,7 @@ export function useCompleteInspection(id: string) {
 export function usePhotoUrl(fileId: string) {
   return useQuery({
     queryKey: ['files', fileId, 'url'],
-    staleTime: 4 * 60_000,
+    staleTime: 2 * 60_000,
     queryFn: ({ signal }) =>
       api<{ url: string; mimeType: string }>(`/api/files/${fileId}/download`, { signal }),
   });
