@@ -4,36 +4,36 @@ Estado: implementada (Etapa 3, decisiones N13, N14 y T30). Todas las rutas cuelg
 
 ## Quién puede qué
 
-| Rol | Catálogo | Presupuestos |
-| --- | --- | --- |
-| ADMIN / SUPERADMIN | Todo (P10) | Crear, editar el borrador, descuento, enviar, revisar, rechazar y caducar; ven todos |
-| EMPLOYEE de ventas | Nada (lleva precios) | Solo lectura de SUS presupuestos enviados (P6) |
-| EMPLOYEE de cuadrilla | Nada | Nada: no ve precios |
-| CUSTOMER | Nada | Sus presupuestos ya enviados: leer, marcar visto, rechazar, descargar el PDF |
+| Rol                   | Catálogo             | Presupuestos                                                                         |
+| --------------------- | -------------------- | ------------------------------------------------------------------------------------ |
+| ADMIN / SUPERADMIN    | Todo (P10)           | Crear, editar el borrador, descuento, enviar, revisar, rechazar y caducar; ven todos |
+| EMPLOYEE de ventas    | Nada (lleva precios) | Solo lectura de SUS presupuestos enviados (P6)                                       |
+| EMPLOYEE de cuadrilla | Nada                 | Nada: no ve precios                                                                  |
+| CUSTOMER              | Nada                 | Sus presupuestos ya enviados: leer, marcar visto, rechazar, descargar el PDF         |
 
 ## Catálogo (solo administración)
 
-| Método y ruta | Qué hace |
-| --- | --- |
-| `GET/POST /catalog/categories`, `PATCH /catalog/categories/:id` | Categorías (`kind` MATERIAL o LABOR) |
-| `GET/POST /catalog/items`, `GET/PATCH/DELETE /catalog/items/:id` | Artículos; precios en centavos; el borrado es lógico y falla si está en un paquete activo |
-| `POST /catalog/items/:id/purchase-units`, `PATCH/DELETE /catalog/purchase-units/:id` | Unidades de compra (rollo, caja…); una por defecto |
-| `POST /catalog/items/:id/material-options`, `PATCH /catalog/material-options/:id` | Colores y texturas |
-| `GET/POST /catalog/packages`, `GET/PATCH /catalog/packages/:id` | Paquetes (varios por nivel, P3); con `lines` en el PATCH se reemplazan las líneas |
+| Método y ruta                                                                        | Qué hace                                                                                  |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `GET/POST /catalog/categories`, `PATCH /catalog/categories/:id`                      | Categorías (`kind` MATERIAL o LABOR)                                                      |
+| `GET/POST /catalog/items`, `GET/PATCH/DELETE /catalog/items/:id`                     | Artículos; precios en centavos; el borrado es lógico y falla si está en un paquete activo |
+| `POST /catalog/items/:id/purchase-units`, `PATCH/DELETE /catalog/purchase-units/:id` | Unidades de compra (rollo, caja…); una por defecto                                        |
+| `POST /catalog/items/:id/material-options`, `PATCH /catalog/material-options/:id`    | Colores y texturas                                                                        |
+| `GET/POST /catalog/packages`, `GET/PATCH /catalog/packages/:id`                      | Paquetes (varios por nivel, P3); con `lines` en el PATCH se reemplazan las líneas         |
 
 ## Presupuestos
 
-| Método y ruta | Qué hace |
-| --- | --- |
-| `POST /quotes` | Crea el presupuesto y su versión 1 en borrador. Cuerpo: `propertyId`, `packageIds` (1–10), `inspectionId` (completada) **o** `measurements`, `parameters` opcionales (`wasteBps` 1000, `taxBps` 700, `taxAppliesToLabor` false, `discountBps` 0, `depositBps` 5000), `salesRepId`, `locale`, `notes` |
-| `GET /quotes`, `GET /quotes/:id` | Listado con la última versión visible y detalle con todas sus versiones |
-| `GET /quotes/:id/versions/:versionId` | Versión con opciones y líneas |
-| `PATCH …/versions/:versionId` | Edita el borrador (parámetros, paquetes, medidas, `validUntil`, notas) y recalcula |
-| `POST /quotes/:id/versions` | Nueva versión (revisión) copiando la última; solo si no hay otra en borrador |
-| `POST …/versions/:versionId/send` | Envía: calcula el PDF, lo guarda en S3 con su sha256, fija `locked_at`, congela y pasa las versiones anteriores a SUPERSEDED |
-| `POST …/view`, `POST …/decline` | El cliente marca vista (idempotente) o rechaza; la oficina también puede rechazar |
-| `POST …/expire` | Caducidad manual, solo si ya pasó `valid_until` (la automática queda pendiente, N14) |
-| `GET …/pdf` | URL firmada de 5 minutos para descargar el PDF |
+| Método y ruta                         | Qué hace                                                                                                                                                                                                                                                                                             |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /quotes`                        | Crea el presupuesto y su versión 1 en borrador. Cuerpo: `propertyId`, `packageIds` (1–10), `inspectionId` (completada) **o** `measurements`, `parameters` opcionales (`wasteBps` 1000, `taxBps` 700, `taxAppliesToLabor` false, `discountBps` 0, `depositBps` 5000), `salesRepId`, `locale`, `notes` |
+| `GET /quotes`, `GET /quotes/:id`      | Listado con la última versión visible y detalle con todas sus versiones                                                                                                                                                                                                                              |
+| `GET /quotes/:id/versions/:versionId` | Versión con opciones y líneas                                                                                                                                                                                                                                                                        |
+| `PATCH …/versions/:versionId`         | Edita el borrador (parámetros, paquetes, medidas, `validUntil`, notas) y recalcula                                                                                                                                                                                                                   |
+| `POST /quotes/:id/versions`           | Nueva versión (revisión): copia parámetros, medidas y paquetes de la última y **recalcula con el catálogo vigente**; solo si no hay otra en borrador                                                                                                                                                 |
+| `POST …/versions/:versionId/send`     | Envía: bloquea la fila, recalcula con el catálogo vigente, genera el PDF, lo guarda en S3 con su sha256, fija `locked_at`, congela y pasa las versiones anteriores a SUPERSEDED                                                                                                                      |
+| `POST …/view`, `POST …/decline`       | El cliente marca vista (idempotente) o rechaza; la oficina también puede rechazar                                                                                                                                                                                                                    |
+| `POST …/expire`                       | Caducidad manual, solo si ya pasó `valid_until` (la automática queda pendiente, N14)                                                                                                                                                                                                                 |
+| `GET …/pdf`                           | URL firmada de 5 minutos para descargar el PDF                                                                                                                                                                                                                                                       |
 
 Errores propios: `INVALID_TRANSITION` (409), `VERSION_LOCKED` (409), `DRAFT_EXISTS` (409), `NOT_EXPIRED_YET` (409), `STORAGE_NOT_CONFIGURED` (503) y los del motor (`QUOTE_INPUT_INVALID`, `UNKNOWN_ITEM`… 422).
 

@@ -728,9 +728,9 @@ model PackageItem {
 // Presupuesto: contenedor lógico (cliente + propiedad + inspección opcional). La versión vigente
 // es la de mayor `version_number` y su estado es el del presupuesto (no se guarda en caché).
 // `sales_rep_id` es el vendedor responsable: ve los precios de SUS presupuestos (P6).
-// En SQL además: `number` con secuencia (Q-AAAA-NNNNNN), la inspección debe ser de la misma
-// propiedad (clave compuesta), el vendedor debe tener el tipo de trabajo SALES y, desde la
-// primera versión enviada, cliente, propiedad e inspección no cambian.
+// En SQL además: `number` con secuencia (Q-AAAA-NNNNNN) y la inspección debe ser de la misma
+// propiedad (clave compuesta). La API (no la base) exige que el vendedor tenga el tipo SALES y
+// fija `first_sent_at` al enviar.
 model Quote {
   id           String    @id @default(uuid(7)) @db.Uuid
   number       String    @unique @default(dbgenerated("next_quote_number()"))
@@ -739,7 +739,7 @@ model Quote {
   inspectionId String?   @map("inspection_id") @db.Uuid
   salesRepId   String?   @map("sales_rep_id") @db.Uuid
   createdById  String    @map("created_by_id") @db.Uuid
-  // Primera vez que se envió una versión (lo fija un disparador). Desde ahí el cliente ve el
+  // Primera vez que se envió una versión (lo fija la API al enviar). Desde ahí el cliente ve el
   // presupuesto; antes, ni sabe que existe.
   firstSentAt  DateTime? @map("first_sent_at") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -844,7 +844,7 @@ model QuoteOption {
 
 // Partida calculada y congelada. `item_id` y `material_option_id` son solo referencias
 // informativas (SetNull); lo que vale es la instantánea. En SQL además: importes de línea
-// = round(cantidad x precio unitario) half-up y total = material + mano de obra.
+// = material + mano de obra (el redondeo half-up por línea lo hace el motor, no la base).
 model QuoteLine {
   id                     String      @id @default(uuid(7)) @db.Uuid
   optionId               String      @map("option_id") @db.Uuid

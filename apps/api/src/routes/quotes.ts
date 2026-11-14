@@ -160,6 +160,18 @@ function serializeVersion(row: DetailRow) {
   };
 }
 
+const isOffice = (role: string) => role === 'ADMIN' || role === 'SUPERADMIN';
+
+/** El cliente no recibe ids internos (inspección y vendedor). */
+function forRole<T extends { inspectionId: string | null; salesRepId: string | null }>(
+  quote: T,
+  role: string,
+) {
+  if (isOffice(role)) return quote;
+  const { inspectionId: _inspection, salesRepId: _salesRep, ...rest } = quote;
+  return role === 'CUSTOMER' ? rest : { ...rest, salesRepId: _salesRep };
+}
+
 function invalidTransition(from: string, to: string): HttpError {
   return new HttpError(409, 'INVALID_TRANSITION', `No se puede pasar de ${from} a ${to}`);
 }
@@ -303,7 +315,7 @@ export function quotesRouter(services: AppServices): Router {
           select: versionDetailSelect,
         }),
       );
-      return { quote, version: serializeVersion(version) };
+      return { quote: forRole(quote, context.role), version: serializeVersion(version) };
     });
   }
 
@@ -313,7 +325,11 @@ export function quotesRouter(services: AppServices): Router {
     const context = authContext(req);
     const where = scopedWhere('quote', context, {
       ...(query.customerId ? { customerId: query.customerId } : {}),
-      ...(query.status ? { versions: { some: { status: query.status } } } : {}),
+      ...(query.status
+        ? isOffice(context.role) || query.status !== 'DRAFT'
+          ? { versions: { some: { status: query.status } } }
+          : { id: { in: [] as string[] } } // los borradores no existen para quien no es oficina
+        : {}),
     });
     const { rows, total } = await rlsTransaction(db, context, async (tx) => ({
       rows: await tx.quote.findMany({
@@ -368,7 +384,7 @@ export function quotesRouter(services: AppServices): Router {
           options: { orderBy: { sortOrder: 'asc' }, select: optionSummarySelect },
         },
       });
-      return { ...found, versions };
+      return { ...forRole(found, context.role), versions };
     });
     res.json({ quote });
   });
@@ -514,6 +530,41 @@ export function quotesRouter(services: AppServices): Router {
       context,
       async (tx) => {
         await draftOr409(tx, context, id, versionId);
+        // Bloquea la fila: un PATCH simultáneo espera, y el PDF refleja exactamente lo que se congela.
+        await tx.$queryRaw`SELECT id FROM quote_versions WHERE id = ${versionId}::uuid FOR UPDATE`;
+        await draftOr409(tx, context, id, versionId);
+        // Recalcula con el catálogo vigente justo antes de congelar (precios al momento del envío).
+        const draft = await tx.quoteVersion.findUniqueOrThrow({
+          where: { id: versionId },
+          select: {
+            wasteBps: true,
+            taxBps: true,
+            taxAppliesToLabor: true,
+            discountBps: true,
+            depositBps: true,
+            measurementsSnapshot: true,
+            options: { orderBy: { sortOrder: 'asc' }, select: { packageId: true } },
+          },
+        });
+        if (draft.options.length === 0) {
+          throw new HttpError(409, 'QUOTE_WITHOUT_OPTIONS', 'La versión no tiene opciones');
+        }
+        await storeOptions(
+          tx,
+          versionId,
+          await calculateForPackages(
+            tx,
+            draft.options.map((o) => o.packageId),
+            measurementsSnapshotSchema.parse(draft.measurementsSnapshot).measurements,
+            {
+              wasteBps: draft.wasteBps,
+              taxBps: draft.taxBps,
+              taxAppliesToLabor: draft.taxAppliesToLabor,
+              discountBps: draft.discountBps,
+              depositBps: draft.depositBps,
+            },
+          ),
+        );
         const quote = await tx.quote.findUniqueOrThrow({
           where: { id },
           select: { number: true, firstSentAt: true, customer: true, property: true },
