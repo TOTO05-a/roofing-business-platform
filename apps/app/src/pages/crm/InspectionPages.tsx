@@ -632,6 +632,7 @@ function PhotosCard({ inspection, locked }: { inspection: InspectionDetail; lock
             <input
               ref={input}
               id="photo-input"
+              aria-label={t('app.crm.inspections.addPhotos')}
               type="file"
               multiple
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif"

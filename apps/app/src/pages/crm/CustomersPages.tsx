@@ -96,10 +96,8 @@ export function CustomerDetailPage() {
               <Info label={t('app.crm.fields.marketing')}>
                 {c.marketingOptIn ? t('app.crm.common.yes') : t('app.crm.common.no')}
               </Info>
-              <p>
-                {c.userId ? t('app.crm.customers.hasAccount') : t('app.crm.customers.noAccount')}
-              </p>
             </dl>
+            <p>{c.userId ? t('app.crm.customers.hasAccount') : t('app.crm.customers.noAccount')}</p>
           </CardContent>
         </Card>
         <Card>

@@ -6,8 +6,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { api } from './client';
-import type {
-  MANUAL_LEAD_SOURCES} from './types';
+import type { MANUAL_LEAD_SOURCES } from './types';
 import {
   type Appointment,
   type AppointmentStatus,

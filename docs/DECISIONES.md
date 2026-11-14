@@ -61,6 +61,7 @@ Aprobadas junto con el modelo de datos.
 | D8  | **Texturas del 3D reducidas a 1K/2K** con solo los mapas necesarios (2K en techo y fachada, 1K en el resto; ≈ 8–15 MB); sin Git LFS. Si una superficie pierde calidad visible, se deja en 4K y se consulta. Ver C35. | Repo ligero y sin servicios con costo. | 13-11-2026 | ✅ |
 | D9  | **Visualizador 3D realista** (React Three Fiber) que **sustituye por completo** al 2D: el 2D se elimina; se conservan los controles accesibles, los datos de materiales y los textos. Ver C36–C49. | Realismo prioritario (W13); decisión del cliente. | 13-11-2026 | ✅ |
 | D5  | Modo claro por defecto y **modo oscuro** opcional; diseño probado en 390, 834 y 1512 px.                                               | Comodidad y uso en cualquier dispositivo.                     | 12-11-2026 | ✅     |
+| D10 | **Agenda de citas propia** con los componentes de `packages/ui` (sin FullCalendar ni react-big-calendar): vista semana (columnas por día) y lista, y reprogramar con un formulario (alternativa a arrastrar, WCAG 2.5.7). **Recortado a futuro (⏳):** arrastrar para reprogramar, vista día, rejilla horaria, búsqueda de texto en leads, alta de leads y de clientes desde la interfaz, edición de clientes y propiedades, y cambios optimistas más allá de lo indicado en T31. Ver C63. | La app es una demostración que se ampliará a largo plazo; el rediseño visual vendrá después. | 13-11-2026 | ✅ (recortes ⏳) |
 
 ## 4. Tecnología y arquitectura
 
@@ -95,6 +96,7 @@ Aprobadas junto con el modelo de datos.
 | T27 | **Sin citas solapadas** por empleado: restricción EXCLUDE (`btree_gist`) en estados activos más comprobación previa en la API con error bilingüe. Ver C56. | Solo la base de datos garantiza que no haya dobles reservas simultáneas. | 13-11-2026 | ✅ |
 | T28 | **Fotos en desarrollo** en un almacenamiento compatible con S3 dentro de `docker compose`, con el AWS SDK v3; bucket privado y URL firmadas de vida corta tras comprobar el acceso; validación de tipo, tamaño y sha256. R2 sigue sin activarse. Ver C57. | El mismo código servirá con R2, sin cuentas externas ni costo. | 13-11-2026 | ✅ |
 | T29 | El almacenamiento S3 de desarrollo es **Garage** (imagen oficial `dxflrs/garage`, modo de un solo nodo). SeaweedFS también está mantenido, pero consume más memoria (arranca maestro, volumen, filer y S3). Ver C57. | El equipo de desarrollo tiene poca RAM; Garage es más ligero y basta con un bucket. | 13-11-2026 | ✅ |
+| T31 | **Datos en la app con TanStack Query** sobre el cliente actual (`apps/app/src/api/client.ts`): caché de 30 s, recarga al volver a la pestaña, reintentos solo en fallos de red o 5xx y un cambio optimista en el estado del lead y en reprogramar citas. Ver C62. | Caché y recargas sin escribir ni mantener hooks propios. | 13-11-2026 | ✅ |
 
 ## 5. Infraestructura y costos
 
