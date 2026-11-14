@@ -509,25 +509,25 @@ async function uploadPhoto(
   projectId: string,
   stageId: string | null,
   phase: DemoPhase,
-  variant: 0 | 1,
+  variant: number,
   caption: string,
   takenAt: Date,
   takenById: string | null,
 ): Promise<void> {
   const { tx, storage, adminId } = ctx;
   if (!storage) return;
-  const body = demoPhoto(phase, variant);
+  const { body, name } = demoPhoto(phase, variant);
   const sha256 = createHash('sha256').update(body).digest('hex');
-  const objectKey = `projects/${projectId}/${randomUUID()}.png`;
-  await storage.put({ key: objectKey, body, contentType: 'image/png', sha256Hex: sha256 });
+  const objectKey = `projects/${projectId}/${randomUUID()}.jpg`;
+  await storage.put({ key: objectKey, body, contentType: 'image/jpeg', sha256Hex: sha256 });
   const file = await tx.file.create({
     data: {
       bucket: storage.bucket,
       objectKey,
-      mimeType: 'image/png',
+      mimeType: 'image/jpeg',
       sizeBytes: BigInt(body.length),
       sha256,
-      originalName: `${phase.toLowerCase()}-${variant + 1}.png`,
+      originalName: name,
       uploadedById: adminId,
       status: 'READY',
     },
@@ -604,7 +604,7 @@ async function advanceProject(
       projectId,
       stages[0]!.id,
       'BEFORE',
-      0,
+      index,
       'Estado del techo antes de empezar',
       built.startsAt,
       takenBy,
@@ -614,7 +614,7 @@ async function advanceProject(
       projectId,
       stages[0]!.id,
       'BEFORE',
-      1,
+      index + 1,
       'Daños en la cara sur',
       built.startsAt,
       takenBy,
@@ -626,7 +626,7 @@ async function advanceProject(
       projectId,
       stages[3]!.id,
       'DURING',
-      (index % 2) as 0 | 1,
+      index,
       'Instalación en curso',
       stageDate(3),
       takenBy,
@@ -638,7 +638,7 @@ async function advanceProject(
       projectId,
       stages[4]!.id,
       'AFTER',
-      (index % 2) as 0 | 1,
+      index,
       'Techo terminado',
       stageDate(5),
       takenBy,
@@ -648,7 +648,7 @@ async function advanceProject(
       projectId,
       stages[4]!.id,
       'AFTER',
-      ((index + 1) % 2) as 0 | 1,
+      index + 1,
       'Vista final de la propiedad',
       stageDate(5),
       takenBy,
