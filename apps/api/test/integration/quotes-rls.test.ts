@@ -59,7 +59,15 @@ const rejectsWith = (promise: Promise<unknown>, code: string) =>
   expect(promise).rejects.toMatchObject({ code });
 
 const id = () => randomUUID();
-const u = { admin: id(), superadmin: id(), sales1: id(), sales2: id(), crew: id(), cust1: id(), cust2: id() };
+const u = {
+  admin: id(),
+  superadmin: id(),
+  sales1: id(),
+  sales2: id(),
+  crew: id(),
+  cust1: id(),
+  cust2: id(),
+};
 const e = { sales1: id(), sales2: id(), crew: id() };
 const c1 = id();
 const c2 = id();
@@ -117,7 +125,10 @@ async function seed() {
       ($1,$3,'1 Demo St','Miami','FL','33101',now()), ($2,$4,'2 Demo St','Doral','FL','33172',now())`,
     [p1, p2, c1, c2],
   );
-  await q(`INSERT INTO categories (id, name, kind, updated_at) VALUES ($1,'Tejas','MATERIAL',now())`, [cat]);
+  await q(
+    `INSERT INTO categories (id, name, kind, updated_at) VALUES ($1,'Tejas','MATERIAL',now())`,
+    [cat],
+  );
   await q(
     `INSERT INTO catalog_items (id, name, kind, category_id, unit, material_price_cents, labor_price_cents, updated_at)
      VALUES ($1,'Teja','MATERIAL',$2,'SQUARE',10000,0,now())`,
@@ -146,10 +157,11 @@ async function seed() {
       ($2,$4,1,'SENT',1000,700,5000,'{}',now(),now(),$6,$7,$8,now())`,
     [v1, v2, q1, q2, f1, f2, SHA, u.admin],
   );
-  await q(
-    `${version} VALUES ($1,$2,1,'DRAFT',1000,700,5000,'{}',NULL,NULL,NULL,NULL,$3,now())`,
-    [v3, q3, u.admin],
-  );
+  await q(`${version} VALUES ($1,$2,1,'DRAFT',1000,700,5000,'{}',NULL,NULL,NULL,NULL,$3,now())`, [
+    v3,
+    q3,
+    u.admin,
+  ]);
   await q(
     `INSERT INTO quote_options (id, version_id, package_id, tier, title, warranty_text, warranty_years,
        material_subtotal_cents, labor_subtotal_cents, discount_cents, tax_cents, total_cents, deposit_cents, balance_cents)
@@ -161,7 +173,10 @@ async function seed() {
 /** Las opciones de v1 y v2 se insertan antes de bloquear: se hace en una transacción aparte. */
 async function seedLockedOptions() {
   // Las versiones ya están bloqueadas (el guard lo impide): se desactiva el trigger solo aquí.
-  for (const [o, v, l] of [[o1, v1, l1], [o2, v2, l2]] as const) {
+  for (const [o, v, l] of [
+    [o1, v1, l1],
+    [o2, v2, l2],
+  ] as const) {
     await owner.query('ALTER TABLE quote_options DISABLE TRIGGER quote_options_guard');
     await owner.query('ALTER TABLE quote_lines DISABLE TRIGGER quote_lines_guard');
     await owner.query(
@@ -223,20 +238,35 @@ describe('presupuestos: qué ve cada rol (app_user)', () => {
     ],
     [
       'quote_versions',
-      { admin: all(v1, v2, v3), superadmin: all(v1, v2, v3), sales1: [v1], crew: [], customer1: [v1] },
+      {
+        admin: all(v1, v2, v3),
+        superadmin: all(v1, v2, v3),
+        sales1: [v1],
+        crew: [],
+        customer1: [v1],
+      },
     ],
     [
       'quote_options',
-      { admin: all(o1, o2, o3), superadmin: all(o1, o2, o3), sales1: [o1], crew: [], customer1: [o1] },
+      {
+        admin: all(o1, o2, o3),
+        superadmin: all(o1, o2, o3),
+        sales1: [o1],
+        crew: [],
+        customer1: [o1],
+      },
     ],
     [
       'quote_lines',
-      { admin: all(l1, l2, l3), superadmin: all(l1, l2, l3), sales1: [l1], crew: [], customer1: [l1] },
+      {
+        admin: all(l1, l2, l3),
+        superadmin: all(l1, l2, l3),
+        sales1: [l1],
+        crew: [],
+        customer1: [l1],
+      },
     ],
-    [
-      'catalog_items',
-      { admin: [item], superadmin: [item], sales1: [], crew: [], customer1: [] },
-    ],
+    ['catalog_items', { admin: [item], superadmin: [item], sales1: [], crew: [], customer1: [] }],
     ['categories', { admin: [cat], superadmin: [cat], sales1: [], crew: [], customer1: [] }],
     ['packages', { admin: [pkg], superadmin: [pkg], sales1: [], crew: [], customer1: [] }],
     ['purchase_units', { admin: [], superadmin: [], sales1: [], crew: [], customer1: [] }],
@@ -280,9 +310,9 @@ describe('presupuestos: escritura (app_user)', () => {
     await rejectsWith(run(appUser, ctx.sales1, insertItem), PERMISSION_DENIED);
     await rejectsWith(run(appUser, ctx.crew, insertItem), PERMISSION_DENIED);
     await rejectsWith(run(appUser, ctx.customer1, insertItem), PERMISSION_DENIED);
-    expect(
-      (await run(appUser, ctx.sales1, `UPDATE catalog_items SET name = 'Y'`)).rowCount,
-    ).toBe(0);
+    expect((await run(appUser, ctx.sales1, `UPDATE catalog_items SET name = 'Y'`)).rowCount).toBe(
+      0,
+    );
   });
 
   it('solo la oficina crea presupuestos; nadie borra versiones', async () => {
@@ -291,7 +321,10 @@ describe('presupuestos: escritura (app_user)', () => {
     await expect(run(appUser, ctx.admin, insertQuote)).resolves.toMatchObject({ rowCount: 1 });
     await rejectsWith(run(appUser, ctx.sales1, insertQuote), PERMISSION_DENIED);
     await rejectsWith(run(appUser, ctx.customer1, insertQuote), PERMISSION_DENIED);
-    await rejectsWith(run(appUser, ctx.superadmin, 'DELETE FROM quote_versions'), PERMISSION_DENIED);
+    await rejectsWith(
+      run(appUser, ctx.superadmin, 'DELETE FROM quote_versions'),
+      PERMISSION_DENIED,
+    );
     await rejectsWith(run(appUser, ctx.superadmin, 'DELETE FROM quotes'), PERMISSION_DENIED);
   });
 
@@ -313,7 +346,11 @@ describe('presupuestos: escritura (app_user)', () => {
     expect((await run(appUser, ctx.customer1, setStatus(v2, 'VIEWED'))).rowCount).toBe(0);
     await rejectsWith(run(appUser, ctx.customer1, setStatus(v1, 'SUPERSEDED')), PERMISSION_DENIED);
     await rejectsWith(
-      run(appUser, ctx.customer1, `UPDATE quote_versions SET discount_bps = 5000 WHERE id = '${v1}'`),
+      run(
+        appUser,
+        ctx.customer1,
+        `UPDATE quote_versions SET discount_bps = 5000 WHERE id = '${v1}'`,
+      ),
       INTEGRITY,
     );
     // Ventas y cuadrilla no cambian estados.
@@ -331,7 +368,10 @@ describe('inmutabilidad de las versiones enviadas (todos los roles, también el 
       `pdf_sha256 = '${'c'.repeat(64)}'`,
       'locked_at = NULL',
     ]) {
-      await rejectsWith(owner.query(`UPDATE quote_versions SET ${set} WHERE id = '${v1}'`), INTEGRITY);
+      await rejectsWith(
+        owner.query(`UPDATE quote_versions SET ${set} WHERE id = '${v1}'`),
+        INTEGRITY,
+      );
       await rejectsWith(
         run(appUser, ctx.admin, `UPDATE quote_versions SET ${set} WHERE id = '${v1}'`),
         INTEGRITY,
@@ -345,19 +385,31 @@ describe('inmutabilidad de las versiones enviadas (todos los roles, también el 
          material_subtotal_cents, labor_subtotal_cents, discount_cents, tax_cents, total_cents, deposit_cents, balance_cents)
        VALUES (gen_random_uuid(), '${version}', '${pack}', 'BETTER', 'x', 'g', 1, 0, 0, 0, 0, 0, 0, 0)`;
     await rejectsWith(run(appUser, ctx.admin, newOption(v1)), INTEGRITY);
-    await rejectsWith(run(appUser, ctx.admin, `DELETE FROM quote_options WHERE id = '${o1}'`), INTEGRITY);
-    await rejectsWith(run(appUser, ctx.admin, `DELETE FROM quote_lines WHERE id = '${l1}'`), INTEGRITY);
     await rejectsWith(
-      owner.query(`UPDATE quote_lines SET line_total_cents = 1, line_material_cents = 1, line_labor_cents = 0 WHERE id = '${l1}'`),
+      run(appUser, ctx.admin, `DELETE FROM quote_options WHERE id = '${o1}'`),
       INTEGRITY,
     );
-    expect((await run(appUser, ctx.admin, `DELETE FROM quote_lines WHERE id = '${l3}'`)).rowCount).toBe(1);
+    await rejectsWith(
+      run(appUser, ctx.admin, `DELETE FROM quote_lines WHERE id = '${l1}'`),
+      INTEGRITY,
+    );
+    await rejectsWith(
+      owner.query(
+        `UPDATE quote_lines SET line_total_cents = 1, line_material_cents = 1, line_labor_cents = 0 WHERE id = '${l1}'`,
+      ),
+      INTEGRITY,
+    );
+    expect(
+      (await run(appUser, ctx.admin, `DELETE FROM quote_lines WHERE id = '${l3}'`)).rowCount,
+    ).toBe(1);
     const pkg2 = id();
     await owner.query(
       `INSERT INTO packages (id, tier, name, warranty_text, warranty_years, updated_at) VALUES ($1,'BETTER','Mejor','G',10,now())`,
       [pkg2],
     );
-    await expect(run(appUser, ctx.admin, newOption(v3, pkg2))).resolves.toMatchObject({ rowCount: 1 });
+    await expect(run(appUser, ctx.admin, newOption(v3, pkg2))).resolves.toMatchObject({
+      rowCount: 1,
+    });
   });
 
   it('solo se permiten las transiciones válidas de estado', async () => {
@@ -370,7 +422,9 @@ describe('inmutabilidad de las versiones enviadas (todos los roles, también el 
 
   it('una versión se envía solo con PDF y hash, y no se borra', async () => {
     await rejectsWith(
-      owner.query(`UPDATE quote_versions SET status = 'SENT', sent_at = now(), locked_at = now() WHERE id = '${v3}'`),
+      owner.query(
+        `UPDATE quote_versions SET status = 'SENT', sent_at = now(), locked_at = now() WHERE id = '${v3}'`,
+      ),
       CHECK_VIOLATION,
     );
     await rejectsWith(owner.query(`DELETE FROM quote_versions WHERE id = '${v1}'`), INTEGRITY);

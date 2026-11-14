@@ -13,6 +13,17 @@ export class FakeStorage implements Storage {
   readonly objects = new Map<string, StoredObject>();
   readonly uploads: PresignCall[] = [];
   readonly downloads: string[] = [];
+  /** Bytes subidos por la propia API con `put` (p. ej. los PDF de presupuestos). */
+  readonly blobs = new Map<string, Uint8Array>();
+
+  async put(input: { key: string; body: Uint8Array; contentType: string; sha256Hex: string }) {
+    this.blobs.set(input.key, input.body);
+    this.objects.set(input.key, {
+      contentLength: input.body.length,
+      contentType: input.contentType,
+      sha256Hex: input.sha256Hex,
+    });
+  }
 
   async presignUpload(input: PresignCall): Promise<PresignedUpload> {
     this.uploads.push(input);

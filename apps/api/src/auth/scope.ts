@@ -110,10 +110,42 @@ export const scopes = {
         OR: [
           { uploadedById: context.userId },
           { inspectionPhoto: { inspection: scopes.inspection(context) } },
+          { quoteVersionPdf: { quote: scopes.quote(context) } },
         ],
       };
     }
+    if (context.role === 'CUSTOMER' && context.customerId) {
+      return { ...base, quoteVersionPdf: { quote: scopes.quote(context) } };
+    }
     return NOTHING;
+  },
+
+  /** Catálogo (lleva precios): solo la oficina. Ventas, cuadrilla y clientes no lo ven (P6, P10). */
+  catalog(context: AuthContext): Prisma.CatalogItemWhereInput {
+    return isStaff(context) ? { deletedAt: null } : NOTHING;
+  },
+
+  /**
+   * Presupuestos. Oficina: todos. Ventas: los suyos (P6). Cliente: los suyos ya enviados.
+   * La cuadrilla no ve precios: no ve ningún presupuesto.
+   */
+  quote(context: AuthContext): Prisma.QuoteWhereInput {
+    const base = { deletedAt: null };
+    if (isStaff(context)) return base;
+    if (context.role === 'EMPLOYEE' && context.employeeId) {
+      return { ...base, salesRepId: context.employeeId };
+    }
+    if (context.role === 'CUSTOMER' && context.customerId) {
+      return { ...base, customerId: context.customerId, firstSentAt: { not: null } };
+    }
+    return NOTHING;
+  },
+
+  /** Versiones: quien ve el presupuesto ve sus versiones enviadas; los borradores, solo la oficina. */
+  quoteVersion(context: AuthContext): Prisma.QuoteVersionWhereInput {
+    const quote = scopes.quote(context);
+    if (isStaff(context)) return { quote };
+    return { quote, status: { not: 'DRAFT' } };
   },
 } as const;
 
