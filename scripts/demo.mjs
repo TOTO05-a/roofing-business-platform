@@ -5,7 +5,9 @@
  *   pnpm demo            prepara todo y arranca web, app y API
  *   pnpm demo:preparar   solo prepara (contenedores, migraciones, roles, almacenamiento y seed)
  *
- * Solo para desarrollo local: usa los valores de PRUEBA de los .env.example.
+ * Solo para desarrollo local: usa los valores de PRUEBA de los .env.example. El seed demo rico
+ * (clientes, citas, presupuestos, proyectos y facturas SIMULADAS) y el 2FA precargado del
+ * administrador y el superadministrador (`pnpm demo:codigo`) se activan con SEED_DEMO=true.
  * Nunca escribe contraseñas reales ni toca servicios externos.
  */
 import { spawnSync } from 'node:child_process';
@@ -126,7 +128,10 @@ ejecutar('pnpm', ['--filter', '@roofing/api', 'storage:init'], { reintentos: 3 }
 paso('Datos y usuarios de demostración');
 ejecutar('pnpm', ['--filter', '@roofing/api', 'db:seed']);
 
-console.log('\n✔ Demo preparada. Usuarios y contraseñas: CREDENCIALES.md');
+console.log(
+  '\n✔ Demo preparada. Usuarios y contraseñas: CREDENCIALES.md\n' +
+    '  Administrador y superadministrador: el código de 6 dígitos sale de `pnpm demo:codigo`.',
+);
 if (soloPreparar) process.exit(0);
 
 paso('Arrancando web (4321), app (5173) y API (3000). Ctrl+C para detener.');
