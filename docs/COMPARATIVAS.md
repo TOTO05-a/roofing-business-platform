@@ -663,3 +663,24 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Generación con IA                                 | A medida                                   | Gasta créditos de pago                         |
 
 **Por qué:** las fotos del seed son marcadores creíbles del «antes, durante y después»; se sustituyen fácilmente por reales. El cierre se verifica a mano por rol y con los checks existentes, sin pruebas nuevas (W19).
+
+### C66. Técnica del video controlado por scroll → T32
+
+| Opción                                           | A favor                                                                                  | En contra                                                           |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| ✅ **Secuencia de fotogramas WebP en `<canvas>`** | Avance exacto y fluido hacia delante y hacia atrás; funciona en todos los navegadores; versión móvil propia; carga por partes | Pesa más (varios MB); hay que extraer los fotogramas con ffmpeg     |
+| `video.currentTime` con el scroll                | Un solo archivo ligero                                                                   | Saltos, scroll hacia atrás trabado, fallos en Safari y móviles       |
+| Video normal que se reproduce solo               | Lo más simple                                                                            | No sigue el scroll: no cumple el brief                              |
+
+**Por qué:** la fluidez del scroll es el núcleo del brief y W15 pone la calidad por delante del peso.
+
+### C67. Librería de animación por scroll → T33
+
+| Opción                                      | A favor                                                                                       | En contra                                          |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| ✅ **GSAP + ScrollTrigger**                  | Gratis también para uso comercial (licencia estándar de GSAP, desde abril de 2025; solo restringe herramientas de animación sin código que compitan con Webflow); pin y scrub maduros; unos 30 KB gzip | Dependencia con licencia propia (no MIT)           |
+| Motion (ya está en la app)                  | MIT; ya instalada                                                                             | `scroll()` más básico; más código propio para pin  |
+| CSS nativo (`animation-timeline: scroll()`) | Sin JavaScript                                                                                | Sin soporte estable en Safari y Firefox; no mueve el canvas |
+| Código propio (IntersectionObserver + rAF)  | Sin dependencias                                                                              | Mucho código y errores de sincronía                |
+
+**Por qué:** las escenas sticky ligadas al progreso son justo lo que resuelve ScrollTrigger, con menos código y menos errores.
