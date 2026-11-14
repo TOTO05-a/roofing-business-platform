@@ -1,18 +1,5 @@
 ---
-import {
-  ArrowRight,
-  CircleCheck,
-  House,
-  Layers,
-  Mail,
-  PanelTop,
-  Phone,
-  Search,
-  ShieldCheck,
-  Square,
-  Wind,
-  Wrench,
-} from '@lucide/astro';
+import { Mail, Phone } from '@lucide/astro';
 import { Picture } from 'astro:assets';
 import clayStucco from '../assets/proyectos/teja-barro-estuco.jpg';
 import clayDetail from '../assets/proyectos/teja-barro-detalle.jpg';
@@ -25,6 +12,7 @@ import flatBuilding from '../assets/proyectos/techo-plano-edificio.jpg';
 import crew from '../assets/proyectos/cuadrilla-instalando-teja.jpg';
 import Base from '../layouts/Base.astro';
 import ContactForm from './ContactForm.astro';
+import Cine from './Cine.astro';
 import RoofSection from './RoofSection.astro';
 import { getDict, type Locale } from '../i18n/ui';
 
@@ -34,16 +22,6 @@ interface Props {
 const { locale } = Astro.props;
 const t = getDict(locale);
 const w = t.web;
-
-const services = [
-  { key: 'shingle', icon: Layers },
-  { key: 'metal', icon: PanelTop },
-  { key: 'tile', icon: House },
-  { key: 'flat', icon: Square },
-  { key: 'repair', icon: Wrench },
-  { key: 'inspection', icon: Search },
-  { key: 'windMitigation', icon: Wind },
-] as const;
 
 const projects = [
   { key: 'clayStucco', img: clayStucco },
@@ -56,204 +34,216 @@ const projects = [
   { key: 'flatBuilding', img: flatBuilding },
   { key: 'crew', img: crew },
 ] as const;
-const steps = ['one', 'two', 'three', 'four'] as const;
-const values = ['one', 'two', 'three'] as const;
-const points = ['one', 'two', 'three'] as const;
-
 const btnPrimary =
-  'inline-flex min-h-14 items-center justify-center gap-2 rounded-md bg-primary px-8 font-display text-lg font-semibold text-primary-fg no-underline shadow-md transition-colors hover:bg-primary-hover';
+  'inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-primary px-8 font-display text-lg font-semibold text-primary-fg no-underline shadow-md transition-colors hover:bg-primary-hover';
 ---
 
 <Base locale={locale}>
-  <!-- Hero -->
-  <section
-    class="on-brand relative isolate overflow-hidden bg-surface-brand text-on-brand"
-    aria-labelledby="hero-title"
-  >
-    <svg
-      aria-hidden="true"
-      class="pointer-events-none absolute -end-24 top-1/2 -z-10 h-[140%] -translate-y-1/2 opacity-[0.12]"
-      viewBox="0 0 400 400"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="14"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+  <link
+    slot="head"
+    rel="preload"
+    as="image"
+    href="/cine/m/f001.webp"
+    media="(max-aspect-ratio: 9/10)"
+  />
+  <link
+    slot="head"
+    rel="preload"
+    as="image"
+    href="/cine/d/f001.webp"
+    media="(min-aspect-ratio: 9/10)"
+  />
+
+  <Cine locale={locale} />
+
+  <div class="cine-after" data-cine-after>
+    <!-- Visualizador de techos -->
+    <RoofSection locale={locale} />
+
+    <!-- Proyectos (fotos de stock de demostración) -->
+    <section
+      id="proyectos"
+      class="scroll-mt-20 py-20 text-white sm:py-28"
+      aria-labelledby="proyectos-title"
     >
-      <path d="M20 240 200 80l180 160"></path>
-      <path d="M60 300 200 175l140 125" style="stroke: var(--brand-copper)"></path>
-      <path d="M100 360 200 270l100 90"></path>
-    </svg>
-    <div class="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.3fr_1fr] lg:items-center">
-      <div>
-        <p class="font-display text-sm font-bold tracking-[0.18em] text-on-brand-accent uppercase">
-          {w.hero.eyebrow}
-        </p>
-        <h1 id="hero-title" class="mt-4 text-4xl font-extrabold sm:text-5xl lg:text-6xl">
-          {w.hero.title}
-        </h1>
-        <p class="mt-6 max-w-xl text-lg text-on-brand-muted sm:text-xl">{w.hero.subtitle}</p>
-        <div class="mt-9 flex flex-wrap gap-3">
-          <a href={`/${locale}/#contacto`} class={btnPrimary}>
-            {w.hero.primaryCta}
-            <ArrowRight aria-hidden="true" class="size-5" />
-          </a>
-          <a
-            href={`/${locale}/#servicios`}
-            class="inline-flex min-h-14 items-center justify-center rounded-md border-2 border-white/60 px-8 font-display text-lg font-semibold text-on-brand no-underline hover:bg-white/10"
-          >
-            {w.hero.secondaryCta}
-          </a>
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <div class="max-w-2xl" data-fade>
+          <h2 id="proyectos-title" class="cine-after-title">
+            {w.projects.title}
+          </h2>
+          <p class="mt-4 text-lg text-on-brand-muted">{w.projects.intro}</p>
         </div>
-      </div>
-      <div class="rounded-xl border border-white/15 bg-white/[0.06] p-6 backdrop-blur-sm sm:p-8">
-        <ul class="space-y-5">
-          {points.map((p) => (
-            <li class="flex items-start gap-3">
-              <CircleCheck aria-hidden="true" class="mt-0.5 size-6 shrink-0 text-on-brand-accent" />
-              <span class="font-display text-lg font-semibold">{w.hero.points[p]}</span>
+        <ul class="gallery mt-12">
+          {projects.map(({ key, img }, i) => (
+            <li class:list={['gallery-item', [0, 5, 8].includes(i) && 'gallery-wide']} data-fade>
+              <Picture
+                src={img}
+                alt={w.projects.items[key].alt}
+                formats={['avif', 'webp']}
+                widths={[480, 720, 960, 1280]}
+                sizes={
+                  [0, 5, 8].includes(i)
+                    ? '(min-width: 1024px) 720px, 100vw'
+                    : '(min-width: 1024px) 360px, 100vw'
+                }
+                loading="lazy"
+                decoding="async"
+                class="size-full object-cover"
+              />
+              <div class="gallery-cap">
+                <p class="gallery-tag">{w.projects.stockNote}</p>
+                <h3>{w.projects.items[key].title}</h3>
+                <p>{w.projects.items[key].text}</p>
+              </div>
             </li>
           ))}
         </ul>
-        <p class="mt-6 border-t border-white/15 pt-4 text-sm text-on-brand-muted">{w.hero.note}</p>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Servicios -->
-  <section id="servicios" class="scroll-mt-20 py-20 sm:py-28" aria-labelledby="servicios-title">
-    <div class="mx-auto max-w-6xl px-4 sm:px-6">
-      <div class="max-w-2xl">
-        <h2 id="servicios-title" class="text-3xl font-extrabold sm:text-4xl">
-          {w.services.title}
+    <!-- Contacto -->
+    <section
+      id="contacto"
+      class="cine-form scroll-mt-20 py-20 text-white sm:py-28"
+      aria-labelledby="contacto-title"
+    >
+      <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
+        <h2 id="contacto-title" class="cine-after-title" data-fade>
+          {w.contact.title}
         </h2>
-        <p class="mt-4 text-lg text-fg-muted">{w.services.intro}</p>
+        <p class="mt-4 text-lg text-on-brand-muted" data-fade>
+          {w.contact.text}
+        </p>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-4" data-fade>
+          <a href={`tel:${t.common.phoneHref}`} class={btnPrimary}>
+            <Phone aria-hidden="true" class="size-5" />
+            {t.common.phone}
+          </a>
+          <a
+            href={`mailto:${t.common.email}`}
+            class="inline-flex min-h-14 items-center justify-center gap-2 rounded-full border border-white/70 px-8 font-display text-lg font-semibold text-on-brand no-underline hover:bg-white/15"
+          >
+            <Mail aria-hidden="true" class="size-5" />
+            {t.common.email}
+          </a>
+        </div>
+        <p class="mt-6 text-on-brand-muted" data-fade>
+          {w.contact.hours}
+        </p>
+        <ContactForm locale={locale} />
+        <p class="mt-10 text-sm text-on-brand-muted">{w.cine.videoCredit}</p>
       </div>
-      <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {services.map(({ key, icon: Icon }) => (
-          <li class="group rounded-lg border border-border bg-surface p-6 shadow-sm transition-[transform,box-shadow] duration-[var(--duration-base)] ease-standard hover:-translate-y-1 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-            <span class="grid size-12 place-items-center rounded-md bg-surface-alt text-link">
-              <Icon aria-hidden="true" class="size-6" />
-            </span>
-            <h3 class="mt-5 text-xl font-bold">{w.services.items[key].title}</h3>
-            <p class="mt-2 text-fg-muted">{w.services.items[key].text}</p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  </section>
-
-  <!-- Visualizador de techos -->
-  <RoofSection locale={locale} />
-
-  <!-- Proceso -->
-  <section class="py-20 sm:py-28" aria-labelledby="proceso-title">
-    <div class="mx-auto max-w-6xl px-4 sm:px-6">
-      <h2 id="proceso-title" class="text-3xl font-extrabold sm:text-4xl">
-        {w.process.title}
-      </h2>
-      <ol class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map((s, i) => (
-          <li class="relative">
-            <span class="font-display text-5xl font-extrabold text-link" aria-hidden="true">
-              {String(i + 1).padStart(2, '0')}
-            </span>
-            <h3 class="mt-2 text-xl font-bold">{w.process.steps[s].title}</h3>
-            <p class="mt-2 text-fg-muted">{w.process.steps[s].text}</p>
-          </li>
-        ))}
-      </ol>
-    </div>
-  </section>
-
-  <!-- Proyectos (fotos de stock de demostración) -->
-  <section
-    id="proyectos"
-    class="scroll-mt-20 bg-surface-alt py-20 sm:py-28"
-    aria-labelledby="proyectos-title"
-  >
-    <div class="mx-auto max-w-6xl px-4 sm:px-6">
-      <div class="max-w-2xl">
-        <h2 id="proyectos-title" class="text-3xl font-extrabold sm:text-4xl">
-          {w.projects.title}
-        </h2>
-        <p class="mt-4 text-lg text-fg-muted">{w.projects.intro}</p>
-      </div>
-      <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.map(({ key, img }) => (
-          <li class="overflow-hidden rounded-lg border border-border bg-surface">
-            <Picture
-              src={img}
-              alt={w.projects.items[key].alt}
-              formats={['avif', 'webp']}
-              widths={[480, 720, 960]}
-              sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
-              loading="lazy"
-              decoding="async"
-              class="aspect-[4/3] w-full object-cover"
-            />
-            <div class="p-5">
-              <p class="font-display text-sm font-bold tracking-wide text-link uppercase">
-                {w.projects.stockNote}
-              </p>
-              <h3 class="mt-1 text-lg font-bold">{w.projects.items[key].title}</h3>
-              <p class="mt-1 text-fg-muted">{w.projects.items[key].text}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  </section>
-
-  <!-- Nosotros -->
-  <section id="nosotros" class="scroll-mt-20 py-20 sm:py-28" aria-labelledby="nosotros-title">
-    <div class="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-2">
-      <div>
-        <h2 id="nosotros-title" class="text-3xl font-extrabold sm:text-4xl">
-          {w.about.title}
-        </h2>
-        <p class="mt-4 text-lg text-fg-muted">{w.about.text}</p>
-      </div>
-      <ul class="grid gap-5">
-        {values.map((v) => (
-          <li class="flex gap-4 rounded-lg border border-border bg-surface p-5">
-            <ShieldCheck aria-hidden="true" class="mt-1 size-6 shrink-0 text-link" />
-            <div>
-              <h3 class="text-lg font-bold">{w.about.values[v].title}</h3>
-              <p class="mt-1 text-fg-muted">{w.about.values[v].text}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  </section>
-
-  <!-- Contacto -->
-  <section
-    id="contacto"
-    class="on-brand scroll-mt-20 bg-surface-brand py-20 text-on-brand sm:py-24"
-    aria-labelledby="contacto-title"
-  >
-    <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
-      <h2 id="contacto-title" class="text-3xl font-extrabold sm:text-4xl">
-        {w.contact.title}
-      </h2>
-      <p class="mt-4 text-lg text-on-brand-muted">{w.contact.text}</p>
-      <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <a href={`tel:${t.common.phoneHref}`} class={btnPrimary}>
-          <Phone aria-hidden="true" class="size-5" />
-          {t.common.phone}
-        </a>
-        <a
-          href={`mailto:${t.common.email}`}
-          class="inline-flex min-h-14 items-center justify-center gap-2 rounded-md border-2 border-white/60 px-8 font-display text-lg font-semibold text-on-brand no-underline hover:bg-white/10"
-        >
-          <Mail aria-hidden="true" class="size-5" />
-          {t.common.email}
-        </a>
-      </div>
-      <p class="mt-6 text-on-brand-muted">{w.contact.hours}</p>
-      <ContactForm locale={locale} />
-    </div>
-  </section>
+    </section>
+  </div>
 </Base>
+
+<style is:global>
+  .cine-after {
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 1px 14px rgb(5 9 14 / 0.5);
+  }
+  .cine-after-title {
+    margin: 0;
+    font-size: clamp(2rem, 4.5vw, 3.25rem);
+    font-weight: 800;
+    line-height: 1.08;
+    color: #fff;
+  }
+  /* El formulario se apoya en el fondo oscuro: se reasignan los tokens en este ámbito. */
+  .cine-form {
+    --fg: #ffffff;
+    --fg-muted: #cbd5e1;
+    --surface: rgb(255 255 255 / 0.1);
+    --border-strong: #cbd5e1;
+    --ring: #f4b27a;
+    --success: #86efac;
+    --danger: #fca5a5;
+    --success-soft: #0f3d24;
+    --danger-soft: #4a1717;
+  }
+  html[data-cine='on'] [data-fade] {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  /* Galería: mosaico de fotos sin marcos; el pie se lee sobre un degradado en la propia foto. */
+  .gallery {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0;
+    list-style: none;
+    grid-template-columns: 1fr;
+  }
+  .gallery-item {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    border-radius: 0.25rem;
+    isolation: isolate;
+  }
+  .gallery-item picture,
+  .gallery-item img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .gallery-item img {
+    transition: transform 900ms var(--ease-standard);
+  }
+  .gallery-item:hover img {
+    transform: scale(1.05);
+  }
+  .gallery-cap {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 3.5rem 1.1rem 1rem;
+    color: #fff;
+    background: linear-gradient(to top, rgb(5 9 14 / 0.85), rgb(5 9 14 / 0));
+  }
+  .gallery-cap h3 {
+    margin: 0.1rem 0 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .gallery-cap p {
+    margin: 0.15rem 0 0;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+  }
+  .gallery-cap .gallery-tag {
+    margin: 0;
+    font-family: var(--ff-display);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--on-brand-accent);
+  }
+  @media (min-width: 640px) {
+    .gallery {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .gallery-wide {
+      grid-column: span 2;
+      aspect-ratio: 16 / 7;
+    }
+  }
+  @media (min-width: 1024px) {
+    .gallery {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .gallery-wide {
+      grid-column: span 2;
+      aspect-ratio: auto;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gallery-item img {
+      transition: none;
+    }
+    .gallery-item:hover img {
+      transform: none;
+    }
+  }
+</style>

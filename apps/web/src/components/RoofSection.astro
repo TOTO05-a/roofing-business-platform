@@ -9,19 +9,18 @@ const { locale } = Astro.props;
 const v = getDict(locale).visualizer;
 ---
 
-<section
-  id="techos"
-  class="scroll-mt-20 bg-surface-alt py-20 sm:py-28"
-  aria-labelledby="techos-title"
->
+<section id="techos" class="scroll-mt-20 py-20 text-white sm:py-28" aria-labelledby="techos-title">
   <div class="mx-auto max-w-6xl px-4 sm:px-6">
-    <div class="max-w-2xl">
-      <h2 id="techos-title" class="text-3xl font-extrabold sm:text-4xl">
+    <div class="max-w-2xl" data-fade>
+      <h2 id="techos-title" class="cine-after-title">
         {v.title}
       </h2>
-      <p class="mt-4 text-lg text-fg-muted">{v.intro}</p>
+      <p class="mt-4 text-lg text-on-brand-muted">{v.intro}</p>
     </div>
-    <div class="mt-10 sm:mt-12">
+    <div
+      class="mt-10 overflow-hidden rounded-xl bg-surface p-4 text-fg ring-1 ring-white/25 sm:mt-12 sm:p-6"
+      data-fade
+    >
       <RoofVisualizer
         client:visible={{ rootMargin: '300px' }}
         locale={locale}

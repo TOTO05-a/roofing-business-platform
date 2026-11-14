@@ -47,6 +47,12 @@ export const en: Dictionary = {
       call: 'Call',
       callUs: 'Call us',
     },
+    cine: {
+      scrollHint: 'Scroll to explore the house',
+      stageLabel: 'A walk-through of a house, from the street to the roof',
+      viewerNote: 'Try roof colors and shapes in 3D',
+      videoCredit: 'Demo stock video: Jaxon Matthew Willis, Pexels.',
+    },
     hero: {
       eyebrow: 'Residential roofing in South Florida',
       title: 'A solid roof over what you love most.',
