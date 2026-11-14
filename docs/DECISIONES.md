@@ -27,6 +27,8 @@ Cada fila dice **qué** se decidió, **por qué** y **cuándo**. Si una decisió
 | N10 | Mientras no haya datos reales, el sitio y la app usan **datos ficticios de demostración** (licencia, seguro, teléfono, correo, servicios, área, garantías), siempre con el aviso «Empresa y datos ficticios de demostración». Los datos **reales** siguen pendientes. | No inventar datos del negocio como si fueran reales, pero probar con datos verosímiles. | 13-11-2026 | ⏳ (datos reales) |
 | N11 | La empresa ficticia se simula en el **Sur de Florida** (Miami-Dade, Broward y Palm Beach). Ver C32. | Licencia estatal única, impuesto solo sobre material y encaje con el sitio en español. | 13-11-2026 | ✅ |
 | N12 | **Backend del CRM completo:** propiedades, leads (con conversión a cliente y propiedad), citas, inspecciones con medidas y fotos, archivos, formulario de contacto del sitio conectado y datos demo del CRM. Ver C53. | Los presupuestos necesitan inspecciones con medidas; hacer las fotos ahora evita reabrir el código. | 13-11-2026 | ✅ |
+| N14 | **Alcance para dar la demo por terminada:** lo que está en curso (presupuestos y pantallas del CRM), pantallas de catálogo y presupuestos, portal básico del cliente para ver y **aceptar** presupuestos (sin firma legal), **proyectos básicos** (etapas, cuadrilla asignada y fotos), frontend cinematográfico y guías. Ver C64. | Demo funcional y documentada; la app se irá ampliando a largo plazo. | 14-11-2026 | ✅ |
+| N15 | **Pendiente a futuro (fuera de la demo):** firma electrónica legal y aviso de cancelación de 3 días, facturas y pagos con Stripe (modo de prueba), mensajes, notificaciones y reseñas. | Recortado al bajar la exigencia (W18). | 14-11-2026 | ⏳ |
 
 ## 2. Reglas de presupuestos y datos del negocio
 
@@ -61,6 +63,7 @@ Aprobadas junto con el modelo de datos.
 | D8  | **Texturas del 3D reducidas a 1K/2K** con solo los mapas necesarios (2K en techo y fachada, 1K en el resto; ≈ 8–15 MB); sin Git LFS. Si una superficie pierde calidad visible, se deja en 4K y se consulta. Ver C35. | Repo ligero y sin servicios con costo. | 13-11-2026 | ✅ |
 | D9  | **Visualizador 3D realista** (React Three Fiber) que **sustituye por completo** al 2D: el 2D se elimina; se conservan los controles accesibles, los datos de materiales y los textos. Ver C36–C49. | Realismo prioritario (W13); decisión del cliente. | 13-11-2026 | ✅ |
 | D5  | Modo claro por defecto y **modo oscuro** opcional; diseño probado en 390, 834 y 1512 px.                                               | Comodidad y uso en cualquier dispositivo.                     | 12-11-2026 | ✅     |
+| D11 | **Frontend cinematográfico del sitio público:** escena de una casa a pantalla completa con **video de stock libre** (toma de dron de Pexels o Mixkit) controlado por el scroll, con escenas sticky, textos sobre la imagen sin recuadros y la misma identidad aplicada al resto. Ver C65. | Única opción gratis con fotorrealismo y continuidad total. | 14-11-2026 | ✅ |
 
 ## 4. Tecnología y arquitectura
 
@@ -129,3 +132,5 @@ Aprobadas junto con el modelo de datos.
 | W14 | El ruleset de `main` y `dev` exige los checks **`verify` y `e2e`** para fusionar. Ver C34. | Evitar fusiones con pruebas de navegador o accesibilidad en rojo (como el PR #10). | 13-11-2026 | ✅ |
 | W15 | Como la app no se lanzará (W13), **la calidad visual realista tiene prioridad sobre el peso** (sin dejar de ser fluida en un portátil normal). Ver C36. | Decisión del cliente. | 13-11-2026 | ✅ |
 | W16 | Backend del CRM en dos fases: **Opus alto** hace esquema, migraciones, RLS y sus pruebas; **Sonnet medio** (`general-purpose`) hace rutas, servicios, formulario, fotos y seed; al final, auditoría de **`security-auditor`** (Opus alto) antes del PR. Ver C58. | Opus donde un error es caro; Sonnet para lo acotado (W11, C31). | 13-11-2026 | ✅ |
+| W17 | _Reservada para la sesión de presupuestos (quién implementa la Etapa 3)._ | — | 13-11-2026 | — |
+| W18 | **Menos exigencia:** el objetivo es una demo funcional y bien documentada, no producción. Sonnet medio por defecto; Opus alto solo para autenticación y seguridad; **una sola revisión por PR**; lo que no haga falta para la demo se registra como ⏳ pendiente a futuro. | Petición del cliente: la app no se lanzará y se ampliará a largo plazo. | 14-11-2026 | ✅ |

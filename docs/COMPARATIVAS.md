@@ -544,3 +544,27 @@ Fuentes revisadas: Poly Haven y ambientCG (sin teja asfáltica), TextureCan y 3d
 | Todo con Sonnet y auditoría de Opus | Lo más barato | La RLS y las migraciones son donde un error cuesta más |
 
 **Por qué:** aplica W11 y C31: Opus donde un error es caro (seguridad y datos), Sonnet para la implementación acotada.
+
+## Cierre de la demo (14-11-2026)
+
+### C64. ¿Qué alcance damos por «demo terminada»? → N14, N15
+
+| Opción                          | A favor                                                                 | En contra                                       |
+| ------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------- |
+| Mínimo                          | Recorrido completo lead → cita → inspección → presupuesto → aceptación  | Sin seguimiento de la obra                      |
+| ✅ **Mínimo más proyectos**     | Añade la obra: etapas, cuadrilla asignada y fotos                       | Una etapa más                                   |
+| Todo el V1                      | Nada pendiente                                                          | Unas 7 etapas o más, incluidos Stripe y mensajes |
+
+**Por qué:** cubre el ciclo completo del negocio sin entrar en pagos ni firma legal; lo demás queda como pendiente a futuro (N15).
+
+### C65. Imágenes del frontend cinematográfico → D11
+
+| Opción                                          | A favor                                           | En contra                                    |
+| ----------------------------------------------- | ------------------------------------------------- | -------------------------------------------- |
+| ✅ **Video de stock libre controlado por scroll** | Fotorrealismo y continuidad totales; costo cero   | Pesa más (10–25 MB); se carga por partes     |
+| Fotos de Unsplash de una misma serie            | Fotográficas y más ligeras                        | Continuidad media (saltos entre fotos)       |
+| Fotos de demo del PR #12                        | Ya están en el repo                               | Casas distintas: sin continuidad             |
+| Escena 3D actual (R3F) mejorada                 | Continuidad total                                 | Menos realista; no convence al cliente       |
+| Generación con IA                               | A medida y coherente                              | Gasta créditos de pago                       |
+
+**Por qué:** el brief pide una casa protagonista que evolucione de forma continua con el scroll y con aspecto fotográfico; un video real es lo único gratuito que da ambas cosas (W15: la calidad visual va antes que el peso).
