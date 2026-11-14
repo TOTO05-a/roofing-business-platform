@@ -31,6 +31,15 @@ const listQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+const employeesQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  active: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
+});
+
 const customerSelect = {
   id: true,
   userId: true,
@@ -116,6 +125,28 @@ export function profilesRouter(services: AppServices): Router {
       select: customerSelect,
     });
     res.json({ customer: visibleOr404(customer) });
+  });
+
+  // Empleados visibles según el alcance: la oficina ve a todos; un empleado, solo su perfil.
+  router.get('/employees', authed, async (req, res) => {
+    const query = parseInput(employeesQuerySchema, req.query);
+    const context = authContext(req);
+    const where = scopedWhere(
+      'employeeProfile',
+      context,
+      query.active === undefined ? {} : { isActive: query.active },
+    );
+    const { employees, total } = await rlsTransaction(db, context, async (tx) => ({
+      employees: await tx.employeeProfile.findMany({
+        where,
+        select: employeeSelect,
+        orderBy: [{ user: { name: 'asc' } }, { id: 'asc' }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      total: await tx.employeeProfile.count({ where }),
+    }));
+    res.json({ employees, page: query.page, pageSize: query.pageSize, total });
   });
 
   router.get('/employees/:id', authed, async (req, res) => {

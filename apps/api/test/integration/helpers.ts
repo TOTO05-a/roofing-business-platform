@@ -84,7 +84,7 @@ export async function resetDatabase(db: Db): Promise<void> {
   await db.$transaction([
     db.$executeRawUnsafe('ALTER TABLE audit_logs DISABLE TRIGGER audit_logs_no_truncate'),
     db.$executeRawUnsafe(
-      'TRUNCATE TABLE inspection_photos, inspection_sections, inspections, files, appointments, leads, properties, audit_logs, login_throttles, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
+      'TRUNCATE TABLE quote_lines, quote_options, quote_versions, quotes, package_items, packages, material_options, purchase_units, catalog_items, categories, inspection_photos, inspection_sections, inspections, files, appointments, leads, properties, audit_logs, login_throttles, invitations, customer_profiles, employee_profiles, two_factors, verifications, accounts, sessions, users CASCADE',
     ),
     db.$executeRawUnsafe('ALTER TABLE audit_logs ENABLE TRIGGER audit_logs_no_truncate'),
   ]);

@@ -3,6 +3,8 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string | null,
+    /** Cuerpo `error` de la respuesta: `issues`, `messages` (es/en), `conflictingAppointmentId`… */
+    public readonly details: Readonly<Record<string, unknown>> = {},
   ) {
     super(code ?? `HTTP ${status}`);
     this.name = 'ApiError';
@@ -28,15 +30,21 @@ function extractCode(body: unknown): string | null {
   return null;
 }
 
+function extractDetails(body: unknown): Record<string, unknown> {
+  if (typeof body !== 'object' || body === null) return {};
+  const error = (body as { error?: unknown }).error;
+  return typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : {};
+}
+
 interface RequestOptions {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal;
 }
 
 /**
  * Llama a la API en el mismo origen (proxy), con la cookie de sesión.
- * Los POST llevan siempre cuerpo JSON: la API exige `Content-Length`.
+ * Los POST y PATCH llevan siempre cuerpo JSON: la API exige `Content-Length`.
  */
 export async function api<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET';
@@ -46,7 +54,7 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
     headers: { Accept: 'application/json' },
   };
   if (options.signal) init.signal = options.signal;
-  if (method === 'POST') {
+  if (method === 'POST' || method === 'PATCH') {
     init.headers = { ...init.headers, 'Content-Type': 'application/json' };
     init.body = JSON.stringify(options.body ?? {});
   }
@@ -68,6 +76,7 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
       parsed = null;
     }
   }
-  if (!response.ok) throw new ApiError(response.status, extractCode(parsed));
+  if (!response.ok)
+    throw new ApiError(response.status, extractCode(parsed), extractDetails(parsed));
   return parsed as T;
 }

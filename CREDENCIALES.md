@@ -4,12 +4,12 @@ Usuarios **ficticios** para probar la plataforma en tu computadora. Las contrase
 
 Entrar en: **http://localhost:5173** (primero arranca todo con [`COMO-INICIAR.md`](COMO-INICIAR.md)).
 
-| Rol                | Correo                                 | Contraseña de prueba   | Variable que la define        | Qué puede hacer                                                                                                     |
-| ------------------ | -------------------------------------- | ---------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Superadministrador | `superadmin@cresta-roofing.example`    | `Demo-Superadmin-2026` | `SEED_SUPERADMIN_PASSWORD`    | Todo, incluidos usuarios, roles, catálogo y ajustes sensibles                                                       |
-| Administrador      | `administrador@cresta-roofing.example` | `Demo-Admin-2026!`     | `SEED_DEMO_ADMIN_PASSWORD`    | Oficina: leads, clientes, propiedades, citas e inspecciones (y catálogo y presupuestos cuando esa etapa se fusione) |
-| Empleado           | `empleado@cresta-roofing.example`      | `Demo-Empleado-2026`   | `SEED_DEMO_EMPLOYEE_PASSWORD` | Ventas e inspección: solo sus leads, citas e inspecciones asignadas                                                 |
-| Cliente            | `cliente@cresta-roofing.example`       | `Demo-Cliente-2026`    | `SEED_DEMO_CUSTOMER_PASSWORD` | Su portal: sus propiedades, citas y presupuestos enviados                                                           |
+| Rol                | Correo                                 | Contraseña de prueba   | Variable que la define        | Qué puede hacer                                                                       |
+| ------------------ | -------------------------------------- | ---------------------- | ----------------------------- | ------------------------------------------------------------------------------------- |
+| Superadministrador | `superadmin@cresta-roofing.example`    | `Demo-Superadmin-2026` | `SEED_SUPERADMIN_PASSWORD`    | Todo, incluidos usuarios, roles, catálogo y ajustes sensibles                         |
+| Administrador      | `administrador@cresta-roofing.example` | `Demo-Admin-2026!`     | `SEED_DEMO_ADMIN_PASSWORD`    | Oficina: leads, clientes, propiedades, citas e inspecciones y catálogo y presupuestos |
+| Empleado           | `empleado@cresta-roofing.example`      | `Demo-Empleado-2026`   | `SEED_DEMO_EMPLOYEE_PASSWORD` | Ventas e inspección: solo sus leads, citas e inspecciones asignadas                   |
+| Cliente            | `cliente@cresta-roofing.example`       | `Demo-Cliente-2026`    | `SEED_DEMO_CUSTOMER_PASSWORD` | Su portal: sus propiedades, citas y presupuestos enviados                             |
 
 Si cambias una contraseña en `apps/api/.env` **después** de sembrar, no se actualiza: el seed nunca modifica usuarios existentes. Para volver a sembrar desde cero, `docker compose down -v` y `pnpm demo`.
 

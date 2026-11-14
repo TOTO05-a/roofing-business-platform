@@ -17,6 +17,9 @@ import {
   UserCog,
   Users,
   BarChart3,
+  ClipboardCheck,
+  MapPin,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 import { showcaseEnabled } from './config';
@@ -70,12 +73,34 @@ export const navItems: readonly NavItem[] = [
   { id: 'documents', to: '/documentos', labelKey: 'documents', icon: FileText, roles: ['cliente'] },
   { id: 'support', to: '/soporte', labelKey: 'support', icon: LifeBuoy, roles: ['cliente'] },
   // Empleado
-  { id: 'schedule', to: '/agenda', labelKey: 'schedule', icon: ClipboardList, roles: ['empleado'] },
   {
-    id: 'customers',
-    to: '/clientes',
-    labelKey: 'customers',
-    icon: Users,
+    id: 'schedule',
+    to: '/agenda',
+    labelKey: 'schedule',
+    icon: ClipboardList,
+    roles: ['empleado', ...staff],
+  },
+  {
+    id: 'leads',
+    to: '/leads',
+    labelKey: 'leads',
+    icon: UserPlus,
+    roles: ['empleado', ...staff],
+  },
+  // La API solo deja listar clientes a la oficina (P6): el empleado llega a ellos por citas y propiedades.
+  { id: 'customers', to: '/clientes', labelKey: 'customers', icon: Users, roles: staff },
+  {
+    id: 'properties',
+    to: '/propiedades',
+    labelKey: 'properties',
+    icon: MapPin,
+    roles: ['empleado', ...staff],
+  },
+  {
+    id: 'inspections',
+    to: '/inspecciones',
+    labelKey: 'inspections',
+    icon: ClipboardCheck,
     roles: ['empleado', ...staff],
   },
   {
@@ -129,9 +154,13 @@ export function navForRole(role: Role): NavItem[] {
   return navItems.filter((item) => available(item) && item.roles.includes(role));
 }
 
-/** Elemento de navegación que corresponde a la ruta, si existe en esta compilación. */
+/** Elemento de navegación que corresponde a la ruta (o a una subruta, como `/leads/:id`). */
 export function findNavItem(pathname: string): NavItem | undefined {
-  return navItems.find((item) => item.to === pathname && available(item));
+  return navItems.find(
+    (item) =>
+      available(item) &&
+      (item.to === pathname || (item.to !== '/' && pathname.startsWith(`${item.to}/`))),
+  );
 }
 
 /** ¿Puede este rol ver la ruta? (solo interfaz: la autorización real es de la API). */
@@ -139,5 +168,17 @@ export function canAccess(role: Role, item: Pick<NavItem, 'roles'>): boolean {
   return item.roles.includes(role);
 }
 
-/** Rutas de marcador (todas excepto inicio y componentes, que tienen página propia). */
-export const placeholderItems = navItems.filter((i) => i.to !== '/' && i.id !== 'components');
+/** Secciones con pantalla propia: el CRM (leads, clientes, propiedades, agenda, inspecciones). */
+export const crmItemIds = [
+  'leads',
+  'customers',
+  'properties',
+  'schedule',
+  'appointments',
+  'inspections',
+] as const;
+
+/** Rutas de marcador (las que aún no tienen pantalla propia). */
+export const placeholderItems = navItems.filter(
+  (i) => i.to !== '/' && i.id !== 'components' && !(crmItemIds as readonly string[]).includes(i.id),
+);
