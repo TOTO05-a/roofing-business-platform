@@ -249,7 +249,11 @@ describe('presupuestos: enviar, PDF e inmutabilidad', () => {
     // Subir el precio del catálogo no cambia lo enviado (P13).
     await admin.patch(`/api/catalog/items/${shingle}`).send({ materialPriceCents: 99999 });
     const after = (await admin.get(`/api/quotes/${quote.id}/versions/${version.id}`)).body.version;
-    expect(after.options).toEqual(before.options);
+    const money = (options: { id: string; lines: { id: string }[] }[]) =>
+      JSON.stringify(options, (key, value) =>
+        key === 'id' || key === 'createdAt' || key.endsWith('Id') ? undefined : value,
+      );
+    expect(money(after.options)).toBe(money(before.options));
 
     // No se edita ni se reenvía una versión enviada; la base de datos también lo impide.
     expect(

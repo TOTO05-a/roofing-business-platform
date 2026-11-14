@@ -168,8 +168,9 @@ function forRole<T extends { inspectionId: string | null; salesRepId: string | n
   role: string,
 ) {
   if (isOffice(role)) return quote;
-  const { inspectionId: _inspection, salesRepId: _salesRep, ...rest } = quote;
-  return role === 'CUSTOMER' ? rest : { ...rest, salesRepId: _salesRep };
+  const { inspectionId, salesRepId, ...rest } = quote;
+  void inspectionId;
+  return role === 'CUSTOMER' ? rest : { ...rest, salesRepId };
 }
 
 function invalidTransition(from: string, to: string): HttpError {
