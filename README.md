@@ -1,12 +1,57 @@
 # Roofing Business Platform
 
-Plataforma web para una empresa de roofing residencial en EE. UU.: sitio público bilingüe (español/inglés) y plataforma interna con portal de clientes, herramientas para empleados y administración.
+Plataforma web completa para una empresa de roofing residencial en EE. UU.: sitio público bilingüe (es/en) y plataforma interna con portal de clientes, herramientas para empleados y administración.
 
-> **¿Primera vez?** Abre la demo con [`COMO-INICIAR.md`](COMO-INICIAR.md) (un solo comando: `pnpm demo`) y entra con los usuarios de [`CREDENCIALES.md`](CREDENCIALES.md).
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Astro](https://img.shields.io/badge/Astro-sitio%20p%C3%BAblico-BC52EE?logo=astro&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-monorepo-F69220?logo=pnpm&logoColor=white)
+![CI](https://github.com/TOTO05-a/roofing-business-platform/actions/workflows/ci.yml/badge.svg)
 
-- Planificación y decisiones: [`docs/planificacion/`](docs/planificacion/)
-- Ramas: `main` (estable) · `dev` (integración) · ramas de trabajo desde `dev`
-- Commits: convencionales en español, p. ej. `feat(presupuestos): agrega cálculo de paquetes`
+> **¿Primera vez?** Abre la demo con [`COMO-INICIAR.md`](COMO-INICIAR.md) (un solo comando: `pnpm demo`) y entra con los usuarios de [`CREDENCIALES.md`](CREDENCIALES.md). Son usuarios ficticios para uso local.
+
+## Funcionalidades
+
+- **Sitio público bilingüe** (español/inglés) con portada cinematográfica y formulario de contacto protegido contra abuso.
+- **Cuatro roles** (superadministrador, administrador, empleado y cliente) con invitaciones por correo y verificación en dos pasos (2FA) para los roles administrativos.
+- **CRM**: leads con máquina de estados, propiedades y citas.
+- **Inspecciones** con fotos guardadas en almacenamiento compatible con S3 mediante URL firmadas de corta duración.
+- **Presupuestos**: catálogo, cálculo de paquetes, PDF generado con `@react-pdf/renderer` y aceptación por el cliente.
+- **Proyectos y facturas** (pagos solo de demostración, no se cobra nada) y un panel con métricas.
+- **Seguridad por fila (RLS)** en PostgreSQL: la API se conecta con roles que no saltan las políticas, con una matriz de pruebas de integración.
+- Auditoría de acciones, cabeceras con Helmet, límites de tasa y validación con Zod compartida entre cliente y servidor.
+
+## Stack
+
+| Capa | Tecnología |
+| --- | --- |
+| Sitio público | Astro, React, Tailwind CSS 4 |
+| Plataforma interna | React 19, Vite, React Router, TanStack Query, Motion |
+| API | Node.js, Express 5, TypeScript, Better Auth, Zod |
+| Datos | PostgreSQL 18, Prisma 7 (migraciones y RLS en SQL) |
+| Almacenamiento y correo (desarrollo) | Garage (S3), Mailpit |
+| Calidad | Vitest, Playwright, axe-core (accesibilidad), ESLint, Prettier, GitHub Actions |
+| Monorepo | pnpm workspaces |
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+  W[apps/web<br/>Astro es/en] -->|formulario público| A
+  P[apps/app<br/>React + Vite] -->|REST + sesión| A[apps/api<br/>Express + TypeScript]
+  A -->|Prisma + RLS| DB[(PostgreSQL)]
+  A -->|URL firmadas| S3[(S3 / Garage)]
+  A -->|SMTP| M[Mailpit]
+  UI[packages/ui] --> W
+  UI --> P
+  SH[packages/shared<br/>Zod + textos] --> W
+  SH --> P
+  SH --> A
+```
 
 ## Estructura
 
@@ -78,3 +123,24 @@ pnpm --filter @roofing/api test:integration   # usa TEST_DATABASE_URL (nombre co
 ```
 
 La CI ejecuta lo mismo en cada PR hacia `dev` y `main`.
+
+## Variables de entorno
+
+Hay dos plantillas: [`.env.example`](.env.example) (servicios de Docker) y [`apps/api/.env.example`](apps/api/.env.example) (API). Los valores incluidos son marcadores o claves de desarrollo local; en un entorno real genera los tuyos y no subas ningún `.env`. Las principales:
+
+| Variable | Uso |
+| --- | --- |
+| `DATABASE_URL`, `APP_DATABASE_URL`, `SYSTEM_DATABASE_URL` | Conexión del dueño (migraciones) y de los roles `app_user` / `app_system` |
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `APP_URL`, `TRUSTED_ORIGINS` | Autenticación y orígenes confiables |
+| `SMTP_*`, `MAIL_FROM` | Correo (Mailpit en desarrollo) |
+| `S3_*` | Almacenamiento de fotos (Garage en desarrollo) |
+| `PUBLIC_FORM_*` | Orígenes y límites del formulario público |
+| `SEED_*` | Superadministrador y datos de demostración |
+
+## Documentación
+
+[`docs/DECISIONES.md`](docs/DECISIONES.md) · [`docs/COMPARATIVAS.md`](docs/COMPARATIVAS.md) · [Modelo de datos](docs/arquitectura/modelo-datos.md) · [API de presupuestos](docs/arquitectura/presupuestos-api.md)
+
+## Autor
+
+**Antonio Cruz** · [github.com/TOTO05-a](https://github.com/TOTO05-a)
